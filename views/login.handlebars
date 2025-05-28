@@ -1,0 +1,60 @@
+{{#if message}}
+<div class="alert alert-danger" role="alert">
+    {{message}}
+</div>
+{{/if}}
+
+{{#if messages.error}}
+<div class="alert alert-danger" role="alert">
+    {{messages.error}}
+</div>
+{{/if}}
+
+<section class="vh-100">
+    <div class="container py-5 h-100">
+        <div class="row d-flex align-items-center justify-content-center h-100">
+            <div class="col-md-8 col-lg-7 col-xl-6">
+                <img src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/draw2.svg"
+                    class="img-fluid" alt="Phone image">
+            </div>
+            <div class="col-md-7 col-lg-5 col-xl-5 offset-xl-1">
+                <form action="/login" method="POST">
+                    <div data-mdb-input-init class="form-outline mb-4">
+                        <label class="form-label" for="form1Example13">Email address</label>
+                        <input type="email" id="form1Example13" name="email" class="form-control form-control-lg"
+                            required />
+                    </div>
+
+                    <!-- Password input -->
+                    <div data-mdb-input-init class="form-outline mb-4">
+                        <label class="form-label" for="form1Example23">Password</label>
+                        <input type="password" id="form1Example23" name="password" class="form-control form-control-lg"
+                            required />
+                    </div>
+                    <!-- Submit button -->
+                    <button type="submit" data-mdb-button-init data-mdb-ripple-init
+                        class="btn btn-primary btn-lg btn-block">Sign in</button>
+                </form>
+
+                <!-- Divider -->
+                <div class="divider d-flex align-items-center my-4">
+                    <p class="text-center fw-bold mx-3 mb-0">Hoặc</p>
+                </div>
+
+                <!-- Google Sign-In Button -->
+                <a href="/google" class="btn btn-danger btn-lg btn-block">
+                    <i class="fab fa-google me-2"></i> Đăng nhập bằng Google
+                </a>
+
+                <div class="text-center mt-3">
+                    <p>Chưa có tài khoản? <a href="/register">Đăng ký ngay</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Thêm Font Awesome để sử dụng biểu tượng Google -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    integrity="sha512-pw1yR6gpE6fF7ZK+6rUv7uK6P+PscLE0dO5kYlLrR7vX+0o7GkY+e5r+K8uB93FqXkfwkF2gI5B1lS4oK/2xUg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
