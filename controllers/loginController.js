@@ -23,7 +23,7 @@ const login = async (req, res, next) => {
       req.session.name = user.tennguoidung;
 
       // Chuyển hướng hoặc trả về thông tin
-        return res.render('home');
+        return res.render('dashboard');
     });
   })(req, res, next);
 };
@@ -61,7 +61,7 @@ const googleCallback = async (req, res, next) => {
           email: user.email
         });
   
-        return res.render('home');
+        return res.render('dashboard');
       });
     })(req, res, next);
   };

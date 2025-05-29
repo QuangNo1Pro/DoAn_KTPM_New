@@ -1,5 +1,5 @@
 
 const renderHome = async (req, res) => {
-        res.render('login');
+        res.render('home');
 };
 module.exports = { renderHome};
