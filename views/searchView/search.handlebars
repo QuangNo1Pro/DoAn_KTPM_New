@@ -1,0 +1,17 @@
+<form id="searchForm" method="POST" action="/search">
+    <label for="mode">Chọn cách thức tìm kiếm:</label>
+    <select name="mode" id="mode">
+        <option value="user">Người dùng nhập</option>
+        <option value="web">Web Trend</option>
+        <option value="ai">AI sinh ra</option>
+    </select>
+
+    <input type="text" name="keyword" id="keyword" placeholder="Nhập từ khóa hoặc để trống nếu chọn AI/Web" />
+
+    <button type="submit">Search</button>
+</form>
+
+{{#if script}}
+<h3>📌 Nội dung gợi ý:</h3>
+<div style="white-space: pre-wrap; background: #f2f2f2; padding: 1em; border-radius: 8px;">{{script}}</div>
+{{/if}}
