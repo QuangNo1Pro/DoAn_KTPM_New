@@ -1,15 +1,14 @@
+require('dotenv').config();
 const pgp = require('pg-promise')({ capSQL: true });
 
 const dbConfig = {
-    user: 'postgres',
-    password: 'postgres',
-    host: 'localhost',
-    port: 5432,
-    database: 'AI Video',
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    database: process.env.DB_NAME,
 };
-
 const db = pgp(dbConfig);
-
 // Lấy tất cả người dùng
 const all = async () => {
     try {
