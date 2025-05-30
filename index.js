@@ -4,6 +4,7 @@ const { engine } = require('express-handlebars')
 const passport = require('passport')
 const session = require('express-session')
 const flash = require('connect-flash')
+const googleAuthRouter = require('./routes/googleAuthRouter')
 
 require('dotenv').config(); // Load biến môi trường từ file .env
 
@@ -21,11 +22,12 @@ app.use(session({
   resave: false,
   saveUninitialized: true,
   cookie: {
-    secure: true, // Đảm bảo dùng HTTPS
+    secure: process.env.NODE_ENV === 'production', // true khi deploy, false khi local
     httpOnly: true,
-    sameSite: 'lax', // Cookie chỉ gửi khi điều hướng từ cùng domain
-    maxAge: 1000 * 60 * 60 * 24 * 7, // 7 ngày
+    sameSite: 'lax',
+    maxAge: 1000 * 60 * 60 * 24 * 7,
   }
+
 }))
 
 // Khởi tạo Passport
@@ -52,6 +54,7 @@ app.use(homeRouter)
 app.use(registerRouter)
 app.use(loginRouter)
 app.use(logoutRouter)
+app.use('/', googleAuthRouter)
 
 // Khởi động server
 app.listen(port, () => {
