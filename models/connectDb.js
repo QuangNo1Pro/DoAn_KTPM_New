@@ -2,7 +2,7 @@ const pgp = require('pg-promise')({ capSQL: true });
 
 const dbConfig = {
     user: 'postgres',
-    password: 'postgres',
+    password: '123456789',
     host: 'localhost',
     port: 5432,
     database: 'AI Video',
