@@ -49,12 +49,15 @@ const homeRouter = require('./routes/homeRouter')
 const registerRouter = require('./routes/registerRouters')
 const loginRouter = require('./routes/loginRouters')
 const logoutRouter = require('./routes/logoutRouters')
+const searchRouter = require('./routes/searchRouter/seachRouter')
+
 // Sử dụng Routers
 app.use(homeRouter)
 app.use(registerRouter)
 app.use(loginRouter)
 app.use(logoutRouter)
 app.use('/', googleAuthRouter)
+app.use(searchRouter)
 
 // Khởi động server
 app.listen(port, () => {
