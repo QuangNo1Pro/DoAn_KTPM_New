@@ -25,7 +25,7 @@ app.use(session({
     secure: process.env.NODE_ENV === 'production', // true khi deploy, false khi local
     httpOnly: true,
     sameSite: 'lax',
-    maxAge: 1000 * 60 * 60 * 24 * 7,
+    maxAge: 1000 * 60 * 60 * 24 * 7
   }
 
 }))
@@ -38,7 +38,10 @@ initializePassport(passport)
 // Cấu hình Template Engine (Handlebars)
 app.engine('handlebars', engine({
   defaultLayout: 'main',
-  layoutsDir: path.join(__dirname, 'views', 'layouts')
+  layoutsDir: path.join(__dirname, 'views', 'layouts'),
+  helpers: {
+    eq: (a, b) => a === b
+  }
 }))
 
 app.set('view engine', 'handlebars')
