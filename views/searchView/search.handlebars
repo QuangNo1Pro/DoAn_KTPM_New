@@ -8,9 +8,9 @@
                 <div class="col-md-4">
                     <label for="mode" class="form-label">Cách thức tìm kiếm:</label>
                     <select name="mode" id="mode" class="form-select">
-                        <option value="user" {{#if (eq mode 'user' )}}selected{{/if}}>Người dùng nhập</option>
-                        <option value="web" {{#if (eq mode 'web' )}}selected{{/if}}>Web Trend</option>
-                        <option value="ai" {{#if (eq mode 'ai' )}}selected{{/if}}>AI sinh ra</option>
+                        <option value="user" {{#if (eq mode 'user')}}selected{{/if}}>Người dùng nhập</option>
+                        <option value="web" {{#if (eq mode 'web')}}selected{{/if}}>Web Trend</option>
+                        <option value="ai" {{#if (eq mode 'ai')}}selected{{/if}}>AI sinh ra</option>
                     </select>
                 </div>
 
@@ -39,12 +39,20 @@
     </div>
     {{/if}}
 
+    <!-- Spinner khi AI đang xử lý -->
+    <div id="loadingSpinner" class="text-center my-5 d-none">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3 text-muted">Đang sinh kịch bản bằng AI...</p>
+    </div>
+
     <!-- Script hiển thị ở đây -->
     <div id="aiScriptContainer" class="mt-4 d-none">
-        <div class="card border-info">
-            <div class="card-header bg-info text-white">🤖 Kịch bản AI</div>
+        <div class="card border-info shadow">
+            <div class="card-header bg-info text-white fw-bold">🤖 Kịch bản AI sinh ra</div>
             <div class="card-body">
-                <pre id="aiScriptContent" style="white-space: pre-wrap;"></pre>
+                <pre id="aiScriptContent" style="white-space: pre-wrap;" class="mb-0 text-dark"></pre>
             </div>
         </div>
     </div>
@@ -54,33 +62,41 @@
             const keywordInput = document.getElementById('keyword');
             const scriptContainer = document.getElementById('aiScriptContainer');
             const scriptContent = document.getElementById('aiScriptContent');
+            const loadingSpinner = document.getElementById('loadingSpinner');
 
             document.querySelectorAll('.keyword-btn').forEach(btn => {
                 btn.addEventListener('click', async () => {
                     const keyword = btn.textContent.trim();
-
-                    // Gán giá trị vào input từ khóa
                     keywordInput.value = keyword;
 
-                    const res = await fetch('/generate-script', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ keyword })
-                    });
+                    // Bắt đầu loading
+                    loadingSpinner.classList.remove('d-none');
+                    scriptContainer.classList.add('d-none');
+                    scriptContent.textContent = '';
 
-                    const data = await res.json();
-
-                    if (data.success) {
-                        scriptContent.textContent = data.script;
-                        scriptContainer.classList.remove('d-none');
-                        window.scrollTo({
-                            top: scriptContainer.offsetTop - 20,
-                            behavior: 'smooth'
+                    try {
+                        const res = await fetch('/generate-script', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ keyword })
                         });
-                    } else {
-                        alert(data.error || 'Lỗi không xác định!');
+
+                        const data = await res.json();
+
+                        if (data.success) {
+                            scriptContent.textContent = data.script;
+                            scriptContainer.classList.remove('d-none');
+                            window.scrollTo({
+                                top: scriptContainer.offsetTop - 20,
+                                behavior: 'smooth'
+                            });
+                        } else {
+                            alert(data.error || 'Lỗi không xác định!');
+                        }
+                    } catch (err) {
+                        alert('❌ Lỗi khi kết nối đến máy chủ hoặc AI.');
+                    } finally {
+                        loadingSpinner.classList.add('d-none');
                     }
                 });
             });
