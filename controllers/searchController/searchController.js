@@ -4,26 +4,43 @@ const { generateTopicByAI, generateScriptByAI } = require('../../services/aiServ
 const { getAllTrends, getYouTubeTrends, getWikipediaTrends, getGoogleTrends } = require('../../services/trendService');
 
 const handleSearch = async (req, res) => {
-  const { mode, keyword, source } = req.body;
+  const { mode, keyword: rawKeyword, source } = req.body;
+  
+  // Log chi tiết về dữ liệu đầu vào
+  console.log('Request body chi tiết:', {
+    mode: mode,
+    keyword: rawKeyword,
+    source: source,
+    keywordType: typeof rawKeyword,
+    keywordIsArray: Array.isArray(rawKeyword)
+  });
+  
+  // Xử lý keyword có thể là mảng (từ multiple inputs với cùng name) hoặc string
+  const keyword = Array.isArray(rawKeyword) ? rawKeyword[0] : rawKeyword;
+  
   let script = '';
   let keywordList = [];
   let trends = [];
 
   // Log để debug
-  console.log('Request body:', { mode, keyword, source });
+  console.log('Request body đã xử lý:', { mode, keyword, source });
 
   try {
     switch (mode) {
       case 'user':
-        if (!keyword || keyword.trim() === '') {
+        if (!keyword || typeof keyword !== 'string' || keyword.trim() === '') {
           script = '❗ Vui lòng nhập từ khóa để tìm kiếm.';
         } else {
           script = `📌 Chủ đề bạn vừa nhập là: "${keyword.trim()}". Hãy phát triển thành video hấp dẫn!`;
         }
+        // Đảm bảo không có danh sách trending trong chế độ này
+        keywordList = [];
+        trends = [];
         break;
 
       case 'web':
-        const query = keyword && keyword.trim() !== '' ? keyword.trim() : 'hot trend';
+        const query = keyword && typeof keyword === 'string' && keyword.trim() !== '' 
+                      ? keyword.trim() : 'hot trend';
         
         // Lấy xu hướng từ nguồn được chọn hoặc tất cả nguồn
         console.log('Đang lấy xu hướng từ nguồn:', source);
@@ -91,27 +108,79 @@ const handleSearch = async (req, res) => {
         break;
 
       case 'ai':
-        const topic = await generateTopicByAI(keyword);
-        script = `🤖 AI cho chủ đề:\n"${keyword}"\n\n${topic}`;
+        if (!keyword || typeof keyword !== 'string' || keyword.trim() === '') {
+          console.log('❌ Từ khóa rỗng trong chế độ AI!');
+          script = '❗ Vui lòng nhập từ khóa để AI sinh chủ đề.';
+          keywordList = [];
+        } else {
+          try {
+            // Log để debug
+            console.log('✅ Đang gọi AI để sinh chủ đề với từ khóa hợp lệ:', keyword);
+            
+            // Thêm một kiểm tra lần cuối
+            if (keyword.trim().length < 2) {
+              script = '❌ Từ khóa quá ngắn. Vui lòng nhập ít nhất 2 ký tự.';
+              keywordList = [];
+              break;
+            }
+            
+            // Lấy mảng chủ đề từ AI thay vì văn bản
+            const aiTopics = await generateTopicByAI(keyword);
+            
+            // Log kết quả từ AI để debug
+            console.log('✅ Kết quả từ AI:', JSON.stringify(aiTopics));
+            
+            // Chuyển đổi thành định dạng giống với web trend
+            keywordList = aiTopics.map(topic => ({
+              title: topic.title,
+              source: 'AI',
+              views: null // AI không có lượt xem
+            }));
+            
+            if (keywordList.length > 0) {
+              script = `🤖 AI đã sinh ${keywordList.length} ý tưởng chủ đề cho "${keyword}":\n(Hãy nhấn vào 1 chủ đề để tạo kịch bản)`;
+            } else {
+              script = '❌ AI không thể sinh được chủ đề. Vui lòng thử lại với từ khóa khác.';
+            }
+          } catch (error) {
+            console.error('❌ Lỗi khi sinh chủ đề AI:', error);
+            script = `❌ Không thể kết nối với dịch vụ AI. Lỗi: ${error.message}`;
+            keywordList = [];
+          }
+        }
+        trends = []; // Không cần trends trong chế độ AI
         break;
 
       default:
         script = '❌ Phương thức tìm kiếm không hợp lệ.';
+        keywordList = [];
+        trends = [];
     }
   } catch (error) {
     console.error('Lỗi trong quá trình tìm kiếm:', error);
     script = '🚫 Đã xảy ra lỗi khi xử lý yêu cầu tìm kiếm.';
+    keywordList = [];
+    trends = [];
   }
 
-  res.render('searchView/search', { script, keywordList, trends, mode, source });
+  res.render('searchView/search', { script, keywordList, trends, mode, source, keyword });
 };
 
 const generateScript = async (req, res) => {
   const { keyword } = req.body;
+  
+  // Đảm bảo keyword là chuỗi
+  const processedKeyword = Array.isArray(keyword) ? keyword[0] : keyword;
+  
   try {
-    const topic = await generateScriptByAI(keyword);
+    if (!processedKeyword || typeof processedKeyword !== 'string' || processedKeyword.trim() === '') {
+      return res.json({ success: false, error: 'Từ khóa không được để trống.' });
+    }
+    
+    const topic = await generateScriptByAI(processedKeyword);
     return res.json({ success: true, script: topic });
   } catch (err) {
+    console.error('Lỗi sinh kịch bản:', err);
     return res.json({ success: false, error: 'Lỗi khi sinh kịch bản.' });
   }
 };

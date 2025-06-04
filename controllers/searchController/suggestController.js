@@ -1,16 +1,63 @@
 const { getYouTubeSuggestions, getGoogleSuggestions, getWikipediaSuggestions } = require('../../services/suggestService');
 const axios = require('axios');
+require('dotenv').config();
+
+// Danh sách từ khóa hot trend cố định để đảm bảo luôn có gợi ý
+const HOT_TOPICS = [
+  'shorts video ideas',
+  'tiktok trends',
+  'youtube shorts trend',
+  'viral challenges',
+  'trending hashtags',
+  'dance challenges',
+  'prank videos',
+  'day in my life',
+  'outfit ideas',
+  'makeup tutorial',
+  'cooking hacks',
+  'life hacks',
+  'fitness challenge',
+  'room tour',
+  'what i eat in a day',
+  'morning routine',
+  'night routine',
+  'skincare routine',
+  'travel vlog',
+  'street food',
+  'asmr video'
+];
 
 const getSuggestions = async (req, res) => {
   try {
-    const { query, source = 'youtube' } = req.query;
+    const { q, source = 'youtube' } = req.query;
     
-    if (!query || query.trim() === '') {
+    if (!q || q.trim() === '') {
       return res.json([]);
     }
     
     let suggestions = [];
-    const trimmedQuery = query.trim();
+    const trimmedQuery = q.trim();
+    
+    // Nếu query ngắn, ưu tiên gợi ý từ danh sách cố định 
+    if (trimmedQuery.length < 4) {
+      const localSuggestions = HOT_TOPICS.filter(topic => 
+        topic.toLowerCase().includes(trimmedQuery.toLowerCase())
+      ).slice(0, 6);
+      
+      // Luôn trả về gợi ý từ danh sách cố định cho từ khóa ngắn
+      if (localSuggestions.length > 0) {
+        return res.json(localSuggestions);
+      }
+      
+      // Nếu không có gợi ý từ danh sách cố định, trả về một số gợi ý mặc định cho từ khóa ngắn
+      return res.json([
+        trimmedQuery + ' ideas',
+        trimmedQuery + ' tutorial',
+        trimmedQuery + ' trend',
+        trimmedQuery + ' mới nhất',
+        trimmedQuery + ' là gì'
+      ]);
+    }
     
     // Phương pháp 1: Sử dụng service
     try {
@@ -125,7 +172,7 @@ const getSuggestions = async (req, res) => {
     // Luôn trả về một mảng, không để frontend bị lỗi
     return res.status(200).json([
       { 
-        text: req.query.query || "Không tìm thấy gợi ý", 
+        text: req.query.q || "Không tìm thấy gợi ý", 
         source: req.query.source === 'wikipedia' ? 'Wikipedia' : (req.query.source === 'google' ? 'Google' : 'YouTube')
       }
     ]);

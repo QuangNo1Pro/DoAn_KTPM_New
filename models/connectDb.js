@@ -6,7 +6,7 @@ const dbConfig = {
     password: '123456789',
     host: 'localhost',
     port: 5432,
-    database: 'AI Video',
+    database: 'postgres',
 };
 const db = pgp(dbConfig);
 // Lấy tất cả người dùng

@@ -13,6 +13,8 @@
     max-height: 300px;
     overflow-y: auto;
     display: none;
+    top: calc(100% - 1px);
+    left: 0;
   }
   .suggestion-item {
     padding: 10px 12px;
@@ -24,6 +26,11 @@
   .suggestion-item:last-child { border-bottom: none; }
   .suggestion-item:hover { background-color: #f5f5f5; }
   .suggestion-item i { margin-right: 10px; color: #666; }
+  
+  .suggestion-item i.bi-youtube { color: #FF0000; }
+  .suggestion-item i.bi-wikipedia { color: #3366cc; }
+  .suggestion-item i.bi-google { color: #4285F4; }
+  
   .suggestion-item .highlight { font-weight: bold; }
   .suggestion-item .description {
     font-size: 0.8em;
@@ -38,79 +45,311 @@
     border-radius: 3px;
     margin-left: 5px;
   }
+  
+  .method-card {
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    transition: all 0.3s;
+    cursor: pointer;
+    height: 100%;
+    border: 3px solid transparent;
+  }
+  
+  .method-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+  
+  .method-card.active {
+    border-color: #0d6efd;
+  }
+  
+  .method-icon {
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+  }
+  
+  .card-body-custom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+
+  .search-options {
+    margin-top: 20px;
+    display: none;
+  }
+  
+  .search-options.active {
+    display: block;
+    animation: fadeIn 0.5s;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .btn-youtube {
+    background-color: #FF0000;
+    border-color: #FF0000;
+    color: #fff;
+  }
+  
+  .btn-wikipedia {
+    background-color: #3366cc;
+    border-color: #3366cc;
+    color: #fff;
+  }
+  
+  .btn-google {
+    background-color: #4285F4;
+    border-color: #4285F4;
+    color: #fff;
+  }
+  
+  .btn-youtube:hover, .btn-wikipedia:hover, .btn-google:hover {
+    filter: brightness(90%);
+    color: #fff;
+  }
+  
+  .source-badge.youtube {
+    background-color: #FF0000;
+  }
+  
+  .source-badge.wikipedia {
+    background-color: #3366cc;
+  }
+  
+  .source-badge.google {
+    background-color: #4285F4;
+  }
 </style>
 
 <div class="container mt-5">
-  <div class="card shadow-sm">
+  <div class="card shadow-sm mb-4">
     <div class="card-body">
-      <h4 class="card-title mb-4">🔍 Tìm kiếm Chủ Đề Video AI</h4>
-      <form id="searchForm" method="POST" action="/search" class="row g-3">
-        <div class="col-md-3">
-          <label for="mode" class="form-label">Cách thức tìm kiếm:</label>
-          <select name="mode" id="mode" class="form-select">
-            <option value="user" {{#if (eq mode 'user')}}selected{{/if}}>Người dùng nhập</option>
-            <option value="web" {{#if (eq mode 'web')}}selected{{/if}}>Web Trend</option>
-            <option value="ai" {{#if (eq mode 'ai')}}selected{{/if}}>AI sinh ra</option>
-          </select>
-        </div>
-        <div class="col-md-3">
-          <label for="source" class="form-label">Nguồn:</label>
-          <select name="source" id="source" class="form-select">
-            <option value="all" {{#unless source}}selected{{else}}{{#if (eq source 'all')}}selected{{/if}}{{/unless}}>Tất cả</option>
-            <option value="youtube" {{#if (eq source 'youtube')}}selected{{/if}}>YouTube</option>
-            <option value="wikipedia" {{#if (eq source 'wikipedia')}}selected{{/if}}>Wikipedia</option>
-            <option value="google" {{#if (eq source 'google')}}selected{{/if}}>Google Trends</option>
-          </select>
-        </div>
-        <div class="col-md-4 position-relative">
-          <label for="keyword" class="form-label">Từ khóa:</label>
-          <div class="input-group">
-            <input type="text" name="keyword" id="keyword" class="form-control" placeholder="Nhập từ khóa hoặc để trống" value="{{keyword}}" autocomplete="off">
-            <span class="input-group-text bg-white border-start-0" id="clearKeyword" style="cursor: pointer; display: none;"><i class="bi bi-x"></i></span>
+      <h4 class="card-title text-center mb-4">🔍 Tìm kiếm Chủ Đề Video AI</h4>
+      
+      <!-- Phương thức tìm kiếm -->
+      <div class="row g-4 mb-4">
+        <!-- Phương thức 1: Người dùng nhập -->
+        <div class="col-md-4">
+          <div class="method-card card h-100 {{#if (eq mode 'user')}}active{{/if}}" data-method="user">
+            <div class="card-body-custom">
+              <div class="method-icon text-primary">
+                <i class="bi bi-person-fill"></i>
+              </div>
+              <h5 class="card-title">Người dùng nhập</h5>
+              <p class="card-text text-muted">Nhập ý tưởng chủ đề video của riêng bạn</p>
+            </div>
           </div>
-          <div id="suggestions" class="suggestions-container"></div>
         </div>
-        <div class="col-md-2 d-flex align-items-end">
-          <button type="submit" class="btn btn-primary w-100">Tìm kiếm</button>
+        
+        <!-- Phương thức 2: Web Trend -->
+        <div class="col-md-4">
+          <div class="method-card card h-100 {{#if (eq mode 'web')}}active{{/if}}" data-method="web">
+            <div class="card-body-custom">
+              <div class="method-icon text-success">
+                <i class="bi bi-globe2"></i>
+              </div>
+              <h5 class="card-title">Web Trend</h5>
+              <p class="card-text text-muted">Khám phá các xu hướng phổ biến từ nhiều nguồn</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Phương thức 3: AI sinh ra -->
+        <div class="col-md-4">
+          <div class="method-card card h-100 {{#if (eq mode 'ai')}}active{{/if}}" data-method="ai">
+            <div class="card-body-custom">
+              <div class="method-icon text-danger">
+                <i class="bi bi-robot"></i>
+              </div>
+              <h5 class="card-title">AI sinh ra</h5>
+              <p class="card-text text-muted">Để AI gợi ý chủ đề dựa trên từ khóa của bạn</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Form tìm kiếm -->
+      <form id="searchForm" method="POST" action="/search">
+        <input type="hidden" name="mode" id="modeInput" value="{{mode}}">
+
+        <!-- Tùy chọn cho Người dùng nhập -->
+        <div id="userOptions" class="search-options {{#if (eq mode 'user')}}active{{/if}}">
+          <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+              <i class="bi bi-person-fill me-2"></i> Nhập chủ đề của bạn
+            </div>
+            <div class="card-body">
+              <div class="mb-3 position-relative">
+                <label for="userKeyword" class="form-label">Chủ đề video:</label>
+                <div class="input-group">
+                  <input type="text" class="form-control keyword-input" id="userKeyword" name="keyword_user" placeholder="Nhập chủ đề video của bạn..." value="{{#if (eq mode 'user')}}{{keyword}}{{/if}}" autocomplete="off" data-source="all">
+                  <span class="input-group-text bg-white border-start-0 clear-keyword" style="cursor: pointer; display: none;"><i class="bi bi-x"></i></span>
+                </div>
+                <div class="suggestions-container"></div>
+              </div>
+              <div class="text-end">
+                <button type="submit" class="btn btn-primary px-4">
+                  <i class="bi bi-search me-2"></i>Tìm kiếm
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Hiển thị script trong tab Người dùng nhập -->
+          {{#if (eq mode 'user')}}
+            {{#if script}}
+              <div class="alert alert-info mt-3">{{{script}}}</div>
+            {{/if}}
+          {{/if}}
+        </div>
+
+        <!-- Tùy chọn cho Web Trend -->
+        <div id="webOptions" class="search-options {{#if (eq mode 'web')}}active{{/if}}">
+          <div class="card border-success">
+            <div class="card-header bg-success text-white">
+              <i class="bi bi-globe2 me-2"></i> Khám phá xu hướng
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label">Chọn nguồn:</label>
+                <div class="d-flex gap-2 flex-wrap">
+                  <button type="button" class="source-btn btn {{#unless source}}btn-primary{{else}}{{#if (eq source 'all')}}btn-primary{{else}}btn-outline-primary{{/if}}{{/unless}}" data-source="all">
+                    <i class="bi bi-globe me-1"></i> Tất cả
+                  </button>
+                  <button type="button" class="source-btn btn {{#if (eq source 'youtube')}}btn-youtube{{else}}btn-outline-danger{{/if}}" data-source="youtube">
+                    <i class="bi bi-youtube me-1"></i> YouTube
+                  </button>
+                  <button type="button" class="source-btn btn {{#if (eq source 'wikipedia')}}btn-wikipedia{{else}}btn-outline-info{{/if}}" data-source="wikipedia">
+                    <i class="bi bi-wikipedia me-1"></i> Wikipedia
+                  </button>
+                  <button type="button" class="source-btn btn {{#if (eq source 'google')}}btn-google{{else}}btn-outline-primary{{/if}}" data-source="google">
+                    <i class="bi bi-google me-1"></i> Google Trends
+                  </button>
+                </div>
+                <input type="hidden" name="source" id="sourceInput" value="{{source}}">
+              </div>
+              <div class="mb-3 position-relative">
+                <label for="webKeyword" class="form-label">Từ khóa tìm kiếm (tùy chọn):</label>
+                <div class="input-group">
+                  <input type="text" class="form-control keyword-input" id="webKeyword" name="keyword_web" placeholder="Để trống nếu bạn muốn xem xu hướng mới nhất" value="{{#if (eq mode 'web')}}{{keyword}}{{/if}}" autocomplete="off" data-source="{{source}}">
+                  <span class="input-group-text bg-white border-start-0 clear-keyword" style="cursor: pointer; display: none;"><i class="bi bi-x"></i></span>
+                </div>
+                <div class="suggestions-container"></div>
+              </div>
+              <div class="text-end">
+                <button type="submit" class="btn btn-success px-4">
+                  <i class="bi bi-search me-2"></i>Khám phá xu hướng
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Hiển thị script trong tab Web Trend -->
+          {{#if (eq mode 'web')}}
+            {{#if script}}
+              <div class="alert alert-info mt-3">{{{script}}}</div>
+            {{/if}}
+          {{/if}}
+          
+          <!-- ĐƯA DANH SÁCH TRENDING VÀO TRONG TAB WEB TREND -->
+          {{#if keywordList}}
+          <div class="mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="text-primary mb-0">🔻 Chủ đề trending:</h5>
+              <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-secondary filter-btn {{#unless source}}active{{else}}{{#if (eq source 'all')}}active{{/if}}{{/unless}}" data-source="all">Tất cả</button>
+                <button type="button" class="btn btn-outline-danger filter-btn {{#if (eq source 'youtube')}}active{{/if}}" data-source="youtube">
+                  <i class="bi bi-youtube"></i> YouTube
+                </button>
+                <button type="button" class="btn btn-outline-info filter-btn {{#if (eq source 'wikipedia')}}active{{/if}}" data-source="wikipedia">
+                  <i class="bi bi-wikipedia"></i> Wikipedia
+                </button>
+                <button type="button" class="btn btn-outline-success filter-btn {{#if (eq source 'google')}}active{{/if}}" data-source="google">
+                  <i class="bi bi-google"></i> Google
+                </button>
+              </div>
+            </div>
+            <div class="list-group">
+              {{#each keywordList}}
+                <button type="button" class="list-group-item list-group-item-action keyword-btn d-flex justify-content-between align-items-center" data-source="{{this.source}}">
+                  <span>{{this.title}}</span>
+                  <div>
+                    {{#if this.views}}<span class="badge bg-secondary me-2">{{this.views}} lượt xem</span>{{/if}}
+                    <span class="badge source-badge {{#if (eq this.source 'YouTube')}}youtube{{/if}}{{#if (eq this.source 'Wikipedia')}}wikipedia{{/if}}{{#if (eq this.source 'Google Trends')}}google{{/if}}">{{this.source}}</span>
+                  </div>
+                </button>
+              {{/each}}
+            </div>
+          </div>
+          {{/if}}
+          <!-- KẾT THÚC DANH SÁCH TRENDING -->
+        </div>
+
+        <!-- Tùy chọn cho AI sinh ra -->
+        <div id="aiOptions" class="search-options {{#if (eq mode 'ai')}}active{{/if}}">
+          <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+              <i class="bi bi-robot me-2"></i> Sinh ý tưởng bằng AI
+            </div>
+            <div class="card-body">
+              <div class="mb-3 position-relative">
+                <label for="aiKeyword" class="form-label">Gợi ý từ khóa cho AI:</label>
+                <div class="input-group">
+                  <input type="text" class="form-control keyword-input" id="aiKeyword" name="keyword_ai" placeholder="Nhập một vài từ khóa để AI gợi ý chủ đề..." value="{{#if (eq mode 'ai')}}{{keyword}}{{/if}}" autocomplete="off" data-source="all">
+                  <span class="input-group-text bg-white border-start-0 clear-keyword" style="cursor: pointer; display: none;"><i class="bi bi-x"></i></span>
+                </div>
+                <div class="suggestions-container"></div>
+              </div>
+              <div class="text-end">
+                <button type="submit" class="btn btn-danger px-4" id="aiSubmitBtn">
+                  <i class="bi bi-stars me-2"></i>Tạo ý tưởng bằng AI
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Hiển thị script trong tab AI sinh ra -->
+          {{#if (eq mode 'ai')}}
+            {{#if script}}
+              <div class="alert alert-info mt-3">{{{script}}}</div>
+            {{/if}}
+            
+            <!-- Hiển thị danh sách chủ đề do AI gợi ý -->
+            {{#if keywordList}}
+            <div class="mt-4">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="text-primary mb-0">🤖 Chủ đề AI gợi ý:</h5>
+              </div>
+              <div class="list-group">
+                {{#each keywordList}}
+                  <button type="button" class="list-group-item list-group-item-action keyword-btn d-flex justify-content-between align-items-center">
+                    <span>{{this.title}}</span>
+                    <div>
+                      <span class="badge source-badge" style="background-color: #ff6b6b;">AI</span>
+                    </div>
+                  </button>
+                {{/each}}
+              </div>
+            </div>
+            {{/if}}
+          {{/if}}
         </div>
       </form>
     </div>
   </div>
-
-  {{#if script}}
-    <div class="alert alert-info mt-3">{{{script}}}</div>
-  {{/if}}
-
-  {{#if keywordList}}
-    <div class="mt-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="text-primary mb-0">🔻 Chủ đề trending:</h5>
-        <div class="btn-group btn-group-sm" role="group">
-          <button type="button" class="btn btn-outline-secondary filter-btn {{#unless source}}active{{else}}{{#if (eq source 'all')}}active{{/if}}{{/unless}}" data-source="all">Tất cả</button>
-          <button type="button" class="btn btn-outline-danger filter-btn {{#if (eq source 'youtube')}}active{{/if}}" data-source="youtube">
-            <i class="bi bi-youtube"></i> YouTube
-          </button>
-          <button type="button" class="btn btn-outline-info filter-btn {{#if (eq source 'wikipedia')}}active{{/if}}" data-source="wikipedia">
-            <i class="bi bi-wikipedia"></i> Wikipedia
-          </button>
-          <button type="button" class="btn btn-outline-success filter-btn {{#if (eq source 'google')}}active{{/if}}" data-source="google">
-            <i class="bi bi-google"></i> Google
-          </button>
-        </div>
-      </div>
-      <div class="list-group">
-        {{#each keywordList}}
-          <button type="button" class="list-group-item list-group-item-action keyword-btn d-flex justify-content-between align-items-center" data-source="{{this.source}}">
-            <span>{{this.title}}</span>
-            <div>
-              {{#if this.views}}<span class="badge bg-secondary me-2">{{this.views}} lượt xem</span>{{/if}}
-              <span class="badge {{#if (eq this.source 'YouTube')}}bg-danger{{/if}}{{#if (eq this.source 'Wikipedia')}}bg-info{{/if}}{{#if (eq this.source 'Google Trends')}}bg-success{{/if}}">{{this.source}}</span>
-            </div>
-          </button>
-        {{/each}}
-      </div>
-    </div>
-  {{/if}}
 
   <div id="loadingSpinner" class="text-center my-5 d-none">
     <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
@@ -135,22 +374,327 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const keywordInput = document.getElementById('keyword');
+      // Khởi tạo các biến và sự kiện
+      const methodCards = document.querySelectorAll('.method-card');
+      const modeInput = document.getElementById('modeInput');
+      const searchOptions = document.querySelectorAll('.search-options');
+      const sourceBtns = document.querySelectorAll('.source-btn');
+      const sourceInput = document.getElementById('sourceInput');
+      const userKeyword = document.getElementById('userKeyword');
+      const webKeyword = document.getElementById('webKeyword');
+      const aiKeyword = document.getElementById('aiKeyword');
+      const keywordInputs = document.querySelectorAll('.keyword-input');
       const scriptContainer = document.getElementById('aiScriptContainer');
       const scriptContent = document.getElementById('aiScriptContent');
       const loadingSpinner = document.getElementById('loadingSpinner');
       const copyScriptBtn = document.getElementById('copyScriptBtn');
-      const clearKeywordBtn = document.getElementById('clearKeyword');
-      const suggestionsContainer = document.getElementById('suggestions');
-      const sourceSelect = document.getElementById('source');
+      const clearKeywordBtns = document.querySelectorAll('.clear-keyword');
+      const suggestionsContainers = document.querySelectorAll('.suggestions-container');
+      const aiSubmitBtn = document.getElementById('aiSubmitBtn');
       let debounceTimer;
+      
+      // Thêm xử lý riêng cho nút AI submit
+      if (aiSubmitBtn) {
+        aiSubmitBtn.addEventListener('click', function(e) {
+          e.preventDefault(); // Ngăn chặn submit form thông thường
+          
+          const aiKeywordValue = aiKeyword?.value || '';
+          if (!aiKeywordValue || aiKeywordValue.trim() === '') {
+            alert('Vui lòng nhập từ khóa để AI sinh ra ý tưởng!');
+            aiKeyword.focus();
+            return false;
+          }
+          
+          console.log('Đang gửi yêu cầu AI với từ khóa:', aiKeywordValue);
+          
+          // Tạo form mới và submit trực tiếp
+          const tempForm = document.createElement('form');
+          tempForm.method = 'POST';
+          tempForm.action = '/search';
+          tempForm.style.display = 'none';
+          
+          // Thêm các input cần thiết
+          const modeInput = document.createElement('input');
+          modeInput.type = 'hidden';
+          modeInput.name = 'mode';
+          modeInput.value = 'ai';
+          tempForm.appendChild(modeInput);
+          
+          const keywordInput = document.createElement('input');
+          keywordInput.type = 'hidden';
+          keywordInput.name = 'keyword'; // Server controller sẽ tìm từ khóa ở đây
+          keywordInput.value = aiKeywordValue;
+          tempForm.appendChild(keywordInput);
+          
+          const sourceInput = document.createElement('input');
+          sourceInput.type = 'hidden';
+          sourceInput.name = 'source';
+          sourceInput.value = 'ai';
+          tempForm.appendChild(sourceInput);
+          
+          // Thêm form vào body và submit
+          document.body.appendChild(tempForm);
+          tempForm.submit();
+        });
+      }
+      
+      // Khôi phục chức năng gợi ý tìm kiếm
+      keywordInputs.forEach((input, index) => {
+        const suggestionsContainer = suggestionsContainers[index];
+        const clearButton = clearKeywordBtns[index];
+        
+        // Xử lý hiển thị/ẩn nút xóa dựa trên giá trị ban đầu
+        if (input.value.trim()) {
+          clearButton.style.display = 'block';
+        }
+        
+        // Xử lý input
+        input.addEventListener('input', function() {
+          const value = this.value.trim();
+          const source = this.dataset.source || 'all';
+          
+          // Hiển thị/ẩn nút xóa
+          clearButton.style.display = value ? 'block' : 'none';
+          
+          // Xử lý gợi ý
+          clearTimeout(debounceTimer);
+          if (value.length > 0) {
+            debounceTimer = setTimeout(() => {
+              fetchSuggestions(value, suggestionsContainer, source);
+            }, 300);
+          } else {
+            suggestionsContainer.style.display = 'none';
+          }
+        });
+        
+        // Xử lý focus để hiển thị gợi ý
+        input.addEventListener('focus', function() {
+          const value = this.value.trim();
+          if (value.length > 0) {
+            const source = this.dataset.source || 'all';
+            fetchSuggestions(value, suggestionsContainer, source);
+          }
+        });
+        
+        // Xử lý nút xóa từ khóa
+        if (clearButton) {
+          clearButton.addEventListener('click', () => {
+            input.value = '';
+            clearButton.style.display = 'none';
+            suggestionsContainer.style.display = 'none';
+          });
+        }
+      });
+      
+      // Ẩn gợi ý khi click ra ngoài
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.keyword-input') && !e.target.closest('.suggestions-container')) {
+          suggestionsContainers.forEach(container => {
+            container.style.display = 'none';
+          });
+        }
+      });
+      
+      // Hàm lấy gợi ý
+      async function fetchSuggestions(query, container, source = 'all') {
+        try {
+          const res = await fetch(`/suggest?q=${encodeURIComponent(query)}&source=${source}`);
+          const data = await res.json();
+          
+          if (data && data.length > 0) {
+            renderSuggestions(data, container, query, source);
+          } else {
+            container.style.display = 'none';
+          }
+        } catch (err) {
+          console.error('Lỗi khi lấy gợi ý:', err);
+        }
+      }
+      
+      // Hàm hiển thị gợi ý với highlight từ khóa
+      function renderSuggestions(suggestions, container, query, source = 'all') {
+        container.innerHTML = '';
+        
+        suggestions.forEach(suggestion => {
+          const item = document.createElement('div');
+          item.className = 'suggestion-item';
+          
+          // Lấy nội dung gợi ý
+          const suggestionText = typeof suggestion === 'string' ? suggestion : suggestion.text;
+          
+          // Tạo highlight cho từ khóa trong gợi ý
+          const highlightedText = highlightMatch(suggestionText, query);
+          
+          // Xác định icon dựa trên source
+          let iconClass = 'bi-search';
+          if (source === 'youtube' || (suggestion.source && suggestion.source === 'YouTube')) {
+            iconClass = 'bi-youtube';
+          } else if (source === 'wikipedia' || (suggestion.source && suggestion.source === 'Wikipedia')) {
+            iconClass = 'bi-wikipedia';
+          } else if (source === 'google' || (suggestion.source && suggestion.source === 'Google')) {
+            iconClass = 'bi-google';
+          }
+          
+          item.innerHTML = `
+            <i class="bi ${iconClass}"></i>
+            <div>
+              ${highlightedText}
+              <div class="description">Tìm kiếm chủ đề này</div>
+            </div>
+          `;
+          
+          // Tìm input parent element để xác định input và clear button cần cập nhật
+          const parentContainer = container.closest('.position-relative');
+          const inputElement = parentContainer.querySelector('.keyword-input');
+          const clearButtonElement = parentContainer.querySelector('.clear-keyword');
+          
+          item.addEventListener('click', () => {
+            // Chỉ cập nhật input trong tab hiện tại
+            if (inputElement) {
+              inputElement.value = suggestionText;
+            }
+            
+            // Hiển thị nút xóa trong tab hiện tại
+            if (clearButtonElement) {
+              clearButtonElement.style.display = 'block';
+            }
+            
+            // Ẩn container gợi ý hiện tại
+            container.style.display = 'none';
+            
+            // Nếu đang trong tab web, cập nhật source từ gợi ý
+            if (modeInput.value === 'web' && suggestion.source) {
+              const sourceLower = suggestion.source.toLowerCase();
+              if (sourceLower === 'youtube' || sourceLower === 'wikipedia' || sourceLower === 'google') {
+                updateSourceSelection(sourceLower);
+              }
+            }
+          });
+          
+          container.appendChild(item);
+        });
+        
+        container.style.display = 'block';
+      }
+      
+      // Hàm highlight từ khóa trong gợi ý
+      function highlightMatch(text, query) {
+        if (!query) return text;
+        
+        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedQuery})`, 'gi');
+        return text.replace(regex, '<strong class="highlight">$1</strong>');
+      }
 
+      // Xử lý chọn phương thức tìm kiếm
+      methodCards.forEach(card => {
+        card.addEventListener('click', () => {
+          // Bỏ trạng thái active khỏi tất cả cards
+          methodCards.forEach(c => c.classList.remove('active'));
+          
+          // Thêm trạng thái active cho card đã chọn
+          card.classList.add('active');
+          
+          // Cập nhật input mode ẩn
+          const method = card.getAttribute('data-method');
+          modeInput.value = method;
+          
+          // Cập nhật hiển thị tùy chọn tìm kiếm
+          searchOptions.forEach(option => {
+            option.classList.remove('active');
+          });
+          document.getElementById(`${method}Options`).classList.add('active');
+          
+          // ĐẢM BẢO KHÔNG ĐỒNG BỘ TỪ KHÓA GIỮA CÁC TAB
+          // KHÔNG GỌI HÀM syncKeywordInputs();
+        });
+      });
+      
+      // Xử lý chọn nguồn
+      sourceBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const source = btn.getAttribute('data-source');
+          updateSourceSelection(source);
+        });
+      });
+      
+      // Hàm cập nhật lựa chọn nguồn
+      function updateSourceSelection(source) {
+        sourceInput.value = source;
+        
+        // Cập nhật data-source của webKeyword
+        if (webKeyword) {
+          webKeyword.dataset.source = source;
+        }
+        
+        // Cập nhật giao diện nút
+        sourceBtns.forEach(b => {
+          const btnSource = b.getAttribute('data-source');
+          
+          if (btnSource === 'all') {
+            b.className = btnSource === source ? 
+              'source-btn btn btn-primary' : 'source-btn btn btn-outline-primary';
+          } else if (btnSource === 'youtube') {
+            b.className = btnSource === source ? 
+              'source-btn btn btn-youtube' : 'source-btn btn btn-outline-danger';
+          } else if (btnSource === 'wikipedia') {
+            b.className = btnSource === source ? 
+              'source-btn btn btn-wikipedia' : 'source-btn btn btn-outline-info';
+          } else if (btnSource === 'google') {
+            b.className = btnSource === source ? 
+              'source-btn btn btn-google' : 'source-btn btn btn-outline-primary';
+          }
+        });
+      }
+
+      // Xử lý submit form khi ở chế độ web
+      document.getElementById('searchForm').addEventListener('submit', function(e) {
+        // Đảm bảo từ khóa được set đúng trước khi submit
+        const mode = modeInput.value;
+        
+        // ĐẢM BẢO KHÔNG ĐỒNG BỘ TỪ KHÓA
+        // KHÔNG GỌI HÀM syncKeywordInputs();
+        
+        // Đảm bảo từ khóa được chuyển vào đúng trường name="keyword"
+        // Loại bỏ tất cả các input ẩn keyword trước đó để tránh trùng lặp
+        this.querySelectorAll('input[type=hidden][name=keyword]').forEach(el => el.remove());
+        
+        let keywordValue = '';
+        if (mode === 'web') {
+          keywordValue = webKeyword.value; // id="webKeyword" name="keyword_web"
+        } else if (mode === 'user') {
+          keywordValue = userKeyword.value; // id="userKeyword" name="keyword_user"
+        } else if (mode === 'ai') {
+          keywordValue = aiKeyword.value; // id="aiKeyword" name="keyword_ai"
+          
+          // Kiểm tra từ khóa cho chế độ AI
+          if (!keywordValue || keywordValue.trim() === '') {
+            e.preventDefault(); // Ngăn chặn form submit
+            alert('Vui lòng nhập từ khóa để AI sinh ra ý tưởng!');
+            aiKeyword.focus(); // Focus vào ô nhập liệu
+            return false;
+          }
+        }
+        
+        // Kiểm tra lại một lần nữa
+        console.log('Submit form với từ khóa:', keywordValue);
+        
+        // Tạo input ẩn mới cho keyword
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'keyword';
+        hiddenInput.value = keywordValue;
+        this.appendChild(hiddenInput);
+        
+        // Thêm debug để theo dõi quá trình submit
+        console.log(`Submitting form with mode: ${mode}, keyword: ${keywordValue}`);
+      });
+
+      // Xử lý nút chọn chủ đề từ danh sách kết quả
       document.querySelectorAll('.keyword-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
           const keyword = btn.querySelector('span')?.textContent.trim() || '';
-          keywordInput.value = keyword;
-          clearKeywordBtn.style.display = 'block';
-
+          
           loadingSpinner.classList.remove('d-none');
           scriptContainer.classList.add('d-none');
           scriptContent.textContent = '';
@@ -179,16 +723,17 @@
         });
       });
 
+      // Xử lý nút lọc trong danh sách kết quả
       document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const newSource = btn.getAttribute('data-source');
-          document.getElementById('source').value = newSource;
-          const modeSelect = document.getElementById('mode');
-          if (modeSelect.value !== 'web') modeSelect.value = 'web';
+          sourceInput.value = newSource;
+          modeInput.value = 'web';
           document.getElementById('searchForm').submit();
         });
       });
 
+      // Xử lý nút sao chép kịch bản
       if (copyScriptBtn) {
         copyScriptBtn.addEventListener('click', () => {
           const scriptText = scriptContent.textContent;
