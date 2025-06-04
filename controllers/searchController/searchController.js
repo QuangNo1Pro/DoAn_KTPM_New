@@ -1,16 +1,18 @@
 const axios = require('axios');
 require('dotenv').config();
 const { generateTopicByAI, generateScriptByAI } = require('../../services/aiService');
+const { generateTopicByGemini } = require('../../services/geminiService');
 const { getAllTrends, getYouTubeTrends, getWikipediaTrends, getGoogleTrends } = require('../../services/trendService');
 
 const handleSearch = async (req, res) => {
-  const { mode, keyword: rawKeyword, source } = req.body;
+  const { mode, keyword: rawKeyword, source, ai_model } = req.body;
   
   // Log chi tiết về dữ liệu đầu vào
   console.log('Request body chi tiết:', {
     mode: mode,
     keyword: rawKeyword,
     source: source,
+    ai_model: ai_model || 'openai',
     keywordType: typeof rawKeyword,
     keywordIsArray: Array.isArray(rawKeyword)
   });
@@ -23,7 +25,7 @@ const handleSearch = async (req, res) => {
   let trends = [];
 
   // Log để debug
-  console.log('Request body đã xử lý:', { mode, keyword, source });
+  console.log('Request body đã xử lý:', { mode, keyword, source, ai_model });
 
   try {
     switch (mode) {
@@ -124,8 +126,20 @@ const handleSearch = async (req, res) => {
               break;
             }
             
-            // Lấy mảng chủ đề từ AI thay vì văn bản
-            const aiTopics = await generateTopicByAI(keyword);
+            // Kiểm tra và sử dụng ai_model nếu được cung cấp
+            const selectedModel = ai_model || 'openai';
+            console.log(`🤖 Sử dụng model AI: ${selectedModel}`);
+            
+            // Gọi hàm tạo chủ đề dựa trên model được chọn
+            let aiTopics;
+            if (selectedModel === 'gemini') {
+              aiTopics = await generateTopicByGemini(keyword);
+              console.log('✅ Đã sử dụng Gemini để sinh chủ đề');
+            } else {
+              // Mặc định sử dụng OpenAI
+              aiTopics = await generateTopicByAI(keyword);
+              console.log('✅ Đã sử dụng OpenAI để sinh chủ đề');
+            }
             
             // Log kết quả từ AI để debug
             console.log('✅ Kết quả từ AI:', JSON.stringify(aiTopics));
@@ -133,12 +147,13 @@ const handleSearch = async (req, res) => {
             // Chuyển đổi thành định dạng giống với web trend
             keywordList = aiTopics.map(topic => ({
               title: topic.title,
-              source: 'AI',
+              source: topic.source || `${selectedModel === 'gemini' ? 'Gemini' : 'OpenAI'}`,
               views: null // AI không có lượt xem
             }));
             
             if (keywordList.length > 0) {
-              script = `🤖 AI đã sinh ${keywordList.length} ý tưởng chủ đề cho "${keyword}":\n(Hãy nhấn vào 1 chủ đề để tạo kịch bản)`;
+              const modelName = selectedModel === 'gemini' ? 'Gemini' : 'OpenAI';
+              script = `🤖 ${modelName} đã sinh ${keywordList.length} ý tưởng chủ đề cho "${keyword}":\n(Hãy nhấn vào 1 chủ đề để tạo kịch bản)`;
             } else {
               script = '❌ AI không thể sinh được chủ đề. Vui lòng thử lại với từ khóa khác.';
             }
@@ -163,7 +178,7 @@ const handleSearch = async (req, res) => {
     trends = [];
   }
 
-  res.render('searchView/search', { script, keywordList, trends, mode, source, keyword });
+  res.render('searchView/search', { script, keywordList, trends, mode, source, keyword, ai_model: ai_model || 'openai' });
 };
 
 const generateScript = async (req, res) => {

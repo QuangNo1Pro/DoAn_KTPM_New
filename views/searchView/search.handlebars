@@ -305,6 +305,18 @@
               <i class="bi bi-robot me-2"></i> Sinh ý tưởng bằng AI
             </div>
             <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label">Chọn mô hình AI:</label>
+                <div class="d-flex gap-2">
+                  <button type="button" class="ai-model-btn btn {{#unless ai_model}}btn-primary{{else}}{{#if (eq ai_model 'openai')}}btn-primary{{else}}btn-outline-primary{{/if}}{{/unless}}" data-model="openai">
+                    <i class="bi bi-lightning me-1"></i> OpenAI
+                  </button>
+                  <button type="button" class="ai-model-btn btn {{#if (eq ai_model 'gemini')}}btn-success{{else}}btn-outline-success{{/if}}" data-model="gemini">
+                    <i class="bi bi-google me-1"></i> Gemini
+                  </button>
+                </div>
+                <input type="hidden" name="ai_model" id="aiModelInput" value="{{ai_model}}">
+              </div>
               <div class="mb-3 position-relative">
                 <label for="aiKeyword" class="form-label">Gợi ý từ khóa cho AI:</label>
                 <div class="input-group">
@@ -391,6 +403,8 @@
       const clearKeywordBtns = document.querySelectorAll('.clear-keyword');
       const suggestionsContainers = document.querySelectorAll('.suggestions-container');
       const aiSubmitBtn = document.getElementById('aiSubmitBtn');
+      const aiModelInput = document.getElementById('aiModelInput');
+      const aiModelBtns = document.querySelectorAll('.ai-model-btn');
       let debounceTimer;
       
       // Thêm xử lý riêng cho nút AI submit
@@ -405,7 +419,10 @@
             return false;
           }
           
-          console.log('Đang gửi yêu cầu AI với từ khóa:', aiKeywordValue);
+          // Lấy model AI đã chọn
+          const aiModelValue = aiModelInput?.value || 'openai';
+          
+          console.log('Đang gửi yêu cầu AI với từ khóa:', aiKeywordValue, 'và model:', aiModelValue);
           
           // Tạo form mới và submit trực tiếp
           const tempForm = document.createElement('form');
@@ -431,6 +448,13 @@
           sourceInput.name = 'source';
           sourceInput.value = 'ai';
           tempForm.appendChild(sourceInput);
+          
+          // Thêm input cho model AI
+          const modelInput = document.createElement('input');
+          modelInput.type = 'hidden';
+          modelInput.name = 'ai_model';
+          modelInput.value = aiModelValue;
+          tempForm.appendChild(modelInput);
           
           // Thêm form vào body và submit
           document.body.appendChild(tempForm);
@@ -646,6 +670,27 @@
           }
         });
       }
+
+      // Xử lý nút chọn model AI
+      aiModelBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const model = btn.getAttribute('data-model');
+          aiModelInput.value = model;
+          
+          // Cập nhật UI
+          aiModelBtns.forEach(b => {
+            const btnModel = b.getAttribute('data-model');
+            
+            if (btnModel === 'openai') {
+              b.className = btnModel === model ? 
+                'ai-model-btn btn btn-primary' : 'ai-model-btn btn btn-outline-primary';
+            } else if (btnModel === 'gemini') {
+              b.className = btnModel === model ? 
+                'ai-model-btn btn btn-success' : 'ai-model-btn btn btn-outline-success';
+            }
+          });
+        });
+      });
 
       // Xử lý submit form khi ở chế độ web
       document.getElementById('searchForm').addEventListener('submit', function(e) {
