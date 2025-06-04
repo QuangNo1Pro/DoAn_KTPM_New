@@ -201,8 +201,8 @@
                 <div class="suggestions-container"></div>
               </div>
               <div class="text-end">
-                <button type="submit" class="btn btn-primary px-4">
-                  <i class="bi bi-search me-2"></i>Tìm kiếm
+                <button type="button" class="btn btn-primary px-4" id="userSubmitBtn">
+                  <i class="bi bi-magic me-2"></i>Sinh kịch bản
                 </button>
               </div>
             </div>
@@ -250,8 +250,8 @@
                 <div class="suggestions-container"></div>
               </div>
               <div class="text-end">
-                <button type="submit" class="btn btn-success px-4">
-                  <i class="bi bi-search me-2"></i>Khám phá xu hướng
+                <button type="button" class="btn btn-success px-4" id="webSubmitBtn">
+                  <i class="bi bi-magic me-2"></i>Sinh kịch bản
                 </button>
               </div>
             </div>
@@ -744,6 +744,86 @@
               setTimeout(() => { copyScriptBtn.innerHTML = originalText; }, 2000);
             })
             .catch(err => console.error('Lỗi khi sao chép: ', err));
+        });
+      }
+
+      // Xử lý nút Sinh kịch bản trong tab Người dùng nhập
+      const userSubmitBtn = document.getElementById('userSubmitBtn');
+      if (userSubmitBtn) {
+        userSubmitBtn.addEventListener('click', async function() {
+          const keyword = userKeyword?.value || '';
+          if (!keyword || keyword.trim() === '') {
+            alert('Vui lòng nhập chủ đề video để sinh kịch bản!');
+            userKeyword.focus();
+            return;
+          }
+          
+          // Hiển thị loading
+          loadingSpinner.classList.remove('d-none');
+          scriptContainer.classList.add('d-none');
+          scriptContent.textContent = '';
+          
+          try {
+            const res = await fetch('/generate-script', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ keyword })
+            });
+            
+            const data = await res.json();
+            
+            if (data.success) {
+              scriptContent.textContent = data.script;
+              scriptContainer.classList.remove('d-none');
+              window.scrollTo({ top: scriptContainer.offsetTop - 20, behavior: 'smooth' });
+            } else {
+              alert(data.error || 'Lỗi không xác định!');
+            }
+          } catch (err) {
+            alert('❌ Lỗi khi kết nối đến máy chủ hoặc AI.');
+          } finally {
+            loadingSpinner.classList.add('d-none');
+          }
+        });
+      }
+      
+      // Xử lý nút Sinh kịch bản trong tab Web Trend
+      const webSubmitBtn = document.getElementById('webSubmitBtn');
+      if (webSubmitBtn) {
+        webSubmitBtn.addEventListener('click', async function() {
+          const keyword = webKeyword?.value || '';
+          if (!keyword || keyword.trim() === '') {
+            alert('Vui lòng nhập từ khóa để sinh kịch bản!');
+            webKeyword.focus();
+            return;
+          }
+          
+          // Hiển thị loading
+          loadingSpinner.classList.remove('d-none');
+          scriptContainer.classList.add('d-none');
+          scriptContent.textContent = '';
+          
+          try {
+            const res = await fetch('/generate-script', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ keyword })
+            });
+            
+            const data = await res.json();
+            
+            if (data.success) {
+              scriptContent.textContent = data.script;
+              scriptContainer.classList.remove('d-none');
+              window.scrollTo({ top: scriptContainer.offsetTop - 20, behavior: 'smooth' });
+            } else {
+              alert(data.error || 'Lỗi không xác định!');
+            }
+          } catch (err) {
+            alert('❌ Lỗi khi kết nối đến máy chủ hoặc AI.');
+          } finally {
+            loadingSpinner.classList.add('d-none');
+          }
         });
       }
     });
