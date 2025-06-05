@@ -1,7 +1,8 @@
 const axios = require('axios');
 require('dotenv').config();
-const { generateTopicByAI } = require('../../services/aiService');
+const { generateTopicByAI, generateScriptByAI } = require('../../services/aiService');
 
+// Xử lý tìm kiếm
 const handleSearch = async (req, res) => {
   const { mode, keyword } = req.body;
   let script = '';
@@ -17,8 +18,9 @@ const handleSearch = async (req, res) => {
         }
         break;
 
-      case 'web':
+      case 'web': {
         const query = keyword && keyword.trim() !== '' ? keyword.trim() : 'hot trend';
+
         const ytRes = await axios.get(`https://www.googleapis.com/youtube/v3/search`, {
           params: {
             q: query,
@@ -37,11 +39,13 @@ const handleSearch = async (req, res) => {
           script = '⚠️ Không tìm thấy chủ đề nào từ YouTube.';
         }
         break;
+      }
 
-      case 'ai':
+      case 'ai': {
         const topic = await generateTopicByAI(keyword);
-        script = `🤖 AI cho chủ đề:\n"${keyword}"\n\n${topic}`;
+        script = topic; // đã được định dạng trong service
         break;
+      }
 
       default:
         script = '❌ Phương thức tìm kiếm không hợp lệ.';
@@ -51,21 +55,28 @@ const handleSearch = async (req, res) => {
     script = '🚫 Đã xảy ra lỗi khi xử lý yêu cầu tìm kiếm.';
   }
 
-  res.render('searchView/search', { script, keywordList });
+  res.render('searchView/search', {
+    script,
+    keywordList,
+    keyword,
+    mode, // giữ lại mode để form không bị reset
+  });
 };
 
-//Generate đoạn script tương ứng
-const { generateScriptByAI } = require('../../services/aiService');
+// API sinh kịch bản từ AI khi click chủ đề
 const generateScript = async (req, res) => {
   const { keyword } = req.body;
 
   try {
-    const topic = await generateScriptByAI(keyword);
-    return res.json({ success: true, script: topic });
+    const script = await generateScriptByAI(keyword);
+    return res.json({ success: true, script });
   } catch (err) {
     console.error('Lỗi AI script:', err);
     return res.json({ success: false, error: 'Lỗi khi sinh kịch bản.' });
   }
 };
 
-module.exports = { handleSearch,generateScript };
+module.exports = {
+  handleSearch,
+  generateScript,
+};

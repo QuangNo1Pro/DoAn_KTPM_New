@@ -27,7 +27,7 @@
         </div>
     </div>
 
-    {{!-- Hiển thị danh sách keywordList nếu có --}}
+    {{!-- Hiển thị danh sách chủ đề nếu có --}}
     {{#if keywordList}}
     <div class="mt-4">
         <h5 class="text-primary">🔻 Chủ đề trending:</h5>
@@ -39,15 +39,26 @@
     </div>
     {{/if}}
 
-    <!-- Script hiển thị ở đây -->
+    {{!-- Hiển thị script nếu có từ server --}}
+    {{#if script}}
+    <div id="aiScriptContainer" class="mt-4">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">📝 Kịch bản</div>
+            <div class="card-body">
+                <pre id="aiScriptContent" style="white-space: pre-wrap;">{{script}}</pre>
+            </div>
+        </div>
+    </div>
+    {{else}}
     <div id="aiScriptContainer" class="mt-4 d-none">
         <div class="card border-info">
-            <div class="card-header bg-info text-white">🤖 Kịch bản AI</div>
+            <div class="card-header bg-info text-white">📝 Kịch bản</div>
             <div class="card-body">
                 <pre id="aiScriptContent" style="white-space: pre-wrap;"></pre>
             </div>
         </div>
     </div>
+    {{/if}}
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -59,7 +70,7 @@
                 btn.addEventListener('click', async () => {
                     const keyword = btn.textContent.trim();
 
-                    // Gán giá trị vào input từ khóa
+                    // Gán giá trị vào input để user có thể thấy keyword đang xử lý
                     keywordInput.value = keyword;
 
                     const res = await fetch('/generate-script', {
