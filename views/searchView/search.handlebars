@@ -539,12 +539,33 @@
       function renderSuggestions(suggestions, container, query, source = 'all') {
         container.innerHTML = '';
         
+        // Kiểm tra và đảm bảo suggestions là mảng
+        if (!Array.isArray(suggestions)) {
+          console.error('Suggestions không phải là mảng:', suggestions);
+          if (typeof suggestions === 'string') {
+            suggestions = [suggestions];
+          } else if (suggestions && typeof suggestions === 'object') {
+            suggestions = [suggestions];
+          } else {
+            suggestions = [];
+          }
+        }
+        
         suggestions.forEach(suggestion => {
           const item = document.createElement('div');
           item.className = 'suggestion-item';
           
+          // Debug
+          console.log('Kiểu dữ liệu của suggestion:', typeof suggestion);
+          
           // Lấy nội dung gợi ý
-          const suggestionText = typeof suggestion === 'string' ? suggestion : suggestion.text;
+          let suggestionText = '';
+          if (typeof suggestion === 'string') {
+            suggestionText = suggestion;
+          } else if (suggestion && typeof suggestion === 'object') {
+            // Tìm title, text hoặc bất kỳ trường nào có thể chứa nội dung
+            suggestionText = suggestion.title || suggestion.text || JSON.stringify(suggestion);
+          }
           
           // Tạo highlight cho từ khóa trong gợi ý
           const highlightedText = highlightMatch(suggestionText, query);
@@ -588,7 +609,14 @@
             
             // Nếu đang trong tab web, cập nhật source từ gợi ý
             if (modeInput.value === 'web' && suggestion.source) {
-              const sourceLower = suggestion.source.toLowerCase();
+              let sourceLower;
+              if (typeof suggestion.source === 'string') {
+                sourceLower = suggestion.source.toLowerCase();
+              } else {
+                // Nếu source không phải là string, sử dụng giá trị mặc định
+                sourceLower = 'all';
+              }
+              
               if (sourceLower === 'youtube' || sourceLower === 'wikipedia' || sourceLower === 'google') {
                 updateSourceSelection(sourceLower);
               }

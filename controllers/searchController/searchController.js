@@ -145,11 +145,39 @@ const handleSearch = async (req, res) => {
             console.log('✅ Kết quả từ AI:', JSON.stringify(aiTopics));
             
             // Chuyển đổi thành định dạng giống với web trend
-            keywordList = aiTopics.map(topic => ({
-              title: topic.title,
-              source: topic.source || `${selectedModel === 'gemini' ? 'Gemini' : 'OpenAI'}`,
-              views: null // AI không có lượt xem
-            }));
+            // Đảm bảo aiTopics là một mảng và các phần tử có dạng chuẩn
+            let processedTopics = [];
+            if (Array.isArray(aiTopics)) {
+              processedTopics = aiTopics;
+            } else if (typeof aiTopics === 'string') {
+              try {
+                // Nếu là chuỗi JSON, parse thành mảng
+                processedTopics = JSON.parse(aiTopics);
+              } catch(e) {
+                // Nếu không phải JSON, tạo một mục đơn lẻ
+                processedTopics = [{ title: aiTopics, source: "" }];
+              }
+            } else if (aiTopics && typeof aiTopics === 'object') {
+              // Nếu là object duy nhất, bọc trong mảng
+              processedTopics = [aiTopics];
+            }
+            
+            keywordList = processedTopics.map(topic => {
+              // Đảm bảo mỗi topic có dạng chuẩn
+              if (typeof topic === 'string') {
+                return {
+                  title: topic,
+                  source: `${selectedModel === 'gemini' ? 'Gemini' : 'OpenAI'}`,
+                  views: null
+                };
+              } else {
+                return {
+                  title: topic.title || topic.text || JSON.stringify(topic),
+                  source: topic.source || `${selectedModel === 'gemini' ? 'Gemini' : 'OpenAI'}`,
+                  views: null // AI không có lượt xem
+                };
+              }
+            });
             
             if (keywordList.length > 0) {
               const modelName = selectedModel === 'gemini' ? 'Gemini' : 'OpenAI';
