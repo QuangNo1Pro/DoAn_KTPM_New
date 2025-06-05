@@ -2,11 +2,11 @@ require('dotenv').config();
 const pgp = require('pg-promise')({ capSQL: true });
 
 const dbConfig = {
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    database: process.env.DB_NAME,
+    user: 'postgres',
+    password: '123456',
+    host: 'localhost',
+    port: 5432,
+    database: 'KTPM',
 };
 const db = pgp(dbConfig);
 // Lấy tất cả người dùng

@@ -13,6 +13,9 @@ const { initializePassport } = require('./middleware/auth'); // Cấu hình Pass
 const port = 3000
 const app = express()
 
+// Phục vụ tệp tĩnh từ thư mục public
+app.use(express.static(path.join(__dirname, 'public')))
+
 // Middleware xử lý request
 app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
@@ -53,6 +56,7 @@ const registerRouter = require('./routes/registerRouters')
 const loginRouter = require('./routes/loginRouters')
 const logoutRouter = require('./routes/logoutRouters')
 const searchRouter = require('./routes/searchRouter/seachRouter')
+const suggestRouter = require('./routes/searchRouter/suggestRouter')
 
 // Sử dụng Routers
 app.use(homeRouter)
@@ -61,6 +65,7 @@ app.use(loginRouter)
 app.use(logoutRouter)
 app.use('/', googleAuthRouter)
 app.use(searchRouter)
+app.use(suggestRouter)
 
 // Khởi động server
 app.listen(port, () => {

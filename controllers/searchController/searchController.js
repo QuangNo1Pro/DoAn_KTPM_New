@@ -20,7 +20,6 @@ const handleSearch = async (req, res) => {
 
       case 'web': {
         const query = keyword && keyword.trim() !== '' ? keyword.trim() : 'hot trend';
-
         const ytRes = await axios.get(`https://www.googleapis.com/youtube/v3/search`, {
           params: {
             q: query,
