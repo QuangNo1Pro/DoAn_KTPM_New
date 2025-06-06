@@ -47,6 +47,12 @@ app.engine('handlebars', engine({
   }
 }))
 
+app.use((req, res, next) => {
+    res.locals.user = req.session?.user || null; // nếu dùng session
+    next();
+});
+
+
 app.set('view engine', 'handlebars')
 app.set('views', path.join(__dirname, 'views'))
 
