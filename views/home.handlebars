@@ -8,6 +8,9 @@
     <style>
         body {
             background-color: #0F1419;
+            min-height: 100vh; /* Đảm bảo body chiếm toàn bộ chiều cao viewport */
+            display: flex;
+            flex-direction: column;
         }
 
         .hero {
@@ -26,6 +29,32 @@
             background-color: #FBBF24;
             color: #FFFFFF;
         }
+
+        .feature-card {
+            background: linear-gradient(to bottom, #1D2530, #0E0F11);
+            padding: 20px;
+            border-radius: 12px;
+            color: #FFFFFF;
+        }
+
+        .feature-card h5 {
+            color: #FFFFFF;
+        }
+
+        .feature-card p {
+            color: #CBD5E1;
+        }
+
+        main {
+            flex: 1 0 auto; /* Cho phép main co giãn và đẩy footer xuống dưới */
+        }
+
+        footer {
+            background-color: #000000;
+            color: #FBBF24;
+            padding: 10px 0;
+            width: 100%;
+        }
     </style>
 </head>
 
@@ -40,21 +69,27 @@
 
         <section class="row mt-5 text-center">
             <div class="col-md-4">
-                <h5>🎯 Trending Ideas</h5>
-                <p>Auto-suggested video topics based on viral trends.</p>
+                <div class="feature-card">
+                    <h5>🎯 Trending Ideas</h5>
+                    <p>Auto-suggested video topics based on viral trends.</p>
+                </div>
             </div>
             <div class="col-md-4">
-                <h5>✍️ Script Generation</h5>
-                <p>AI writes your video script instantly from your idea.</p>
+                <div class="feature-card">
+                    <h5>✍️ Script Generation</h5>
+                    <p>AI writes your video script instantly from your idea.</p>
+                </div>
             </div>
             <div class="col-md-4">
-                <h5>🎬 Video Builder</h5>
-                <p>Auto-create, edit, and export short videos.</p>
+                <div class="feature-card">
+                    <h5>🎬 Video Builder</h5>
+                    <p>Auto-create, edit, and export short videos.</p>
+                </div>
             </div>
         </section>
     </main>
 
-    <footer class="text-center mt-5 mb-3 text-muted" style="color: #94A3B8;">
+    <footer class="text-center">
         © 2025 AI ShortVideo. All rights reserved.
     </footer>
 </body>
