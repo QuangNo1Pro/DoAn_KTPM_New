@@ -12,25 +12,23 @@
 
     <style>
         :root {
-            --main-bg: #1c1b1b;
-            --card-bg: linear-gradient(to bottom, gray, black);
-            --accent: #FFC107;
-            --accent-dark: #e6b213;
-            --text-light: #fff;
-            --text-muted: #F1CA4B;
-            --footer-bg: #2A2F3A;
+            --main-bg: #0F1419;              /* Màu xám đậm làm nền chính */
+            --card-bg: linear-gradient(to bottom, #1D2530, #0E0F11); /* Gradient từ xanh đậm sang xám rất đậm */
+            --accent: rgb(252, 211, 77);               /* Màu xanh dương sáng cho điểm nhấn (nút, tiêu đề) */
+            --accent-dark: #06B6D4;          /* Màu xanh ngọc khi hover */
+            --text-light: #FFFFFF;           /* Màu trắng cho văn bản chính */
+            --text-muted: #94A3B8;           /* Màu xám nhạt cho văn bản phụ */
+            --footer-bg: #15202B;            /* Màu xanh đậm cho footer */
         }
 
         body {
-            background: linear-gradient(to bottom, #383636, #302f2f);
-            /* từ xám nhạt đến đen */
+            background: linear-gradient(to bottom, #0F172A, #1D2530); /* Gradient từ xanh đậm sang xanh nhạt */
             color: var(--text-light);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             padding-bottom: 60px;
         }
-
 
         main {
             flex: 1 0 auto;
@@ -52,7 +50,7 @@
 
         .card:hover {
             transform: scale(1.02);
-            box-shadow: 0 4px 12px gray;
+            box-shadow: 0 4px 12px #425364;
         }
 
         .card-title {
@@ -65,11 +63,9 @@
             max-height: 300px;
             aspect-ratio: 1024 / 1526;
             object-fit: contain;
-            background: linear-gradient(to bottom, #3b3937, #1a2b2d);
-            /* từ xám sang xanh đen */
+            background: linear-gradient(to bottom, #15202B, #090A0B); /* Gradient từ xanh đậm sang xám rất đậm */
             border-radius: 0.375rem 0.375rem 0 0;
         }
-
 
         .btn-outline-primary {
             color: var(--accent);
