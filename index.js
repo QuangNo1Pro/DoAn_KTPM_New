@@ -57,7 +57,7 @@ const loginRouter = require('./routes/loginRouters')
 const logoutRouter = require('./routes/logoutRouters')
 const searchRouter = require('./routes/searchRouter/seachRouter')
 const suggestRouter = require('./routes/searchRouter/suggestRouter')
-
+const videoRouter = require('./routes/videoRouter/videoRouter')
 // Sử dụng Routers
 app.use(homeRouter)
 app.use(registerRouter)
@@ -66,7 +66,7 @@ app.use(logoutRouter)
 app.use('/', googleAuthRouter)
 app.use(searchRouter)
 app.use(suggestRouter)
-
+app.use(videoRouter)
 // Khởi động server
 app.listen(port, () => {
   console.log(`Server đang chạy tại http://localhost:${port}`)
