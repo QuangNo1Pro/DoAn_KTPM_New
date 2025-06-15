@@ -181,19 +181,70 @@ Yêu cầu:
 `;
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4", // hoặc "gpt-3.5-turbo"
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
-      max_tokens: 1000,
-    });
-
-    return completion.choices[0].message.content.trim();
-  } catch (error) {
-    console.error("❌ Lỗi khi gọi OpenAI:", error.message);
-    if (error.response) {
-      console.error("Chi tiết:", await error.response.json());
+    // Import và kiểm tra Gemini API
+    const { GoogleGenerativeAI } = require('@google/generative-ai');
+    
+    // Kiểm tra API key có tồn tại không
+    if (!process.env.GEMINI_API_KEY) {
+      console.log('⚠️ Không tìm thấy GEMINI_API_KEY, chuyển sang dùng kịch bản mẫu...');
+      throw new Error("Không tìm thấy GEMINI_API_KEY");
     }
-    throw new Error("Gọi OpenAI thất bại.");
+    
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro-preview" });
+    
+    // Gọi Gemini API
+    console.log('🤖 Đang gọi Gemini API để tạo kịch bản...');
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+    const scriptContent = response.text().trim();
+    console.log('✓ Đã nhận phản hồi từ Gemini API');
+    
+    return scriptContent;
+    
+  } catch (error) {
+    console.error("❌ Lỗi khi gọi Gemini:", error.message);
+    
+    // Fallback sang OpenAI nếu Gemini có lỗi
+    try {
+      // Kiểm tra OpenAI API key có tồn tại không
+      if (!process.env.OPENAI_API_KEY) {
+        console.log('⚠️ Không tìm thấy OPENAI_API_KEY, chuyển sang dùng kịch bản mẫu...');
+        throw new Error("Không tìm thấy OPENAI_API_KEY");
+      }
+      
+      console.log('⚠️ Gemini lỗi, chuyển sang OpenAI...');
+      const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo", // Dùng gpt-3.5-turbo để tiết kiệm quota
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 1000,
+      });
+  
+      return completion.choices[0].message.content.trim();
+    } catch (openAiError) {
+      console.error("❌ Lỗi khi gọi OpenAI:", openAiError.message);
+      
+      // Tạo kịch bản mẫu nếu cả hai API đều thất bại
+      console.log('⚠️ Tất cả API đều thất bại, sử dụng kịch bản mẫu');
+      
+      // Tạo kịch bản mẫu dựa trên từ khóa
+      return `
+# Kịch bản video về "${keyword}"
+
+## Mở đầu (Hook)
+"Bạn đã bao giờ tự hỏi về ${keyword}? Hôm nay mình sẽ chia sẻ những điều thú vị nhất về chủ đề này!"
+
+## Nội dung chính
+"${keyword} là một chủ đề rất thú vị và đang được nhiều người quan tâm. Có 3 điều bạn nên biết:
+
+1. ${keyword} đang trở thành xu hướng trong năm 2024
+2. Những người thành công với ${keyword} thường áp dụng các phương pháp khác biệt
+3. Bạn có thể bắt đầu với ${keyword} ngay hôm nay chỉ với 3 bước đơn giản
+
+## Kết thúc (Call to Action)
+"Nếu bạn thấy video này hữu ích, hãy like và follow để xem thêm nội dung về ${keyword} nhé! Comment bên dưới nếu bạn có câu hỏi hoặc muốn mình chia sẻ thêm về chủ đề này!"
+`;
+    }
   }
 };

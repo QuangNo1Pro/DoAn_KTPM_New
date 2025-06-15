@@ -2,34 +2,26 @@
 
 ## Cấu hình môi trường
 
-Để sử dụng cả OpenAI và Gemini, bạn cần thiết lập các API key trong file `.env`:
+Để sử dụng ứng dụng, bạn cần thiết lập các cấu hình trong file `.env`:
 
 ```
-# Cấu hình API key cho OpenAI
-OPENAI_API_KEY=your_openai_api_key
-
-# Cấu hình API key cho Google Gemini
-GEMINI_API_KEY=your_gemini_api_key
-
-# Cấu hình API key cho Youtube
+# Cấu hình API key cho Youtube (cho tính năng tìm kiếm xu hướng)
 YOUTUBE_API_KEY=your_youtube_api_key
 
 # Cấu hình session
 SESSION_SECRET=your_session_secret
 ```
 
-## Cách lấy API key
+Đặc biệt, ứng dụng sẽ sử dụng **Google Vertex AI** với mô hình Gemini 2.5 Pro qua file credentials `gemini.json`:
 
-### OpenAI API Key
-1. Đăng nhập vào tài khoản OpenAI của bạn tại https://platform.openai.com/
-2. Vào mục API Keys
-3. Tạo một API key mới và sao chép vào file .env
+## Chuẩn bị cho Vertex AI
 
-### Gemini API Key
-1. Truy cập Google AI Studio tại https://aistudio.google.com/
-2. Đăng nhập bằng tài khoản Google của bạn
-3. Vào mục "Get API key"
-4. Tạo một API key mới và sao chép vào file .env
+1. Tạo một service account trong Google Cloud Console
+2. Gán quyền "Vertex AI User" cho service account này
+3. Tạo và tải xuống key JSON cho service account
+4. Đổi tên key JSON thành `gemini.json` và đặt trong thư mục gốc của dự án
+
+Tài liệu về Vertex AI: https://cloud.google.com/vertex-ai/docs/generative-ai/start/quickstarts/api-quickstart
 
 ## Cài đặt
 

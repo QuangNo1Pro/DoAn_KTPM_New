@@ -1,17 +1,43 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleAuth } = require('google-auth-library');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
-// Kiểm tra API key
-const apiKey = process.env.GEMINI_API_KEY;
-if (!apiKey) {
-  console.error('❌ GEMINI_API_KEY không được cấu hình trong tệp .env!');
+// Đường dẫn đến file credentials
+const credentialsPath = path.join(__dirname, '..', 'gemini.json');
+
+// Kiểm tra file credentials
+if (!fs.existsSync(credentialsPath)) {
+  console.error(`❌ Không tìm thấy file credentials tại đường dẫn: ${credentialsPath}`);
 } else {
-  const maskedKey = apiKey.substring(0, 5) + '...' + apiKey.substring(apiKey.length - 4);
-  console.log(`✓ Đã tìm thấy GEMINI_API_KEY: ${maskedKey}`);
+  console.log(`✓ Đã tìm thấy file credentials tại: ${credentialsPath}`);
 }
 
-// Khởi tạo Google Generative AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Khởi tạo Google Generative AI với auth từ service account
+let genAI;
+try {
+  // Đọc credentials từ file
+  const credentials = JSON.parse(fs.readFileSync(credentialsPath));
+  
+  // Cấu hình API key thay vì service account vì Gemini API chỉ hỗ trợ API key trực tiếp
+  // Trong trường hợp này, ta vẫn dùng thư viện Generative AI nhưng sẽ cần API key
+  
+  // Thử lấy API key từ .env nếu có
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey) {
+    genAI = new GoogleGenerativeAI(apiKey);
+    console.log('✓ Khởi tạo Gemini với API key từ .env');
+  } else {
+    // Fallback xuống mã thử nghiệm (demo)
+    console.warn('⚠️ Không tìm thấy GEMINI_API_KEY trong .env file');
+    console.warn('⚠️ Sử dụng service account credentials không được hỗ trợ trực tiếp với @google/generative-ai');
+    console.warn('⚠️ Bạn cần tạo API key từ Google AI Studio và thêm vào .env file');
+    genAI = new GoogleGenerativeAI("DEMO_KEY"); // Sẽ không hoạt động với DEMO_KEY
+  }
+} catch (error) {
+  console.error('❌ Lỗi khi khởi tạo Gemini API:', error.message);
+}
 
 // Hàm sinh chủ đề bằng Gemini
 exports.generateTopicByGemini = async (keyword) => {
@@ -49,8 +75,12 @@ Yêu cầu:
     console.log('🤖 Đang gọi Gemini API với prompt:', prompt.substring(0, 100) + '...');
     
     try {
+      if (!genAI) {
+        throw new Error("Google Generative AI chưa được khởi tạo");
+      }
+      
       // Lấy model Gemini
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-pro-2.5" });
       
       // Gọi API
       const result = await model.generateContent(prompt);

@@ -113,6 +113,18 @@
                         </ul>
                     </li>
 
+                    <!-- Nav links cho người dùng đăng nhập -->
+                    <li class="nav-item">
+                        <a class="nav-link {{#if (eq title 'Tìm kiếm')}}active{{/if}}" href="/search">
+                            <i class="bi bi-search me-2"></i>Tìm kiếm
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{#if (eq title 'Tạo ảnh bằng AI')}}active{{/if}}" href="/create-image">
+                            <i class="bi bi-image me-2"></i>Tạo ảnh AI
+                        </a>
+                    </li>
+
                 </ul>
             </div>
         </div>

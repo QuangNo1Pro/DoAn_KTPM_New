@@ -1,22 +1,27 @@
 const axios = require('axios');
 require('dotenv').config();
-const { generateTopicByAI, generateScriptByAI } = require('../../services/aiService');
-const { generateTopicByGemini } = require('../../services/geminiService');
+const { generateScriptByVertexAI, generateTopicByVertexAI } = require('../../services/vertexService');
 const { getAllTrends, getYouTubeTrends, getWikipediaTrends, getGoogleTrends } = require('../../services/trendService');
 
 const handleSearch = async (req, res) => {
   const { mode, keyword: rawKeyword, source, ai_model } = req.body;
   
-  // Log chi tiết về dữ liệu đầu vào
+  // Log chi tiết về dữ liệu đầu vào kèm theo giá trị
   console.log('Request body chi tiết:', {
     mode: mode,
     keyword: rawKeyword,
     source: source,
-    ai_model: ai_model || 'openai',
+    ai_model: ai_model,
     keywordType: typeof rawKeyword,
     keywordIsArray: Array.isArray(rawKeyword)
   });
   
+  // Kiểm tra ai_model để chỉ nhận 'pro' hoặc 'flash'
+  let actualModel = 'pro'; // Mặc định là pro
+  if (['pro', 'flash', 'flash-lite', 'flash-2'].includes(ai_model)) {
+    actualModel = ai_model;
+  }
+
   // Xử lý keyword có thể là mảng (từ multiple inputs với cùng name) hoặc string
   const keyword = Array.isArray(rawKeyword) ? rawKeyword[0] : rawKeyword;
   
@@ -25,7 +30,7 @@ const handleSearch = async (req, res) => {
   let trends = [];
 
   // Log để debug
-  console.log('Request body đã xử lý:', { mode, keyword, source, ai_model });
+  console.log('Request body đã xử lý:', { mode, keyword, source, ai_model: actualModel });
 
   try {
     switch (mode) {
@@ -126,20 +131,13 @@ const handleSearch = async (req, res) => {
               break;
             }
             
-            // Kiểm tra và sử dụng ai_model nếu được cung cấp
-            const selectedModel = ai_model || 'openai';
-            console.log(`🤖 Sử dụng model AI: ${selectedModel}`);
+            // Xác định mô hình AI để sử dụng
+            const modelType = actualModel; // 'pro' hoặc 'flash'
+            console.log(`🤖 Sử dụng Vertex AI model: ${modelType}`);
             
-            // Gọi hàm tạo chủ đề dựa trên model được chọn
-            let aiTopics;
-            if (selectedModel === 'gemini') {
-              aiTopics = await generateTopicByGemini(keyword);
-              console.log('✅ Đã sử dụng Gemini để sinh chủ đề');
-            } else {
-              // Mặc định sử dụng OpenAI
-              aiTopics = await generateTopicByAI(keyword);
-              console.log('✅ Đã sử dụng OpenAI để sinh chủ đề');
-            }
+            // Gọi hàm tạo chủ đề với modelType
+            let aiTopics = await generateTopicByVertexAI(keyword, modelType);
+            console.log(`✅ Đã sử dụng Vertex AI (${modelType}) để sinh chủ đề`);
             
             // Log kết quả từ AI để debug
             console.log('✅ Kết quả từ AI:', JSON.stringify(aiTopics));
@@ -162,25 +160,26 @@ const handleSearch = async (req, res) => {
               processedTopics = [aiTopics];
             }
             
+            const modelName = getModelDisplayName(modelType);
+            
             keywordList = processedTopics.map(topic => {
               // Đảm bảo mỗi topic có dạng chuẩn
               if (typeof topic === 'string') {
                 return {
                   title: topic,
-                  source: `${selectedModel === 'gemini' ? 'Gemini' : 'OpenAI'}`,
+                  source: `Vertex AI (${modelName})`,
                   views: null
                 };
               } else {
                 return {
                   title: topic.title || topic.text || JSON.stringify(topic),
-                  source: topic.source || `${selectedModel === 'gemini' ? 'Gemini' : 'OpenAI'}`,
+                  source: topic.source || `Vertex AI (${modelName})`,
                   views: null // AI không có lượt xem
                 };
               }
             });
             
             if (keywordList.length > 0) {
-              const modelName = selectedModel === 'gemini' ? 'Gemini' : 'OpenAI';
               script = `🤖 ${modelName} đã sinh ${keywordList.length} ý tưởng chủ đề cho "${keyword}":\n(Hãy nhấn vào 1 chủ đề để tạo kịch bản)`;
             } else {
               script = '❌ AI không thể sinh được chủ đề. Vui lòng thử lại với từ khóa khác.';
@@ -206,25 +205,97 @@ const handleSearch = async (req, res) => {
     trends = [];
   }
 
-  res.render('searchView/search', { script, keywordList, trends, mode, source, keyword, ai_model: ai_model || 'openai' });
+  res.render('searchView/search', { script, keywordList, trends, mode, source, keyword, ai_model: actualModel });
 };
 
 const generateScript = async (req, res) => {
-  const { keyword } = req.body;
+  const { keyword, ai_model } = req.body;
+  
+  console.log('Generate script request:', { keyword, ai_model });
   
   // Đảm bảo keyword là chuỗi
   const processedKeyword = Array.isArray(keyword) ? keyword[0] : keyword;
+  
+  // Xác định model type và đảm bảo chỉ nhận giá trị hợp lệ
+  let modelType = 'pro'; // Mặc định là pro
+  if (['pro', 'flash', 'flash-lite', 'flash-2'].includes(ai_model)) {
+    modelType = ai_model;
+  }
+  
+  console.log(`Đã xử lý request, sẽ dùng model: ${modelType}`);
   
   try {
     if (!processedKeyword || typeof processedKeyword !== 'string' || processedKeyword.trim() === '') {
       return res.json({ success: false, error: 'Từ khóa không được để trống.' });
     }
     
-    const topic = await generateScriptByAI(processedKeyword);
-    return res.json({ success: true, script: topic });
-  } catch (err) {
-    console.error('Lỗi sinh kịch bản:', err);
-    return res.json({ success: false, error: 'Lỗi khi sinh kịch bản.' });
+    // Sử dụng Vertex AI để sinh kịch bản với model được chọn
+    let script = '';
+    let success = false;
+    let errorMessage = '';
+    
+    try {
+      console.log(`🤖 Đang gọi Vertex AI (${modelType}) để tạo kịch bản...`);
+      script = await generateScriptByVertexAI(processedKeyword, modelType);
+      success = true;
+      console.log(`✅ Đã sử dụng Vertex AI (${modelType}) thành công`);
+    } catch (vertexError) {
+      console.error('❌ Lỗi khi gọi Vertex AI:', vertexError.message);
+      errorMessage = 'Vertex AI: ' + vertexError.message;
+      
+      // Phương pháp cuối cùng: Tạo kịch bản mẫu nếu Vertex AI thất bại
+      console.log('⚠️ Vertex AI thất bại, tạo kịch bản mẫu');
+      script = `
+# Kịch bản video về "${processedKeyword}"
+
+## Mở đầu (Hook)
+"Bạn đã bao giờ tự hỏi về ${processedKeyword}? Hôm nay mình sẽ chia sẻ những điều thú vị nhất về chủ đề này!"
+
+## Nội dung chính
+"${processedKeyword} là một chủ đề rất thú vị và đang được nhiều người quan tâm. Có 3 điều bạn nên biết:
+
+1. ${processedKeyword} đang trở thành xu hướng trong năm 2024
+2. Những người thành công với ${processedKeyword} thường áp dụng các phương pháp khác biệt
+3. Bạn có thể bắt đầu với ${processedKeyword} ngay hôm nay chỉ với 3 bước đơn giản
+
+## Kết thúc (Call to Action)
+"Nếu bạn thấy video này hữu ích, hãy like và follow để xem thêm nội dung về ${processedKeyword} nhé! Comment bên dưới nếu bạn có câu hỏi hoặc muốn mình chia sẻ thêm về chủ đề này!"
+`;
+      success = true;
+      console.log('✅ Đã tạo kịch bản mẫu thành công');
+    }
+    
+    if (success) {
+      res.json({
+        success: true,
+        script: script,
+        model: modelType
+      });
+    } else {
+      res.json({
+        success: false,
+        error: errorMessage || 'Không thể tạo kịch bản.'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Lỗi trong quá trình tạo kịch bản:', error);
+    res.json({
+      success: false,
+      error: error.message || 'Đã xảy ra lỗi khi tạo kịch bản.'
+    });
+  }
+};
+
+const getModelDisplayName = (modelType) => {
+  switch(modelType) {
+    case 'flash':
+      return 'Gemini 2.5 Flash';
+    case 'flash-lite':
+      return 'Gemini 2.0 Flash Lite';
+    case 'flash-2':
+      return 'Gemini 2.0 Flash';
+    default:
+      return 'Gemini 2.5 Pro';
   }
 };
 

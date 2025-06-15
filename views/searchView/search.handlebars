@@ -307,14 +307,23 @@
             <div class="card-body">
               <div class="mb-3">
                 <label class="form-label">Chọn mô hình AI:</label>
-                <div class="d-flex gap-2">
-                  <button type="button" class="ai-model-btn btn {{#unless ai_model}}btn-primary{{else}}{{#if (eq ai_model 'openai')}}btn-primary{{else}}btn-outline-primary{{/if}}{{/unless}}" data-model="openai">
-                    <i class="bi bi-lightning me-1"></i> OpenAI
+                <div class="d-flex gap-2 flex-wrap">
+                  <button type="button" class="ai-model-btn btn {{#if (eq ai_model 'pro')}}btn-primary{{else}}btn-outline-primary{{/if}}" data-model="pro" onclick="selectAIModel('pro')">
+                    <i class="bi bi-stars me-1"></i> Gemini 2.5 Pro
                   </button>
-                  <button type="button" class="ai-model-btn btn {{#if (eq ai_model 'gemini')}}btn-success{{else}}btn-outline-success{{/if}}" data-model="gemini">
-                    <i class="bi bi-google me-1"></i> Gemini
+                  <button type="button" class="ai-model-btn btn {{#if (eq ai_model 'flash')}}btn-success{{else}}btn-outline-success{{/if}}" data-model="flash" onclick="selectAIModel('flash')">
+                    <i class="bi bi-lightning-charge me-1"></i> Gemini 2.5 Flash
+                  </button>
+                  <button type="button" class="ai-model-btn btn {{#if (eq ai_model 'flash-lite')}}btn-info{{else}}btn-outline-info{{/if}}" data-model="flash-lite" onclick="selectAIModel('flash-lite')">
+                    <i class="bi bi-lightning-charge-fill me-1"></i> Gemini 2.0 Flash Lite
+                  </button>
+                  <button type="button" class="ai-model-btn btn {{#if (eq ai_model 'flash-2')}}btn-warning{{else}}btn-outline-warning{{/if}}" data-model="flash-2" onclick="selectAIModel('flash-2')">
+                    <i class="bi bi-lightning me-1"></i> Gemini 2.0 Flash
                   </button>
                 </div>
+                <small class="text-muted mt-1 d-block">
+                  Pro: Chất lượng cao nhất, Flash: Tốc độ nhanh hơn
+                </small>
                 <input type="hidden" name="ai_model" id="aiModelInput" value="{{ai_model}}">
               </div>
               <div class="mb-3 position-relative">
@@ -333,6 +342,84 @@
             </div>
           </div>
           
+          <!-- Script trực tiếp để chọn mô hình AI -->
+          <script>
+            function selectAIModel(model) {
+              document.getElementById('aiModelInput').value = model;
+              console.log('Đã chọn model:', model);
+              
+              // Cập nhật UI buttons
+              document.querySelectorAll('.ai-model-btn').forEach(btn => {
+                const btnModel = btn.dataset.model;
+                if (btnModel === 'pro') {
+                  btn.className = btnModel === model ? 
+                    'ai-model-btn btn btn-primary' : 
+                    'ai-model-btn btn btn-outline-primary';
+                } else if (btnModel === 'flash') {
+                  btn.className = btnModel === model ? 
+                    'ai-model-btn btn btn-success' : 
+                    'ai-model-btn btn btn-outline-success';
+                } else if (btnModel === 'flash-lite') {
+                  btn.className = btnModel === model ? 
+                    'ai-model-btn btn btn-info' : 
+                    'ai-model-btn btn btn-outline-info';
+                } else if (btnModel === 'flash-2') {
+                  btn.className = btnModel === model ? 
+                    'ai-model-btn btn btn-warning' : 
+                    'ai-model-btn btn btn-outline-warning';
+                }
+              });
+            }
+            
+            // Xử lý submit form
+            document.addEventListener('DOMContentLoaded', () => {
+              const aiSubmitBtn = document.getElementById('aiSubmitBtn');
+              if (aiSubmitBtn) {
+                aiSubmitBtn.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  const aiKeywordValue = document.getElementById('aiKeyword').value.trim();
+                  if (!aiKeywordValue) {
+                    alert('Vui lòng nhập từ khóa để AI sinh ra ý tưởng!');
+                    document.getElementById('aiKeyword').focus();
+                    return;
+                  }
+                  
+                  const aiModelValue = document.getElementById('aiModelInput').value || 'pro';
+                  console.log('Submit với model:', aiModelValue);
+                  
+                  // Tạo form và submit
+                  const tempForm = document.createElement('form');
+                  tempForm.method = 'POST';
+                  tempForm.action = '/search';
+                  tempForm.style.display = 'none';
+                  
+                  const inputs = [
+                    { name: 'mode', value: 'ai' },
+                    { name: 'keyword', value: aiKeywordValue },
+                    { name: 'source', value: 'ai' },
+                    { name: 'ai_model', value: aiModelValue }
+                  ];
+                  
+                  inputs.forEach(input => {
+                    const element = document.createElement('input');
+                    element.type = 'hidden';
+                    element.name = input.name;
+                    element.value = input.value;
+                    tempForm.appendChild(element);
+                  });
+                  
+                  document.body.appendChild(tempForm);
+                  tempForm.submit();
+                });
+              }
+              
+              // Mặc định giá trị nếu chưa có
+              if (!document.getElementById('aiModelInput').value) {
+                document.getElementById('aiModelInput').value = 'pro';
+              }
+            });
+          </script>
+
           <!-- Hiển thị script trong tab AI sinh ra -->
           {{#if (eq mode 'ai')}}
             {{#if script}}
@@ -347,10 +434,10 @@
               </div>
               <div class="list-group">
                 {{#each keywordList}}
-                  <button type="button" class="list-group-item list-group-item-action keyword-btn d-flex justify-content-between align-items-center">
+                  <button type="button" class="list-group-item list-group-item-action keyword-btn d-flex justify-content-between align-items-center" onclick="generateScriptWithModel(this, '{{../ai_model}}')">
                     <span>{{this.title}}</span>
                     <div>
-                      <span class="badge source-badge" style="background-color: #ff6b6b;">AI</span>
+                      <span class="badge source-badge" style="background-color: #ff6b6b;">{{this.source}}</span>
                     </div>
                   </button>
                 {{/each}}
@@ -391,6 +478,64 @@
   <div id="video-result" style="margin-top: 20px;"></div>
 
   <script>
+    // Hàm xử lý sinh kịch bản với model cụ thể
+    function generateScriptWithModel(buttonElement, modelDefault) {
+      const keyword = buttonElement.querySelector('span').innerText;
+      const aiModelInput = document.getElementById('aiModelInput');
+      const modelType = aiModelInput?.value || modelDefault || 'pro';
+      
+      console.log('Sinh kịch bản với từ khóa:', keyword, 'và model:', modelType);
+      
+      // Hiển thị spinner
+      const loadingSpinner = document.getElementById('loadingSpinner');
+      if (loadingSpinner) loadingSpinner.classList.remove('d-none');
+      
+      // Gửi fetch request với model type
+      fetch('/generate-script', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          keyword: keyword,
+          ai_model: modelType
+        }),
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Ẩn spinner
+        if (loadingSpinner) loadingSpinner.classList.add('d-none');
+        
+        const scriptContainer = document.getElementById('aiScriptContainer');
+        const scriptContent = document.getElementById('aiScriptContent');
+        const generateVideoWrapper = document.getElementById('generate-video-wrapper');
+        
+        if (data.success) {
+          // Hiển thị kịch bản và thông tin về model đã sử dụng
+          const modelName = data.model === 'flash' ? 'Gemini 2.5 Flash' : 'Gemini 2.5 Pro';
+          scriptContent.textContent = data.script;
+          
+          // Cập nhật header script để hiển thị model đã dùng
+          const scriptHeader = scriptContainer.querySelector('.card-header span');
+          if (scriptHeader) {
+            scriptHeader.textContent = `🤖 Kịch bản AI (${modelName})`;
+          }
+          
+          scriptContainer.classList.remove('d-none');
+          if (generateVideoWrapper) generateVideoWrapper.style.display = 'block';
+          
+          // Cuộn đến kết quả
+          scriptContainer.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          alert('Lỗi: ' + (data.error || 'Không thể tạo kịch bản'));
+        }
+      })
+      .catch(error => {
+        if (loadingSpinner) loadingSpinner.classList.add('d-none');
+        alert('Lỗi: ' + error.message);
+      });
+    }
+    
     document.addEventListener('DOMContentLoaded', () => {
       // Khởi tạo các biến và sự kiện
       const methodCards = document.querySelectorAll('.method-card');
@@ -425,8 +570,8 @@
             return false;
           }
           
-          // Lấy model AI đã chọn
-          const aiModelValue = aiModelInput?.value || 'openai';
+          // Lấy model AI từ input
+          const aiModelValue = aiModelInput?.value || 'pro';
           
           console.log('Đang gửi yêu cầu AI với từ khóa:', aiKeywordValue, 'và model:', aiModelValue);
           
@@ -705,24 +850,13 @@
         });
       }
 
-      // Xử lý nút chọn model AI
-      aiModelBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const model = btn.getAttribute('data-model');
-          aiModelInput.value = model;
-          
-          // Cập nhật UI
-          aiModelBtns.forEach(b => {
-            const btnModel = b.getAttribute('data-model');
-            
-            if (btnModel === 'openai') {
-              b.className = btnModel === model ? 
-                'ai-model-btn btn btn-primary' : 'ai-model-btn btn btn-outline-primary';
-            } else if (btnModel === 'gemini') {
-              b.className = btnModel === model ? 
-                'ai-model-btn btn btn-success' : 'ai-model-btn btn btn-outline-success';
-            }
-          });
+      // Xử lý nút xóa từ khóa
+      clearKeywordBtns.forEach((btn, index) => {
+        btn.addEventListener('click', function() {
+          const input = keywordInputs[index];
+          input.value = '';
+          this.style.display = 'none';
+          input.focus();
         });
       });
 
@@ -819,7 +953,7 @@
           navigator.clipboard.writeText(scriptText)
             .then(() => {
               const originalText = copyScriptBtn.innerHTML;
-              copyScriptBtn.innerHTML = '<i class="bi bi-check-lg"></i> Đã sao chép';
+              copyScriptBtn.innerHTML = '<i class="bi bi-check2"></i> Đã sao chép';
               setTimeout(() => { copyScriptBtn.innerHTML = originalText; }, 2000);
             })
             .catch(err => console.error('Lỗi khi sao chép: ', err));
@@ -905,74 +1039,103 @@
           }
         });
       }
-    });
-        const scriptElement = document.getElementById('aiScriptContent');
-        const generateWrapper = document.getElementById('generate-video-wrapper');
-        const btnGenerate = document.getElementById('btn-generate-video');
-        const videoResult = document.getElementById('video-result');
 
-        // Theo dõi thay đổi nội dung script để hiện nút "Tạo video"
-        const observer = new MutationObserver(() => {
-          const content = scriptElement.innerText.trim();
-          if (content !== '') {
-            generateWrapper.style.display = 'block';
-          } else {
-            generateWrapper.style.display = 'none';
-          }
-        });
-
-        // Bắt đầu theo dõi khi DOM đã sẵn sàng
-        observer.observe(scriptElement, { childList: true, subtree: true, characterData: true });
-
-        // Xử lý sự kiện khi người dùng nhấn nút tạo video
-        btnGenerate.addEventListener('click', async () => {
-          const scriptText = scriptElement.innerText.trim();
-          if (!scriptText) {
-            alert('Chưa có kịch bản để tạo video!');
-            return;
-          }
-
-          // Hiển thị trạng thái loading
-          btnGenerate.disabled = true;
-          btnGenerate.innerText = '⏳ Đang tạo video...';
-          videoResult.innerHTML = `
-        <div class="text-center my-4">
-          <div class="spinner-border text-success" role="status" style="width: 2.5rem; height: 2.5rem;">
-            <span class="visually-hidden">Loading...</span>
-          </div>
-          <p class="mt-3 text-muted">Đang tạo video từ kịch bản...</p>
-        </div>
-      `;
-
-          try {
-            const response = await fetch('/generate', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ script: scriptText })
-            });
-
-            const data = await response.json();
-            if (data.success) {
-              videoResult.innerHTML = `
-            <div class="alert alert-success text-center">
-              ✅ Video đã được tạo thành công!
-            </div>
-            <video width="480" controls class="d-block mx-auto mt-3">
-              <source src="${data.videoUrl}" type="video/mp4">
-              Trình duyệt của bạn không hỗ trợ video.
-            </video>
-          `;
-            } else {
-              videoResult.innerHTML = `<div class="alert alert-danger">Tạo video thất bại: ${JSON.stringify(data.error)}</div>`;
+      // Thêm phần xử lý nút chọn mô hình AI
+      aiModelBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const model = this.getAttribute('data-model');
+          aiModelInput.value = model;
+          
+          // Cập nhật giao diện
+          aiModelBtns.forEach(b => {
+            const btnModel = b.getAttribute('data-model');
+            if (btnModel === 'pro') {
+              b.className = btnModel === model ? 
+                'ai-model-btn btn btn-primary' : 
+                'ai-model-btn btn btn-outline-primary';
+            } else if (btnModel === 'flash') {
+              b.className = btnModel === model ? 
+                'ai-model-btn btn btn-success' : 
+                'ai-model-btn btn btn-outline-success';
+            } else if (btnModel === 'flash-lite') {
+              b.className = btnModel === model ? 
+                'ai-model-btn btn btn-info' : 
+                'ai-model-btn btn btn-outline-info';
+            } else if (btnModel === 'flash-2') {
+              b.className = btnModel === model ? 
+                'ai-model-btn btn btn-warning' : 
+                'ai-model-btn btn btn-outline-warning';
             }
-          } catch (error) {
-            videoResult.innerHTML = `<div class="alert alert-danger">Lỗi khi tạo video: ${error.message}</div>`;
-          } finally {
-            btnGenerate.disabled = false;
-            btnGenerate.innerText = '🎬 Tạo Video Từ Kịch Bản';
-          }
+          });
         });
+      });
+      
+      // Thêm xử lý để chuyển ai_model khi gửi form
+      const form = document.getElementById('searchForm');
+      if (form) {
+        form.addEventListener('submit', function() {
+          const modelValue = aiModelInput?.value || 'pro';
+          
+          // Tạo hoặc cập nhật input hidden cho ai_model
+          let modelInput = form.querySelector('input[name="ai_model"]');
+          if (!modelInput) {
+            modelInput = document.createElement('input');
+            modelInput.type = 'hidden';
+            modelInput.name = 'ai_model';
+            form.appendChild(modelInput);
+          }
+          modelInput.value = modelValue;
+        });
+      }
+      
+      // Xử lý nút sinh kịch bản từ chủ đề
+      const keywordBtns = document.querySelectorAll('.keyword-btn');
+      keywordBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const keyword = this.querySelector('span').innerText;
+          const modelValue = aiModelInput?.value || 'pro';
+          
+          // Hiển thị spinner
+          const loadingSpinner = document.getElementById('loadingSpinner');
+          if (loadingSpinner) loadingSpinner.classList.remove('d-none');
+          
+          // Gửi request AJAX
+          fetch('/generate-script', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              keyword: keyword,
+              ai_model: modelValue
+            }),
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (loadingSpinner) loadingSpinner.classList.add('d-none');
+            
+            const scriptContainer = document.getElementById('aiScriptContainer');
+            const scriptContent = document.getElementById('aiScriptContent');
+            const generateVideoWrapper = document.getElementById('generate-video-wrapper');
+            
+            if (data.success) {
+              scriptContent.textContent = data.script;
+              scriptContainer.classList.remove('d-none');
+              if (generateVideoWrapper) generateVideoWrapper.style.display = 'block';
+              
+              // Cuộn đến kết quả
+              scriptContainer.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              // Hiển thị thông báo lỗi
+              alert('Lỗi: ' + (data.error || 'Không thể tạo kịch bản'));
+            }
+          })
+          .catch(error => {
+            if (loadingSpinner) loadingSpinner.classList.add('d-none');
+            alert('Lỗi: ' + error.message);
+          });
+        });
+      });
+    });
   </script>
 </div>
