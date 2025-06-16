@@ -185,4 +185,67 @@ exports.getWikipediaSuggestions = async (keyword) => {
       { text: keyword + ' định nghĩa', source: 'Wikipedia' }
     ];
   }
+};
+
+exports.getDailymotionSuggestions = async (keyword) => {
+  try {
+    // Dailymotion không có API gợi ý công khai chính thức, nên ta sẽ sử dụng API tìm kiếm của họ
+    const response = await axios.get('https://api.dailymotion.com/videos', {
+      params: {
+        fields: 'id,title,description',
+        search: keyword,
+        limit: 10,
+        languages: 'vi',  // Ưu tiên tiếng Việt
+        country: 'vn'     // Ưu tiên nội dung Việt Nam
+      }
+    });
+    
+    if (response.data && response.data.list && response.data.list.length > 0) {
+      // Trích xuất tiêu đề video làm gợi ý
+      return response.data.list.map(video => ({
+        text: video.title,
+        description: video.description || '',
+        url: `https://www.dailymotion.com/video/${video.id}`,
+        source: 'Dailymotion'
+      }));
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Lỗi khi lấy gợi ý từ Dailymotion:', error.message);
+    
+    // Fallback: Trả về gợi ý mẫu dựa trên từ khóa
+    const keyword_vi = keyword.toLowerCase();
+    
+    // Gợi ý cho video âm nhạc
+    if (keyword_vi.includes('nhạc') || keyword_vi.includes('music') || keyword_vi.includes('mv')) {
+      return [
+        { text: keyword + ' MV official', source: 'Dailymotion' },
+        { text: keyword + ' live performance', source: 'Dailymotion' },
+        { text: keyword + ' lyrics video', source: 'Dailymotion' },
+        { text: keyword + ' remix', source: 'Dailymotion' },
+        { text: keyword + ' concert', source: 'Dailymotion' }
+      ];
+    } 
+    // Gợi ý cho phim/show
+    else if (keyword_vi.includes('phim') || keyword_vi.includes('movie') || keyword_vi.includes('show')) {
+      return [
+        { text: keyword + ' trailer', source: 'Dailymotion' },
+        { text: keyword + ' tập mới nhất', source: 'Dailymotion' },
+        { text: keyword + ' full HD', source: 'Dailymotion' },
+        { text: keyword + ' vietsub', source: 'Dailymotion' },
+        { text: keyword + ' behind the scenes', source: 'Dailymotion' }
+      ];
+    }
+    // Gợi ý mặc định
+    else {
+      return [
+        { text: keyword + ' Việt Nam', source: 'Dailymotion' },
+        { text: keyword + ' trending', source: 'Dailymotion' },
+        { text: keyword + ' mới nhất', source: 'Dailymotion' },
+        { text: keyword + ' hot', source: 'Dailymotion' },
+        { text: keyword + ' review', source: 'Dailymotion' }
+      ];
+    }
+  }
 }; 

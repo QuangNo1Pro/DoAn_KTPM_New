@@ -1,7 +1,7 @@
 const axios = require('axios');
 require('dotenv').config();
 const { generateScriptByVertexAI, generateTopicByVertexAI } = require('../../services/vertexService');
-const { getAllTrends, getYouTubeTrends, getWikipediaTrends, getGoogleTrends } = require('../../services/trendService');
+const { getAllTrends, getYouTubeTrends, getWikipediaTrends, getGoogleTrends, getDailymotionTrends } = require('../../services/trendService');
 
 const handleSearch = async (req, res) => {
   const { mode, keyword: rawKeyword, source, ai_model } = req.body;
@@ -69,6 +69,9 @@ const handleSearch = async (req, res) => {
               source: 'Tuổi Trẻ' // Đảm bảo nguồn được đặt là Tuổi Trẻ
             }));
           }
+        } else if (source === 'dailymotion') {
+          trends = await getDailymotionTrends();
+          console.log(`Đã lấy ${trends.length} xu hướng từ Dailymotion`);
         } else {
           // Mặc định lấy tất cả nguồn nếu source là 'all', hoặc từ nguồn cụ thể
           trends = await getAllTrends(query, source);
@@ -85,7 +88,8 @@ const handleSearch = async (req, res) => {
           const sourceDisplayName = 
             source === 'google' ? 'Tuổi Trẻ' : 
             source === 'wikipedia' ? 'Wikipedia' : 
-            source === 'youtube' ? 'YouTube' : 'tất cả nguồn';
+            source === 'youtube' ? 'YouTube' :
+            source === 'dailymotion' ? 'Dailymotion' : 'tất cả nguồn';
           
           script = `🎯 Danh sách chủ đề trending từ ${sourceDisplayName}:\n(Hãy nhấn vào 1 chủ đề để tạo kịch bản)`;
           

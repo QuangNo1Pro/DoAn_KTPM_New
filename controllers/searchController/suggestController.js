@@ -1,4 +1,4 @@
-const { getYouTubeSuggestions, getGoogleSuggestions, getWikipediaSuggestions } = require('../../services/suggestService');
+const { getYouTubeSuggestions, getGoogleSuggestions, getWikipediaSuggestions, getDailymotionSuggestions } = require('../../services/suggestService');
 const axios = require('axios');
 require('dotenv').config();
 
@@ -67,6 +67,9 @@ const getSuggestions = async (req, res) => {
       } else if (source === 'google') {
         // Sử dụng API Google
         suggestions = await getGoogleSuggestions(trimmedQuery);
+      } else if (source === 'dailymotion') {
+        // Sử dụng API Dailymotion
+        suggestions = await getDailymotionSuggestions(trimmedQuery);
       } else {
         // Mặc định sử dụng API YouTube
         suggestions = await getYouTubeSuggestions(trimmedQuery);
@@ -86,6 +89,20 @@ const getSuggestions = async (req, res) => {
         }));
       } catch (fallbackError) {
         console.error('Lỗi khi lấy gợi ý fallback cho Wikipedia:', fallbackError);
+      }
+    }
+    
+    // Nếu không có kết quả từ Dailymotion, thử sử dụng API Google nhưng đổi nguồn thành Dailymotion
+    if (suggestions.length === 0 && source === 'dailymotion') {
+      try {
+        const googleSuggestions = await getGoogleSuggestions(trimmedQuery + ' dailymotion');
+        suggestions = googleSuggestions.map(item => ({
+          ...item,
+          text: item.text.replace(' dailymotion', ''),
+          source: 'Dailymotion'
+        }));
+      } catch (fallbackError) {
+        console.error('Lỗi khi lấy gợi ý fallback cho Dailymotion:', fallbackError);
       }
     }
     
@@ -144,6 +161,14 @@ const getSuggestions = async (req, res) => {
           { text: trimmedQuery + ' tiếng Việt', source: 'Wikipedia' },
           { text: trimmedQuery + ' bách khoa toàn thư', source: 'Wikipedia' }
         ];
+      } else if (source === 'dailymotion') {
+        suggestions = [
+          { text: trimmedQuery, source: 'Dailymotion' },
+          { text: trimmedQuery + ' Việt Nam', source: 'Dailymotion' },
+          { text: trimmedQuery + ' mới nhất', source: 'Dailymotion' },
+          { text: trimmedQuery + ' HD', source: 'Dailymotion' },
+          { text: trimmedQuery + ' viral', source: 'Dailymotion' }
+        ];
       } else {
         suggestions = [
           { text: trimmedQuery, source: 'Google' },
@@ -173,7 +198,9 @@ const getSuggestions = async (req, res) => {
     return res.status(200).json([
       { 
         text: req.query.q || "Không tìm thấy gợi ý", 
-        source: req.query.source === 'wikipedia' ? 'Wikipedia' : (req.query.source === 'google' ? 'Google' : 'YouTube')
+        source: req.query.source === 'wikipedia' ? 'Wikipedia' : 
+                (req.query.source === 'google' ? 'Google' : 
+                (req.query.source === 'dailymotion' ? 'Dailymotion' : 'YouTube'))
       }
     ]);
   }

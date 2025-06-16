@@ -30,6 +30,7 @@
   .suggestion-item i.bi-youtube { color: #FF0000; }
   .suggestion-item i.bi-wikipedia { color: #3366cc; }
   .suggestion-item i.bi-google { color: #4285F4; }
+  .suggestion-item i.bi-play-btn { color: #0066DC; }
   
   .suggestion-item .highlight { font-weight: bold; }
   .suggestion-item .description {
@@ -116,7 +117,13 @@
     color: #fff;
   }
   
-  .btn-youtube:hover, .btn-wikipedia:hover, .btn-google:hover {
+  .btn-dailymotion {
+    background-color: #0066DC;
+    border-color: #0066DC;
+    color: #fff;
+  }
+  
+  .btn-youtube:hover, .btn-wikipedia:hover, .btn-google:hover, .btn-dailymotion:hover {
     filter: brightness(90%);
     color: #fff;
   }
@@ -131,6 +138,10 @@
   
   .source-badge.google {
     background-color: #4285F4;
+  }
+  
+  .source-badge.dailymotion {
+    background-color: #0066DC;
   }
 </style>
 
@@ -238,6 +249,9 @@
                   <button type="button" class="source-btn btn {{#if (eq source 'google')}}btn-google{{else}}btn-outline-primary{{/if}}" data-source="google">
                     <i class="bi bi-google me-1"></i> Tuổi Trẻ
                   </button>
+                  <button type="button" class="source-btn btn {{#if (eq source 'dailymotion')}}btn-dailymotion{{else}}btn-outline-info{{/if}}" data-source="dailymotion">
+                    <i class="bi bi-play-btn me-1"></i> Dailymotion
+                  </button>
                 </div>
                 <input type="hidden" name="source" id="sourceInput" value="{{source}}">
               </div>
@@ -280,6 +294,9 @@
                 <button type="button" class="btn btn-outline-success filter-btn {{#if (eq source 'google')}}active{{/if}}" data-source="google">
                   <i class="bi bi-google"></i> Tuổi Trẻ
                 </button>
+                <button type="button" class="btn btn-outline-primary filter-btn {{#if (eq source 'dailymotion')}}active{{/if}}" data-source="dailymotion">
+                  <i class="bi bi-play-btn"></i> Dailymotion
+                </button>
               </div>
             </div>
             <div class="list-group">
@@ -288,7 +305,7 @@
                   <span>{{this.title}}</span>
                   <div>
                     {{#if this.views}}<span class="badge bg-secondary me-2">{{this.views}} lượt xem</span>{{/if}}
-                    <span class="badge source-badge {{#if (eq this.source 'YouTube')}}youtube{{/if}}{{#if (eq this.source 'Wikipedia')}}wikipedia{{/if}}{{#if (eq this.source 'Tuổi Trẻ')}}google{{/if}}">{{this.source}}</span>
+                    <span class="badge source-badge {{#if (eq this.source 'YouTube')}}youtube{{/if}}{{#if (eq this.source 'Wikipedia')}}wikipedia{{/if}}{{#if (eq this.source 'Tuổi Trẻ')}}google{{/if}}{{#if (eq this.source 'Dailymotion')}}dailymotion{{/if}}">{{this.source}}</span>
                   </div>
                 </button>
               {{/each}}
@@ -729,6 +746,8 @@
             iconClass = 'bi-wikipedia';
           } else if (source === 'google' || (suggestion.source && (suggestion.source === 'Google' || suggestion.source === 'Tuổi Trẻ'))) {
             iconClass = 'bi-google';
+          } else if (source === 'dailymotion' || (suggestion.source && suggestion.source === 'Dailymotion')) {
+            iconClass = 'bi-play-btn';
           }
           
           item.innerHTML = `
