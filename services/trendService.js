@@ -31,62 +31,81 @@ exports.getYouTubeTrends = async () => {
 // Lấy xu hướng từ Wikipedia
 exports.getWikipediaTrends = async () => {
   try {
-    console.log('Đang gọi Wikipedia API...');
-    // Lấy các trang được xem nhiều nhất trong ngày
-    const response = await axios.get('https://vi.wikipedia.org/api/rest_v1/page/most-read/summary');
+    console.log('Đang gọi Wikimedia REST API để lấy trang xem nhiều nhất...');
     
+    // Lấy ngày hôm qua (vì API thường có dữ liệu đến ngày hôm trước)
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const year = yesterday.getFullYear();
+    const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+    const day = String(yesterday.getDate()).padStart(2, '0');
+    
+    // Tạo URL API với ngày tháng động
+    const apiUrl = `https://wikimedia.org/api/rest_v1/metrics/pageviews/top/vi.wikipedia/all-access/${year}/${month}/${day}`;
+    
+    console.log(`Đang gọi API: ${apiUrl}`);
+    
+    // Gọi API để lấy trang được xem nhiều nhất
+    const response = await axios.get(apiUrl, {
+      headers: {
+        'User-Agent': 'DoAn_KTPM_Application/1.0',
+        'Accept': 'application/json'
+      }
+    });
+    
+    // Kiểm tra dữ liệu hợp lệ
     if (response.data && response.data.items && response.data.items.length > 0 && response.data.items[0].articles) {
-      const articles = response.data.items[0].articles.slice(0, 10);
-      console.log(`Wikipedia API trả về ${articles.length} xu hướng`);
+      const articles = response.data.items[0].articles
+        .filter(article => 
+          // Lọc bỏ các trang đặc biệt, trang chính và trang tìm kiếm
+          !article.article.startsWith('Đặc_biệt:') && 
+          !article.article.includes('Trang_Chính') &&
+          !article.article.includes('Tìm_kiếm')
+        )
+        .slice(0, 10); // Lấy 10 trang hàng đầu sau khi lọc
       
-      return articles.map(item => ({
-        title: item.title,
-        description: item.extract || item.description || '',
-        viewCount: item.views || 500000,
-        thumbnailUrl: item.thumbnail?.source || '',
+      console.log(`Wikimedia API trả về ${articles.length} xu hướng từ Wikipedia`);
+      
+      // Chuyển đổi định dạng tên bài viết: Thay "_" bằng khoảng trắng
+      return articles.map((item, index) => ({
+        title: item.article.replace(/_/g, ' '),
+        description: `Trang Wikipedia được xem nhiều #${index + 1} với ${item.views.toLocaleString()} lượt xem`,
+        viewCount: item.views,
+        thumbnailUrl: '',
         source: 'Wikipedia'
       }));
     } else {
-      console.log('Không nhận được dữ liệu hợp lệ từ Wikipedia API');
+      console.log('Không nhận được dữ liệu hợp lệ từ Wikimedia API');
       
       // Fallback nếu API không trả về dữ liệu đúng định dạng
-      const fallbackWikiTrends = [
-        { title: "Wikipedia - Bách khoa toàn thư", description: "Trang chủ Wikipedia tiếng Việt", viewCount: 950000, source: "Wikipedia" },
-        { title: "Việt Nam", description: "Quốc gia Đông Nam Á", viewCount: 850000, source: "Wikipedia" },
-        { title: "Hà Nội", description: "Thủ đô của Việt Nam", viewCount: 750000, source: "Wikipedia" },
-        { title: "Thành phố Hồ Chí Minh", description: "Thành phố lớn nhất Việt Nam", viewCount: 650000, source: "Wikipedia" },
-        { title: "Ngôn ngữ lập trình", description: "Phương tiện để viết mã máy tính", viewCount: 550000, source: "Wikipedia" },
-        { title: "Trí tuệ nhân tạo", description: "Công nghệ mô phỏng trí thông minh con người", viewCount: 450000, source: "Wikipedia" },
-        { title: "Internet", description: "Mạng lưới toàn cầu kết nối máy tính", viewCount: 350000, source: "Wikipedia" },
-        { title: "Biến đổi khí hậu", description: "Hiện tượng thay đổi khí hậu toàn cầu", viewCount: 250000, source: "Wikipedia" },
-        { title: "Thế vận hội", description: "Sự kiện thể thao quốc tế", viewCount: 150000, source: "Wikipedia" },
-        { title: "Hệ điều hành", description: "Phần mềm quản lý phần cứng máy tính", viewCount: 100000, source: "Wikipedia" }
-      ];
-      
-      console.log(`Trả về ${fallbackWikiTrends.length} xu hướng mẫu từ Wikipedia`);
-      return fallbackWikiTrends;
+      return getWikipediaTrendingSample();
     }
   } catch (error) {
-    console.error('Lỗi khi lấy dữ liệu Wikipedia:', error);
+    console.error('Lỗi khi lấy dữ liệu Wikipedia:', error.message);
     
     // Fallback khi có lỗi
-    const fallbackWikiTrends = [
-        { title: "Wikipedia - Bách khoa toàn thư", description: "Trang chủ Wikipedia tiếng Việt", viewCount: 950000, source: "Wikipedia" },
-        { title: "Việt Nam", description: "Quốc gia Đông Nam Á", viewCount: 850000, source: "Wikipedia" },
-        { title: "Hà Nội", description: "Thủ đô của Việt Nam", viewCount: 750000, source: "Wikipedia" },
-        { title: "Thành phố Hồ Chí Minh", description: "Thành phố lớn nhất Việt Nam", viewCount: 650000, source: "Wikipedia" },
-        { title: "Ngôn ngữ lập trình", description: "Phương tiện để viết mã máy tính", viewCount: 550000, source: "Wikipedia" },
-        { title: "Trí tuệ nhân tạo", description: "Công nghệ mô phỏng trí thông minh con người", viewCount: 450000, source: "Wikipedia" },
-        { title: "Internet", description: "Mạng lưới toàn cầu kết nối máy tính", viewCount: 350000, source: "Wikipedia" },
-        { title: "Biến đổi khí hậu", description: "Hiện tượng thay đổi khí hậu toàn cầu", viewCount: 250000, source: "Wikipedia" },
-        { title: "Thế vận hội", description: "Sự kiện thể thao quốc tế", viewCount: 150000, source: "Wikipedia" },
-        { title: "Hệ điều hành", description: "Phần mềm quản lý phần cứng máy tính", viewCount: 100000, source: "Wikipedia" }
-    ];
-    
-    console.log(`Trả về ${fallbackWikiTrends.length} xu hướng mẫu từ Wikipedia do lỗi: ${error.message}`);
-    return fallbackWikiTrends;
+    return getWikipediaTrendingSample();
   }
 };
+
+// Hàm trả về dữ liệu mẫu Wikipedia khi API bị lỗi
+function getWikipediaTrendingSample() {
+  const fallbackWikiTrends = [
+    { title: "Việt Nam", description: "Quốc gia Đông Nam Á", viewCount: 850000, source: "Wikipedia" },
+    { title: "Hà Nội", description: "Thủ đô của Việt Nam", viewCount: 750000, source: "Wikipedia" },
+    { title: "Thành phố Hồ Chí Minh", description: "Thành phố lớn nhất Việt Nam", viewCount: 650000, source: "Wikipedia" },
+    { title: "Đội tuyển bóng đá quốc gia Việt Nam", description: "Đội tuyển bóng đá nam quốc gia", viewCount: 550000, source: "Wikipedia" },
+    { title: "Trí tuệ nhân tạo", description: "Công nghệ mô phỏng trí thông minh con người", viewCount: 450000, source: "Wikipedia" },
+    { title: "Lịch sử Việt Nam", description: "Lịch sử dân tộc Việt Nam", viewCount: 350000, source: "Wikipedia" },
+    { title: "Biến đổi khí hậu", description: "Hiện tượng thay đổi khí hậu toàn cầu", viewCount: 250000, source: "Wikipedia" },
+    { title: "Thế vận hội", description: "Sự kiện thể thao quốc tế", viewCount: 150000, source: "Wikipedia" },
+    { title: "V-League", description: "Giải bóng đá chuyên nghiệp Việt Nam", viewCount: 120000, source: "Wikipedia" },
+    { title: "Hệ điều hành", description: "Phần mềm quản lý phần cứng máy tính", viewCount: 100000, source: "Wikipedia" }
+  ];
+  
+  console.log(`Trả về ${fallbackWikiTrends.length} xu hướng mẫu từ Wikipedia`);
+  return fallbackWikiTrends;
+}
 
 // Lấy xu hướng từ Google Trends
 exports.getGoogleTrends = async () => {
