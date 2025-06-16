@@ -236,7 +236,7 @@
                     <i class="bi bi-wikipedia me-1"></i> Wikipedia
                   </button>
                   <button type="button" class="source-btn btn {{#if (eq source 'google')}}btn-google{{else}}btn-outline-primary{{/if}}" data-source="google">
-                    <i class="bi bi-google me-1"></i> Google Trends
+                    <i class="bi bi-google me-1"></i> Tuổi Trẻ
                   </button>
                 </div>
                 <input type="hidden" name="source" id="sourceInput" value="{{source}}">
@@ -278,7 +278,7 @@
                   <i class="bi bi-wikipedia"></i> Wikipedia
                 </button>
                 <button type="button" class="btn btn-outline-success filter-btn {{#if (eq source 'google')}}active{{/if}}" data-source="google">
-                  <i class="bi bi-google"></i> Google
+                  <i class="bi bi-google"></i> Tuổi Trẻ
                 </button>
               </div>
             </div>
@@ -288,7 +288,7 @@
                   <span>{{this.title}}</span>
                   <div>
                     {{#if this.views}}<span class="badge bg-secondary me-2">{{this.views}} lượt xem</span>{{/if}}
-                    <span class="badge source-badge {{#if (eq this.source 'YouTube')}}youtube{{/if}}{{#if (eq this.source 'Wikipedia')}}wikipedia{{/if}}{{#if (eq this.source 'Google Trends')}}google{{/if}}">{{this.source}}</span>
+                    <span class="badge source-badge {{#if (eq this.source 'YouTube')}}youtube{{/if}}{{#if (eq this.source 'Wikipedia')}}wikipedia{{/if}}{{#if (eq this.source 'Tuổi Trẻ')}}google{{/if}}">{{this.source}}</span>
                   </div>
                 </button>
               {{/each}}
@@ -727,7 +727,7 @@
             iconClass = 'bi-youtube';
           } else if (source === 'wikipedia' || (suggestion.source && suggestion.source === 'Wikipedia')) {
             iconClass = 'bi-wikipedia';
-          } else if (source === 'google' || (suggestion.source && suggestion.source === 'Google')) {
+          } else if (source === 'google' || (suggestion.source && (suggestion.source === 'Google' || suggestion.source === 'Tuổi Trẻ'))) {
             iconClass = 'bi-google';
           }
           

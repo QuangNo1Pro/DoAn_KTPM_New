@@ -60,19 +60,19 @@ const handleSearch = async (req, res) => {
           console.log(`Đã lấy ${trends.length} xu hướng từ Wikipedia`);
         } else if (source === 'google') {
           trends = await getGoogleTrends();
-          console.log(`Đã lấy ${trends.length} xu hướng từ Google Trends`);
+          console.log(`Đã lấy ${trends.length} xu hướng từ Tuổi Trẻ`);
           
           // Đảm bảo nguồn được gán đúng
           if (trends.length > 0) {
             trends = trends.map(trend => ({
               ...trend,
-              source: 'Google Trends' // Đảm bảo nguồn được đặt là Google Trends
+              source: 'Tuổi Trẻ' // Đảm bảo nguồn được đặt là Tuổi Trẻ
             }));
           }
         } else {
-          // Mặc định lấy tất cả nguồn
-          trends = await getAllTrends(query);
-          console.log(`Đã lấy ${trends.length} xu hướng từ tất cả nguồn`);
+          // Mặc định lấy tất cả nguồn nếu source là 'all', hoặc từ nguồn cụ thể
+          trends = await getAllTrends(query, source);
+          console.log(`Đã lấy ${trends.length} xu hướng từ nguồn: ${source}`);
         }
 
         if (trends.length > 0) {
@@ -81,7 +81,13 @@ const handleSearch = async (req, res) => {
             source: trend.source,
             views: trend.viewCount
           }));
-          script = `🎯 Danh sách chủ đề trending${source !== 'all' ? ` từ ${source === 'google' ? 'Google Trends' : (source === 'wikipedia' ? 'Wikipedia' : 'YouTube')}` : ''}:\n(Hãy nhấn vào 1 chủ đề để tạo kịch bản)`;
+          // Hiển thị nguồn phù hợp
+          const sourceDisplayName = 
+            source === 'google' ? 'Tuổi Trẻ' : 
+            source === 'wikipedia' ? 'Wikipedia' : 
+            source === 'youtube' ? 'YouTube' : 'tất cả nguồn';
+          
+          script = `🎯 Danh sách chủ đề trending từ ${sourceDisplayName}:\n(Hãy nhấn vào 1 chủ đề để tạo kịch bản)`;
           
           // Log để kiểm tra nguồn của mỗi kết quả
           console.log('Danh sách kết quả:', keywordList.map(item => ({ title: item.title, source: item.source })));
