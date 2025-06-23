@@ -107,102 +107,259 @@ function getWikipediaTrendingSample() {
   return fallbackWikiTrends;
 }
 
-// Lấy xu hướng từ Google Trends
-exports.getGoogleTrends = async () => {
+// Lấy xu hướng từ Dailymotion
+exports.getDailymotionTrends = async () => {
   try {
-    console.log('Đang gọi Google Trends API...');
-    // Lấy xu hướng tìm kiếm hiện tại (realtime) từ Google Trends
-    const result = await googleTrends.realTimeTrends({
-      geo: 'VN', // Khu vực Việt Nam
-      category: 'all', // Tất cả danh mục
-      hl: 'vi' // Ngôn ngữ tiếng Việt
+    console.log('Đang lấy xu hướng từ Dailymotion...');
+    
+    // Gọi API với bộ lọc video Việt Nam
+    const response = await axios.get('https://api.dailymotion.com/videos', {
+      params: {
+        fields: 'id,title,views_total,description,language',
+        sort: 'trending',
+        limit: 15,
+        country: 'vn',    // Lọc theo quốc gia Việt Nam
+        languages: 'vi',  // Ưu tiên ngôn ngữ tiếng Việt
+        search: 'Việt Nam' // Tìm kiếm video liên quan đến Việt Nam
+      }
     });
     
-    console.log('Đã nhận phản hồi từ Google Trends API');
-    const trends = JSON.parse(result);
-    
-    // Chuyển đổi dữ liệu từ Google Trends vào định dạng thống nhất
-    let formattedTrends = [];
-    
-    if (trends && trends.storySummaries && trends.storySummaries.trendingStories) {
-      formattedTrends = trends.storySummaries.trendingStories.map((trend, index) => ({
-        title: trend.title || trend.entityNames[0] || `Xu hướng #${index + 1}`,
-        description: trend.summary || '',
-        viewCount: 1000000 - (index * 10000), // Giá trị ước tính (Google không cung cấp số lượt xem)
-        thumbnailUrl: trend.image?.imgUrl || '',
-        source: 'Google Trends'
-      }));
-      console.log(`Google Trends API trả về ${formattedTrends.length} xu hướng`);
-    } else {
-      console.log('Không tìm thấy xu hướng trong phản hồi từ Google Trends API');
-    }
-    
-    return formattedTrends;
-  } catch (error) {
-    console.error('Lỗi khi lấy dữ liệu Google Trends:', error.message);
-    
-    // Fallback: Lấy top từ khóa tìm kiếm (daily trends)
-    try {
-      console.log('Đang sử dụng dailyTrends làm fallback...');
-      const dailyResult = await googleTrends.dailyTrends({
-        geo: 'VN',
-        hl: 'vi'
+    if (response.data && response.data.list) {
+      // Lọc kết quả để ưu tiên video tiếng Việt hoặc có tiêu đề/mô tả liên quan Việt Nam
+      const filteredVideos = response.data.list.filter(video => {
+        // Ưu tiên video tiếng Việt
+        if (video.language === 'vi') return true;
+        
+        // Hoặc có chứa các từ khóa tiếng Việt phổ biến
+        const vietnameseKeywords = ['việt nam', 'việt', 'vietnam', 'saigon', 'hà nội', 'hanoi', 'hcm', 'vn'];
+        const title = (video.title || '').toLowerCase();
+        const description = (video.description || '').toLowerCase();
+        
+        return vietnameseKeywords.some(keyword => 
+          title.includes(keyword) || description.includes(keyword)
+        );
       });
       
-      const dailyTrends = JSON.parse(dailyResult);
-      let formattedDailyTrends = [];
+      // Lấy 10 video đầu tiên sau khi lọc, hoặc trả về tất cả nếu ít hơn 10
+      const result = filteredVideos.slice(0, 10);
       
-      if (dailyTrends && dailyTrends.default && dailyTrends.default.trendingSearchesDays) {
-        const trendingSearches = dailyTrends.default.trendingSearchesDays[0]?.trendingSearches || [];
-        
-        formattedDailyTrends = trendingSearches.map((trend, index) => ({
-          title: trend.title.query || `Xu hướng #${index + 1}`,
-          description: trend.articles && trend.articles[0]?.title || '',
-          viewCount: parseInt(trend.formattedTraffic.replace('+', '').replace('K', '000')) || (1000000 - (index * 10000)),
-          thumbnailUrl: trend.image?.imageUrl || '',
-          source: 'Google Trends'
-        }));
-        console.log(`Google Daily Trends API trả về ${formattedDailyTrends.length} xu hướng`);
-      } else {
-        console.log('Không tìm thấy xu hướng trong Daily Trends API');
-      }
-      
-      return formattedDailyTrends;
-    } catch (fallbackError) {
-      console.error('Lỗi khi lấy fallback từ Google Trends:', fallbackError.message);
-      
-      // Nếu tất cả đều thất bại, tạo một số xu hướng mẫu
-      const sampleTrends = [
-        { title: "Bóng đá Việt Nam", description: "Thông tin về các trận đấu mới nhất", viewCount: 950000, source: "Google Trends" },
-        { title: "Thời tiết hôm nay", description: "Cập nhật thời tiết các tỉnh thành", viewCount: 850000, source: "Google Trends" },
-        { title: "Giá vàng", description: "Biến động giá vàng trong ngày", viewCount: 750000, source: "Google Trends" },
-        { title: "COVID-19", description: "Tình hình dịch bệnh mới nhất", viewCount: 650000, source: "Google Trends" },
-        { title: "Tin tức công nghệ", description: "Các xu hướng công nghệ mới", viewCount: 550000, source: "Google Trends" },
-        { title: "Bầu cử tổng thống", description: "Thông tin về các cuộc bầu cử", viewCount: 500000, source: "Google Trends" },
-        { title: "Điện thoại thông minh mới", description: "Thông tin về các mẫu điện thoại mới", viewCount: 450000, source: "Google Trends" },
-        { title: "Du lịch trong nước", description: "Các điểm đến du lịch nổi tiếng", viewCount: 400000, source: "Google Trends" },
-        { title: "Tuyển sinh đại học", description: "Thông tin về kỳ thi tuyển sinh", viewCount: 350000, source: "Google Trends" },
-        { title: "Khóa học trực tuyến", description: "Các khóa học online phổ biến", viewCount: 300000, source: "Google Trends" },
-      ];
-      
-      console.log(`Trả về ${sampleTrends.length} xu hướng mẫu từ Google`);
-      return sampleTrends;
+      return result.map(video => ({
+        title: video.title,
+        description: `Video trending trên Dailymotion với ${video.views_total.toLocaleString()} lượt xem`,
+        viewCount: video.views_total,
+        thumbnailUrl: `https://www.dailymotion.com/thumbnail/video/${video.id}`,
+        source: 'Dailymotion',
+        url: `https://www.dailymotion.com/video/${video.id}`
+      }));
+    } else {
+      throw new Error('Không nhận được dữ liệu hợp lệ từ Dailymotion API');
     }
+  } catch (error) {
+    console.error('Lỗi khi lấy dữ liệu từ Dailymotion:', error.message);
+    
+    // Fallback khi có lỗi: trả về dữ liệu mẫu liên quan đến Việt Nam
+    const sampleTrends = [
+      { title: "Ẩm thực Việt Nam - Món ngon ba miền", description: "Khám phá ẩm thực đa dạng Việt Nam", viewCount: 980000, source: "Dailymotion" },
+      { title: "Du lịch Việt Nam 2023 - Những điểm đến không thể bỏ qua", description: "Tổng hợp điểm du lịch nổi tiếng", viewCount: 920000, source: "Dailymotion" },
+      { title: "Nhạc Trẻ Việt Nam Hay Nhất Hiện Nay", description: "Tuyển tập nhạc Việt hot nhất", viewCount: 870000, source: "Dailymotion" },
+      { title: "Phim Việt Nam - Tập mới nhất", description: "Phim truyền hình Việt Nam đang hot", viewCount: 810000, source: "Dailymotion" },
+      { title: "Văn hóa truyền thống Việt Nam", description: "Giới thiệu văn hóa độc đáo của Việt Nam", viewCount: 750000, source: "Dailymotion" },
+      { title: "Bóng đá Việt Nam - Trận đấu mới nhất", description: "Tổng hợp các bàn thắng đẹp", viewCount: 700000, source: "Dailymotion" },
+      { title: "Tin tức nóng Việt Nam 24h", description: "Cập nhật tin tức mới nhất", viewCount: 650000, source: "Dailymotion" },
+      { title: "Hài Việt Nam mới nhất 2023", description: "Các tiểu phẩm hài hước", viewCount: 600000, source: "Dailymotion" },
+      { title: "Khám phá Việt Nam: Từ Bắc vào Nam", description: "Hành trình khám phá đất nước", viewCount: 550000, source: "Dailymotion" },
+      { title: "Công nghệ Việt Nam phát triển", description: "Thành tựu công nghệ của người Việt", viewCount: 500000, source: "Dailymotion" }
+    ];
+    
+    console.log(`Trả về ${sampleTrends.length} xu hướng mẫu từ Dailymotion do lỗi: ${error.message}`);
+    return sampleTrends;
   }
 };
 
-// Hàm gom nhóm lấy xu hướng từ tất cả nguồn
-exports.getAllTrends = async (keyword = '') => {
+// Lấy xu hướng từ báo Tuổi Trẻ
+exports.getGoogleTrends = async () => {
   try {
+    console.log('Đang lấy xu hướng từ báo Tuổi Trẻ...');
+    
+    // Sử dụng báo Tuổi Trẻ thay vì Google Trends
+    return await getTuoiTreTrends();
+    
+  } catch (error) {
+    console.error('Lỗi khi lấy dữ liệu Tuổi Trẻ:', error.message);
+    
+    // Fallback khi có lỗi: trả về dữ liệu mẫu
+    const sampleTrends = [
+      { title: "Bóng đá Việt Nam", description: "Thông tin về các trận đấu mới nhất", viewCount: 950000, source: "Tuổi Trẻ" },
+      { title: "Thời tiết hôm nay", description: "Cập nhật thời tiết các tỉnh thành", viewCount: 850000, source: "Tuổi Trẻ" },
+      { title: "Giá vàng", description: "Biến động giá vàng trong ngày", viewCount: 750000, source: "Tuổi Trẻ" },
+      { title: "COVID-19", description: "Tình hình dịch bệnh mới nhất", viewCount: 650000, source: "Tuổi Trẻ" },
+      { title: "Tin tức công nghệ", description: "Các xu hướng công nghệ mới", viewCount: 550000, source: "Tuổi Trẻ" },
+      { title: "Bầu cử tổng thống", description: "Thông tin về các cuộc bầu cử", viewCount: 500000, source: "Tuổi Trẻ" },
+      { title: "Điện thoại thông minh mới", description: "Thông tin về các mẫu điện thoại mới", viewCount: 450000, source: "Tuổi Trẻ" },
+      { title: "Du lịch trong nước", description: "Các điểm đến du lịch nổi tiếng", viewCount: 400000, source: "Tuổi Trẻ" },
+      { title: "Tuyển sinh đại học", description: "Thông tin về kỳ thi tuyển sinh", viewCount: 350000, source: "Tuổi Trẻ" },
+      { title: "Khóa học trực tuyến", description: "Các khóa học online phổ biến", viewCount: 300000, source: "Tuổi Trẻ" },
+    ];
+    
+    console.log(`Trả về ${sampleTrends.length} xu hướng mẫu từ Tuổi Trẻ do lỗi: ${error.message}`);
+    return sampleTrends;
+  }
+};
+
+// Hàm lấy xu hướng từ báo Tuổi Trẻ qua RSS
+async function getTuoiTreTrends() {
+  try {
+    // Danh sách các RSS feed từ các chuyên mục khác nhau của báo Tuổi Trẻ
+    const rssFeedUrls = [
+      'https://tuoitre.vn/rss/tin-moi-nhat.rss',
+      'https://tuoitre.vn/rss/thoi-su.rss',
+      'https://tuoitre.vn/rss/the-gioi.rss',
+      'https://tuoitre.vn/rss/phap-luat.rss',
+      'https://tuoitre.vn/rss/kinh-doanh.rss',
+      'https://tuoitre.vn/rss/cong-nghe.rss'
+    ];
+    
+    // Chọn ngẫu nhiên 2 feed để lấy dữ liệu (để tăng tính đa dạng)
+    const selectedFeeds = rssFeedUrls.slice(0, 3);
+    
+    // Lấy dữ liệu từ các feed đã chọn
+    const feedPromises = selectedFeeds.map(url => axios.get(url, {
+      headers: {
+        'User-Agent': 'DoAn_KTPM_Application/1.0'
+      }
+    }));
+    
+    const feedResponses = await Promise.all(feedPromises);
+    
+    // Mảng chứa tất cả các bài viết
+    let allArticles = [];
+    
+    // Xử lý dữ liệu từ mỗi feed
+    for (const response of feedResponses) {
+      const xmlData = response.data;
+      
+      // Trích xuất thông tin từ XML bằng biểu thức chính quy (regex)
+      // Lấy tất cả các mục <item> trong XML
+      const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+      const items = [...xmlData.matchAll(itemRegex)];
+      
+      // Xử lý từng mục để lấy tiêu đề, mô tả và link
+      for (const item of items) {
+        const itemContent = item[1];
+        
+        // Lấy tiêu đề
+        const titleMatch = /<title>(.*?)<\/title>/i.exec(itemContent);
+        const title = titleMatch ? decodeHtmlEntities(titleMatch[1]) : '';
+        
+        // Lấy mô tả
+        const descMatch = /<description>(.*?)<\/description>/i.exec(itemContent);
+        const description = descMatch ? decodeHtmlEntities(descMatch[1]) : '';
+        
+        // Lấy ngày xuất bản
+        const pubDateMatch = /<pubDate>(.*?)<\/pubDate>/i.exec(itemContent);
+        const pubDate = pubDateMatch ? new Date(pubDateMatch[1]) : new Date();
+        
+        // Lấy link
+        const linkMatch = /<link>(.*?)<\/link>/i.exec(itemContent);
+        const link = linkMatch ? linkMatch[1] : '';
+        
+        // Tạo một đối tượng bài viết mới và thêm vào mảng
+        if (title && !allArticles.some(article => article.title === title)) {
+          allArticles.push({
+            title,
+            description: cleanDescription(description),
+            pubDate,
+            link,
+          });
+        }
+      }
+    }
+    
+    // Sắp xếp bài viết theo ngày xuất bản, mới nhất lên đầu
+    allArticles.sort((a, b) => b.pubDate - a.pubDate);
+    
+    // Lấy 10 bài viết mới nhất
+    const latestArticles = allArticles.slice(0, 10);
+    
+    // Định dạng kết quả theo cấu trúc chung của app
+    const formattedTrends = latestArticles.map((article, index) => ({
+      title: article.title,
+      description: article.description || 'Tin tức từ báo Tuổi Trẻ',
+      viewCount: 1000000 - (index * 50000), // Giá trị ước tính theo thứ tự
+      thumbnailUrl: '', // RSS không cung cấp hình ảnh
+      source: 'Tuổi Trẻ',
+      url: article.link
+    }));
+    
+    console.log(`Lấy được ${formattedTrends.length} xu hướng từ báo Tuổi Trẻ`);
+    return formattedTrends;
+  } catch (error) {
+    console.error('Lỗi khi lấy dữ liệu từ RSS Tuổi Trẻ:', error.message);
+    throw error; // Ném lỗi để xử lý ở hàm cha
+  }
+}
+
+// Hàm giải mã các ký tự HTML entities và thẻ CDATA
+function decodeHtmlEntities(text) {
+  if (!text) return '';
+  
+  // Loại bỏ thẻ CDATA
+  let cleanText = text.replace(/<!\[CDATA\[(.*?)\]\]>/g, '$1');
+  
+  // Loại bỏ HTML entities
+  cleanText = cleanText
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+    
+  return cleanText;
+}
+
+// Hàm làm sạch mô tả
+function cleanDescription(description) {
+  if (!description) return '';
+  
+  // Loại bỏ các thẻ HTML
+  let cleanText = description.replace(/<\/?[^>]+(>|$)/g, ' ');
+  
+  // Loại bỏ khoảng trắng thừa
+  cleanText = cleanText.replace(/\s+/g, ' ').trim();
+  
+  // Cắt mô tả nếu quá dài
+  return cleanText.length > 200 ? cleanText.substring(0, 197) + '...' : cleanText;
+}
+
+// Hàm gom nhóm lấy xu hướng từ tất cả nguồn
+exports.getAllTrends = async (keyword = '', source = 'all') => {
+  try {
+    console.log(`Lấy xu hướng với từ khóa: "${keyword}" và nguồn: ${source}`);
+    
     // Chạy song song để tối ưu tốc độ
-    const [youtubeTrends, wikiTrends, googleTrends] = await Promise.all([
+    const [youtubeTrends, wikiTrends, tuoiTreTrends, dailymotionTrends] = await Promise.all([
       exports.getYouTubeTrends(),
       exports.getWikipediaTrends(),
-      exports.getGoogleTrends()
+      exports.getGoogleTrends(), // Giữ tên hàm cũ để tương thích, nhưng thực tế là Tuổi Trẻ
+      exports.getDailymotionTrends() // Thêm Dailymotion trends
     ]);
     
-    // Gộp và lọc kết quả theo từ khóa nếu có
-    let allTrends = [...youtubeTrends, ...wikiTrends, ...googleTrends];
+    // Gộp dựa trên nguồn đã chọn hoặc tất cả
+    let allTrends = [];
+    
+    if (source === 'youtube') {
+      allTrends = youtubeTrends;
+    } else if (source === 'wikipedia') {
+      allTrends = wikiTrends;
+    } else if (source === 'google') {
+      allTrends = tuoiTreTrends;
+    } else if (source === 'dailymotion') {
+      allTrends = dailymotionTrends;
+    } else {
+      // Mặc định: tất cả nguồn
+      allTrends = [...youtubeTrends, ...wikiTrends, ...tuoiTreTrends, ...dailymotionTrends];
+    }
     
     if (keyword && keyword.trim() !== '') {
       const normalizedKeyword = keyword.trim().toLowerCase();

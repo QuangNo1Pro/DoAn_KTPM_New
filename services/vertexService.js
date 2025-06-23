@@ -76,10 +76,28 @@ Bạn là một chuyên gia sáng tạo nội dung TikTok/YouTube Shorts.
 Hãy viết một kịch bản video ngắn (dưới 1 phút) cho chủ đề: "${cleanKeyword}".
 
 Yêu cầu:
-- Mở đầu thu hút (Hook)
-- Nội dung chính đầy đủ, chi tiết
-- Kết thúc kêu gọi hành động (Call to Action)
-- Viết dạng lời thoại video chi tiết để dễ tạo video
+- Hãy chia thành 7-10 phân cảnh khác nhau
+- Mỗi phân cảnh là một đoạn nội dung độc lập
+- QUAN TRỌNG: Mô tả hình ảnh phải khớp chính xác với nội dung lời thoại trong cùng phân cảnh
+- Định dạng kịch bản phải tuân thủ nghiêm ngặt theo cấu trúc sau:
+
+PHẦN 1
+Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích]
+Hình ảnh: [Mô tả chi tiết hình ảnh minh họa trực quan cho chính xác nội dung lời thoại phần này]
+
+PHẦN 2
+Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích]
+Hình ảnh: [Mô tả chi tiết hình ảnh minh họa trực quan cho chính xác nội dung lời thoại phần này]
+
+[Và tương tự cho các phần còn lại]
+
+Lưu ý:
+- Không thêm bất kỳ phần giới thiệu hoặc bình luận nào
+- Không sử dụng ký tự # hoặc * bất cứ đâu trong kịch bản
+- Mỗi phân cảnh chỉ cần có Lời thoại và Hình ảnh
+- Mỗi phân cảnh nên có nội dung ngắn gọn
+- Phải có phần mở đầu hấp dẫn và kết thúc kêu gọi hành động
+- Mỗi mô tả hình ảnh phải liên quan trực tiếp và khớp hoàn toàn với nội dung lời thoại tương ứng
 `;
 
     console.log(`🤖 Đang gọi Vertex AI (${modelType}) để tạo kịch bản...`);
@@ -209,39 +227,77 @@ Gồm: Hook hấp dẫn, nội dung ngắn gọn và call-to-action.
         // Trường hợp đặc biệt: content chỉ có role mà không có parts
         console.log('⚠️ Phát hiện cấu trúc đặc biệt: content chỉ có trường role');
         return `
-# Kịch bản video về "${cleanKeyword}"
+Kịch bản video về "${cleanKeyword}"
 
-## HOOK (0-5 giây)
-"Bạn có biết về ${cleanKeyword}? Hôm nay chúng ta sẽ khám phá điều thú vị về chủ đề này!"
+PHẦN 1
+Lời thoại: Xin chào mọi người, hôm nay chúng ta sẽ cùng khám phá về ${cleanKeyword}!
+Hình ảnh: Hình ảnh người dẫn chương trình mỉm cười chào đón khán giả với biểu tượng ${cleanKeyword} hiển thị nổi bật phía sau
 
-## NỘI DUNG (5-50 giây)
-"${cleanKeyword} là một chủ đề rất thú vị mà nhiều người quan tâm.
-Có 3 điều quan trọng về ${cleanKeyword} mà bạn nên biết:
-1. ${cleanKeyword} giúp bạn cải thiện cuộc sống hàng ngày
-2. Nhiều chuyên gia khuyên dùng ${cleanKeyword} để tăng hiệu quả công việc
-3. ${cleanKeyword} đang trở thành xu hướng của năm 2024
+PHẦN 2
+Lời thoại: ${cleanKeyword} đang trở thành xu hướng hot nhất hiện nay và thu hút sự quan tâm của rất nhiều người.
+Hình ảnh: Biểu đồ tăng trưởng với đường cong đi lên, thể hiện sự phát triển của ${cleanKeyword}, kèm theo các biểu tượng thịnh hành và con số ấn tượng
 
-## CTA (50-60 giây)
-"Nếu bạn thấy video này hữu ích, hãy like và follow để xem thêm nhiều video hay ho khác nhé!"
+PHẦN 3
+Lời thoại: Điểm nổi bật đầu tiên của ${cleanKeyword} là khả năng giúp bạn cải thiện cuộc sống hàng ngày.
+Hình ảnh: Hình ảnh người dùng đang thực hiện các hoạt động hàng ngày với ${cleanKeyword}, vẻ mặt thoải mái và hài lòng
+
+PHẦN 4
+Lời thoại: Thứ hai, các chuyên gia khuyên dùng ${cleanKeyword} để tăng hiệu quả công việc lên đến 40%.
+Hình ảnh: Chuyên gia trong trang phục công sở đang giới thiệu và chỉ vào biểu đồ hiệu suất có ${cleanKeyword} được nhấn mạnh
+
+PHẦN 5
+Lời thoại: Khảo sát gần đây cho thấy 80% người dùng ${cleanKeyword} đã cảm thấy hài lòng ngay từ lần đầu tiên.
+Hình ảnh: Biểu đồ tròn thể hiện tỷ lệ hài lòng 80%, với hình ảnh người dùng mỉm cười bên cạnh sản phẩm hoặc dịch vụ ${cleanKeyword}
+
+PHẦN 6
+Lời thoại: Một điểm thú vị nữa là ${cleanKeyword} có thể kết hợp hoàn hảo với nhiều hoạt động khác nhau trong ngày.
+Hình ảnh: Chuỗi hình ảnh hiển thị ${cleanKeyword} được sử dụng trong nhiều tình huống khác nhau: tại nhà, nơi làm việc, khi đi du lịch
+
+PHẦN 7
+Lời thoại: Và đừng quên, ${cleanKeyword} đang được giảm giá đặc biệt trong tháng này!
+Hình ảnh: Hình ảnh khuyến mãi hấp dẫn với giá giảm và các nhãn "Giảm giá" hoặc "Ưu đãi đặc biệt" nổi bật bên cạnh ${cleanKeyword}
+
+PHẦN CUỐI
+Lời thoại: Nếu bạn thấy video này hữu ích, hãy like và follow để xem thêm nhiều nội dung thú vị về ${cleanKeyword} và các chủ đề khác nhé!
+Hình ảnh: Hình ảnh màn hình cuối video với nút like, subscribe nổi bật, cùng hình ảnh người dẫn chương trình mỉm cười vẫy tay chào tạm biệt
 `;
       } else {
         // Không tìm thấy nội dung, trả về một kịch bản mẫu
         console.log('⚠️ Không thể trích xuất nội dung từ phản hồi, sử dụng kịch bản mẫu');
         return `
-# Kịch bản video về "${cleanKeyword}"
+Kịch bản video về "${cleanKeyword}"
 
-## HOOK (0-5 giây)
-"Bạn có biết về ${cleanKeyword}? Hôm nay chúng ta sẽ khám phá điều thú vị về chủ đề này!"
+PHẦN 1
+Lời thoại: Xin chào mọi người, hôm nay chúng ta sẽ cùng khám phá về ${cleanKeyword}!
+Hình ảnh: Hình ảnh người dẫn chương trình mỉm cười chào đón khán giả với biểu tượng ${cleanKeyword} hiển thị nổi bật phía sau
 
-## NỘI DUNG (5-50 giây)
-"${cleanKeyword} là một chủ đề rất thú vị mà nhiều người quan tâm.
-Có 3 điều quan trọng về ${cleanKeyword} mà bạn nên biết:
-1. ${cleanKeyword} giúp bạn cải thiện cuộc sống hàng ngày
-2. Nhiều chuyên gia khuyên dùng ${cleanKeyword} để tăng hiệu quả công việc
-3. ${cleanKeyword} đang trở thành xu hướng của năm 2024
+PHẦN 2
+Lời thoại: ${cleanKeyword} đang trở thành xu hướng hot nhất hiện nay và thu hút sự quan tâm của rất nhiều người.
+Hình ảnh: Biểu đồ tăng trưởng với đường cong đi lên, thể hiện sự phát triển của ${cleanKeyword}, kèm theo các biểu tượng thịnh hành và con số ấn tượng
 
-## CTA (50-60 giây)
-"Nếu bạn thấy video này hữu ích, hãy like và follow để xem thêm nhiều video hay ho khác nhé!"
+PHẦN 3
+Lời thoại: Điểm nổi bật đầu tiên của ${cleanKeyword} là khả năng giúp bạn cải thiện cuộc sống hàng ngày.
+Hình ảnh: Hình ảnh người dùng đang thực hiện các hoạt động hàng ngày với ${cleanKeyword}, vẻ mặt thoải mái và hài lòng
+
+PHẦN 4
+Lời thoại: Thứ hai, các chuyên gia khuyên dùng ${cleanKeyword} để tăng hiệu quả công việc lên đến 40%.
+Hình ảnh: Chuyên gia trong trang phục công sở đang giới thiệu và chỉ vào biểu đồ hiệu suất có ${cleanKeyword} được nhấn mạnh
+
+PHẦN 5
+Lời thoại: Khảo sát gần đây cho thấy 80% người dùng ${cleanKeyword} đã cảm thấy hài lòng ngay từ lần đầu tiên.
+Hình ảnh: Biểu đồ tròn thể hiện tỷ lệ hài lòng 80%, với hình ảnh người dùng mỉm cười bên cạnh sản phẩm hoặc dịch vụ ${cleanKeyword}
+
+PHẦN 6
+Lời thoại: Một điểm thú vị nữa là ${cleanKeyword} có thể kết hợp hoàn hảo với nhiều hoạt động khác nhau trong ngày.
+Hình ảnh: Chuỗi hình ảnh hiển thị ${cleanKeyword} được sử dụng trong nhiều tình huống khác nhau: tại nhà, nơi làm việc, khi đi du lịch
+
+PHẦN 7
+Lời thoại: Và đừng quên, ${cleanKeyword} đang được giảm giá đặc biệt trong tháng này!
+Hình ảnh: Hình ảnh khuyến mãi hấp dẫn với giá giảm và các nhãn "Giảm giá" hoặc "Ưu đãi đặc biệt" nổi bật bên cạnh ${cleanKeyword}
+
+PHẦN CUỐI
+Lời thoại: Nếu bạn thấy video này hữu ích, hãy like và follow để xem thêm nhiều nội dung thú vị về ${cleanKeyword} và các chủ đề khác nhé!
+Hình ảnh: Hình ảnh màn hình cuối video với nút like, subscribe nổi bật, cùng hình ảnh người dẫn chương trình mỉm cười vẫy tay chào tạm biệt
 `;
       }
     } else {

@@ -1,7 +1,7 @@
 const axios = require('axios');
 require('dotenv').config();
 const { generateScriptByVertexAI, generateTopicByVertexAI } = require('../../services/vertexService');
-const { getAllTrends, getYouTubeTrends, getWikipediaTrends, getGoogleTrends } = require('../../services/trendService');
+const { getAllTrends, getYouTubeTrends, getWikipediaTrends, getGoogleTrends, getDailymotionTrends } = require('../../services/trendService');
 
 const handleSearch = async (req, res) => {
   const { mode, keyword: rawKeyword, source, ai_model } = req.body;
@@ -60,19 +60,22 @@ const handleSearch = async (req, res) => {
           console.log(`Đã lấy ${trends.length} xu hướng từ Wikipedia`);
         } else if (source === 'google') {
           trends = await getGoogleTrends();
-          console.log(`Đã lấy ${trends.length} xu hướng từ Google Trends`);
+          console.log(`Đã lấy ${trends.length} xu hướng từ Tuổi Trẻ`);
           
           // Đảm bảo nguồn được gán đúng
           if (trends.length > 0) {
             trends = trends.map(trend => ({
               ...trend,
-              source: 'Google Trends' // Đảm bảo nguồn được đặt là Google Trends
+              source: 'Tuổi Trẻ' // Đảm bảo nguồn được đặt là Tuổi Trẻ
             }));
           }
+        } else if (source === 'dailymotion') {
+          trends = await getDailymotionTrends();
+          console.log(`Đã lấy ${trends.length} xu hướng từ Dailymotion`);
         } else {
-          // Mặc định lấy tất cả nguồn
-          trends = await getAllTrends(query);
-          console.log(`Đã lấy ${trends.length} xu hướng từ tất cả nguồn`);
+          // Mặc định lấy tất cả nguồn nếu source là 'all', hoặc từ nguồn cụ thể
+          trends = await getAllTrends(query, source);
+          console.log(`Đã lấy ${trends.length} xu hướng từ nguồn: ${source}`);
         }
 
         if (trends.length > 0) {
@@ -81,7 +84,14 @@ const handleSearch = async (req, res) => {
             source: trend.source,
             views: trend.viewCount
           }));
-          script = `🎯 Danh sách chủ đề trending${source !== 'all' ? ` từ ${source === 'google' ? 'Google Trends' : (source === 'wikipedia' ? 'Wikipedia' : 'YouTube')}` : ''}:\n(Hãy nhấn vào 1 chủ đề để tạo kịch bản)`;
+          // Hiển thị nguồn phù hợp
+          const sourceDisplayName = 
+            source === 'google' ? 'Tuổi Trẻ' : 
+            source === 'wikipedia' ? 'Wikipedia' : 
+            source === 'youtube' ? 'YouTube' :
+            source === 'dailymotion' ? 'Dailymotion' : 'tất cả nguồn';
+          
+          script = `🎯 Danh sách chủ đề trending từ ${sourceDisplayName}:\n(Hãy nhấn vào 1 chủ đề để tạo kịch bản)`;
           
           // Log để kiểm tra nguồn của mỗi kết quả
           console.log('Danh sách kết quả:', keywordList.map(item => ({ title: item.title, source: item.source })));
