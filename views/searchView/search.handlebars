@@ -1136,6 +1136,75 @@
           });
         });
       });
+      const scriptElement = document.getElementById('aiScriptContent');
+      const generateWrapper = document.getElementById('generate-video-wrapper');
+      const btnGenerate = document.getElementById('btn-generate-video');
+      const videoResult = document.getElementById('video-result');
+
+      // Theo dõi thay đổi nội dung script để hiện nút "Tạo video"
+      const observer = new MutationObserver(() => {
+        const content = scriptElement.innerText.trim();
+        if (content !== '') {
+          generateWrapper.style.display = 'block';
+        } else {
+          generateWrapper.style.display = 'none';
+        }
+      });
+
+      // Bắt đầu theo dõi khi DOM đã sẵn sàng
+      observer.observe(scriptElement, { childList: true, subtree: true, characterData: true });
+
+      // Xử lý sự kiện khi người dùng nhấn nút tạo video
+      btnGenerate.addEventListener('click', async () => {
+        const scriptText = scriptElement.innerText.trim();
+        if (!scriptText) {
+          alert('Chưa có kịch bản để tạo video!');
+          return;
+        }
+
+        // Hiển thị trạng thái loading
+        btnGenerate.disabled = true;
+        btnGenerate.innerText = '⏳ Đang tạo video...';
+        videoResult.innerHTML = `
+        <div class="text-center my-4">
+          <div class="spinner-border text-success" role="status" style="width: 2.5rem; height: 2.5rem;">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-3 text-muted">Đang tạo video từ kịch bản...</p>
+        </div>
+      `;
+
+        try {
+          const response = await fetch('/generate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ script: scriptText })
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            videoResult.innerHTML = `
+            <div class="alert alert-success text-center">
+              ✅ Video đã được tạo thành công!
+            </div>
+            <video width="480" controls class="d-block mx-auto mt-3">
+              <source src="${data.videoUrl}" type="video/mp4">
+              Trình duyệt của bạn không hỗ trợ video.
+            </video>
+          `;
+          } else {
+            videoResult.innerHTML = `<div class="alert alert-danger">Tạo video thất bại: ${JSON.stringify(data.error)}</div>`;
+          }
+        } catch (error) {
+          videoResult.innerHTML = `<div class="alert alert-danger">Lỗi khi tạo video: ${error.message}</div>`;
+        } finally {
+          btnGenerate.disabled = false;
+          btnGenerate.innerText = '🎬 Tạo Video Từ Kịch Bản';
+        }
+      });
+
     });
   </script>
 </div>
