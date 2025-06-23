@@ -1155,6 +1155,25 @@
           });
         });
       });
+
+      // Xử lý nút tạo video từ kịch bản
+      const generateVideoBtn = document.getElementById('btn-generate-video');
+      if (generateVideoBtn) {
+        generateVideoBtn.addEventListener('click', function() {
+          const scriptText = document.getElementById('aiScriptContent').textContent;
+          
+          if (!scriptText || scriptText.trim() === '') {
+            alert('Không có kịch bản để tạo video!');
+            return;
+          }
+          
+          // Lưu kịch bản vào localStorage để có thể truy cập từ trang tạo video
+          localStorage.setItem('generatedScript', scriptText);
+          
+          // Chuyển hướng đến trang tạo video nâng cao
+          window.location.href = '/advanced-video';
+        });
+      }
     });
   </script>
 </div>
