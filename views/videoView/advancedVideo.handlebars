@@ -38,7 +38,7 @@ Hình ảnh: ...
                     </div>
                 </div>
                 
-                <button type="submit" class="btn btn-primary" id="generate-btn">Tạo Video</button>
+                <button type="submit" class="btn btn-primary" id="generate-btn">Phân tích kịch bản</button>
                 <button type="button" class="btn btn-outline-info ms-2" id="check-setup-btn">Kiểm tra cài đặt</button>
             </form>
         </div>
@@ -76,7 +76,7 @@ Hình ảnh: ...
                 <span class="visually-hidden">Đang tải...</span>
             </div>
         </div>
-        <p class="text-center mt-2">Đang tạo video, quá trình này có thể mất vài phút...</p>
+        <p class="text-center mt-2">Đang phân tích kịch bản, vui lòng đợi...</p>
     </div>
     
     <div class="mt-3" id="setup-check-container" style="display: none;">
@@ -159,7 +159,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('result-container').style.display = 'none';
         
         try {
-            const response = await fetch('/api/advanced-video/generate-advanced', {
+            // Thay đổi API từ generate-advanced sang prepare-script
+            const response = await fetch('/api/advanced-video/prepare-script', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -179,22 +180,23 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('generate-btn').disabled = false;
             
             if (data.success) {
-                // Hiển thị kết quả
-                document.getElementById('result-container').style.display = 'block';
-                document.getElementById('result-video').src = data.videoUrl;
-                document.getElementById('script-content').innerHTML = data.script.replace(/\n/g, '<br>');
+                // Lưu thông tin phiên làm việc vào sessionStorage để chuyển sang trang chỉnh sửa từng phần
+                sessionStorage.setItem('videoSessionId', data.sessionId);
+                sessionStorage.setItem('videoScript', data.script);
+                sessionStorage.setItem('videoScriptParts', JSON.stringify(data.scriptParts));
+                sessionStorage.setItem('videoVoiceId', data.voiceId || '');
                 
-                // Cuộn đến kết quả
-                document.getElementById('result-container').scrollIntoView({ behavior: 'smooth' });
+                // Chuyển hướng đến trang chỉnh sửa từng phần
+                window.location.href = '/api/advanced-video/edit-parts';
             } else {
                 console.error('Lỗi từ API:', data.error);
-                alert('Lỗi: ' + (data.error || 'Không thể tạo video'));
+                alert('Lỗi: ' + (data.error || 'Không thể phân tích kịch bản'));
             }
         } catch (error) {
             console.error('Lỗi khi gọi API:', error);
             document.getElementById('loading-container').style.display = 'none';
             document.getElementById('generate-btn').disabled = false;
-            alert('Lỗi khi tạo video. Vui lòng thử lại sau. Xem console để biết chi tiết.');
+            alert('Lỗi khi phân tích kịch bản. Vui lòng thử lại sau. Xem console để biết chi tiết.');
         }
     });
     

@@ -28,7 +28,9 @@ const generateImage = async (req, res) => {
       
       const images = await generateImageByImagen(prompt, {
         modelType: actualModelType,
-        imageCount: count
+        imageCount: count,
+        retryDelay: 5000, // 5 giây
+        maxRetries: 5     // Thử tối đa 5 lần
       });
       
       console.log(`✅ Đã tạo thành công ${images.length} ảnh`);

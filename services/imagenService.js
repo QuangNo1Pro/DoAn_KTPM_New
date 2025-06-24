@@ -30,12 +30,19 @@ try {
   console.error('❌ Lỗi khi đọc file credentials:', error.message);
 }
 
+// Hàm sleep để tạo độ trễ
+const sleep = (ms) => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
+
 // Hàm tạo ảnh bằng Imagen từ Google Cloud
 const generateImageByImagen = async (prompt, options = {}) => {
   const {
     modelType = 'ultra',
     imageCount = 1,
-    aspectRatio = '1:1'
+    aspectRatio = '1:1',
+    retryDelay = 5000, // Tăng thời gian chờ lên 5 giây
+    maxRetries = 5     // Tăng số lần thử lại lên 5 lần
   } = options;
   
   // Chọn model dựa trên modelType
@@ -93,17 +100,53 @@ const generateImageByImagen = async (prompt, options = {}) => {
       }
     };
 
-    // Gọi API sử dụng Axios
-    const response = await axios.post(
-      `https://us-central1-aiplatform.googleapis.com/v1/projects/${credentials.project_id}/locations/us-central1/publishers/google/models/${model}:predict`,
-      requestBody,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+    // Thử gọi API với cơ chế retry
+    let response;
+    let retryCount = 0;
+    let lastError;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        if (retryCount > 0) {
+          console.log(`⏳ Đang thử lại lần thứ ${retryCount}/${maxRetries} sau ${retryDelay}ms...`);
+          await sleep(retryDelay);
+        }
+        
+        // Gọi API sử dụng Axios
+        response = await axios.post(
+          `https://us-central1-aiplatform.googleapis.com/v1/projects/${credentials.project_id}/locations/us-central1/publishers/google/models/${model}:predict`,
+          requestBody,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        // Nếu thành công, thoát khỏi vòng lặp
+        break;
+      } catch (error) {
+        lastError = error;
+        
+        // Nếu gặp lỗi 429 (Rate Limiting), tăng thời gian chờ
+        if (error.response && error.response.status === 429) {
+          retryCount++;
+          // Tăng thời gian chờ theo cấp số nhân
+          const waitTime = retryDelay * Math.pow(2, retryCount);
+          console.log(`⚠️ API rate limit (429), chờ ${waitTime}ms trước khi thử lại...`);
+          continue;
+        } else {
+          // Các lỗi khác, không retry
+          throw error;
         }
       }
-    );
+    }
+    
+    // Nếu đã thử hết số lần mà vẫn lỗi
+    if (!response) {
+      throw lastError || new Error("Không thể kết nối đến API sau nhiều lần thử");
+    }
 
     // Xử lý kết quả
     console.log('✓ Đã nhận phản hồi từ Imagen API');

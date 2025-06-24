@@ -1,15 +1,42 @@
 const express = require('express');
 const router = express.Router();
-const { generateAdvancedVideo, getAvailableVoices } = require('../../controllers/videoController/advancedVideoController');
+const { 
+  generateAdvancedVideo, 
+  getAvailableVoices, 
+  prepareVideoScript,
+  generateImageForPart,
+  generateAudioForPart,
+  finalizeAdvancedVideo
+} = require('../../controllers/videoController/advancedVideoController');
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+
+// Trang hiển thị
+router.get('/edit-parts', (req, res) => {
+  res.render('videoView/editVideoParts', { 
+    title: 'Chỉnh sửa phần video',
+    layout: 'main'
+  });
+});
 
 // API tạo video nâng cao với giọng đọc
 router.post('/generate-advanced', generateAdvancedVideo);
 
 // API lấy danh sách giọng đọc có sẵn
 router.get('/voices', getAvailableVoices);
+
+// API chuẩn bị kịch bản và phân tích thành các phần
+router.post('/prepare-script', prepareVideoScript);
+
+// API tạo/tạo lại hình ảnh cho một phần
+router.post('/generate-image-for-part', generateImageForPart);
+
+// API tạo/tạo lại giọng đọc cho một phần
+router.post('/generate-audio-for-part', generateAudioForPart);
+
+// API hoàn thiện video từ các phần đã chuẩn bị
+router.post('/finalize-video', finalizeAdvancedVideo);
 
 // API kiểm tra cài đặt
 router.get('/check-setup', async (req, res) => {

@@ -7,7 +7,41 @@ const axios = require('axios');
 const { generateScriptByVertexAI } = require('../../services/vertexService');
 const { VIETNAMESE_VOICES } = require('../../services/textToSpeechService');
 const textToSpeech = require('@google-cloud/text-to-speech');
+const multer = require('multer');
 // Đã xóa import imagenService để chỉ sử dụng imageController
+
+// Thiết lập multer cho việc tải lên file
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const tempDir = path.join(__dirname, '../../public/temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    cb(null, tempDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = path.extname(file.originalname);
+    cb(null, 'user_upload_' + uniqueSuffix + ext);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  // Chỉ chấp nhận các file ảnh
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Chỉ chấp nhận file hình ảnh!'), false);
+  }
+};
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: fileFilter
+});
 
 // Đường dẫn đến file credentials cho Text-to-Speech
 const ttsCredentialsPath = path.join(__dirname, '../../text to speed.json');
@@ -196,6 +230,9 @@ async function downloadImagesForKeywords(keywords, tempDir) {
     try {
       console.log(`🖼️ Đang tạo ảnh cho từ khóa: ${keyword}`);
       
+      // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 10 giây)
+      await new Promise(resolve => setTimeout(resolve, 10000));
+      
       // Gọi API imageController để tạo ảnh
       const response = await axios.post('http://localhost:3000/api/image/generate', {
         prompt: keyword,
@@ -335,10 +372,16 @@ async function createVideoWithAudio(scriptPartsWithMedia, outputPath) {
     // Tạo đường dẫn cho filter script
     const filterScriptPath = path.join(outputDir, 'filter_script.txt');
     
-    let filterScript = '';
-    let totalDuration = 0;
-    
     // Kiểm tra xem có phần nào có đủ media không
+    // Đảm bảo imagePath tồn tại cho tất cả phần có audioPath
+    scriptPartsWithMedia.forEach((part, index) => {
+      if (part.audioPath && !part.imagePath) {
+        // Nếu có âm thanh nhưng không có ảnh, sử dụng ảnh mặc định
+        part.imagePath = path.join(__dirname, '../../public/image/image1.png');
+        console.log(`⚠️ Sử dụng ảnh mặc định cho phần ${index + 1} do không có ảnh`);
+      }
+    });
+
     const validParts = scriptPartsWithMedia.filter(part => part.imagePath && part.audioPath);
     
     if (validParts.length === 0) {
@@ -364,104 +407,69 @@ async function createVideoWithAudio(scriptPartsWithMedia, outputPath) {
         console.error(`❌ File âm thanh không tồn tại: ${part.audioPath}`);
       }
     });
+
+    // ===== PHƯƠNG PHÁP MỚI: SỬ DỤNG SEGMENT FILE =====
+    // Tạo file danh sách segment
+    const segmentListPath = path.join(outputDir, 'segment_list.txt');
+    let segmentsList = '';
     
-    // Tạo các bộ lọc cho video và audio
+    // Tạo các segment tạm thời
+    const segments = [];
+    
     for (let i = 0; i < validParts.length; i++) {
       const part = validParts[i];
+      const segmentPath = path.join(outputDir, `segment_${i}.mp4`);
+      segments.push(segmentPath);
       
-      // Lấy thông tin về thời lượng âm thanh bằng FFprobe
+      // Lấy thông tin về thời lượng âm thanh
       try {
-        console.log(`🔍 Đang lấy thông tin audio phần ${i + 1}...`);
-        const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${part.audioPath}"`;
-        console.log(`🔍 Command: ${command}`);
+        console.log(`🔍 Đang tạo segment cho phần ${i + 1}...`);
         
-        const durationOutput = execSync(command, { encoding: 'utf-8' });
-        const duration = parseFloat(durationOutput.trim());
-        console.log(`✅ Thời lượng audio phần ${i + 1}: ${duration}s`);
+        // Tạo video segment cho mỗi phần với -af volume để đảm bảo âm lượng nhất quán
+        const segmentCommand = `ffmpeg -y -loop 1 -i "${part.imagePath}" -i "${part.audioPath}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -af "volume=1.0" -pix_fmt yuv420p -shortest "${segmentPath}"`;
+        console.log(`🔍 Command: ${segmentCommand}`);
         
-        // Tạo filter cho phần này với fadeout/fadein cho chuyển cảnh mượt mà hơn
-        filterScript += `[${i*2}:v]setpts=PTS-STARTPTS+${totalDuration}/TB,scale=1280:720,setdar=16/9`;
+        execSync(segmentCommand, { stdio: 'inherit' });
         
-        // Thêm hiệu ứng fade cho hình ảnh (trừ hình đầu tiên)
-        if (i > 0) {
-          filterScript += `,fade=in:0:25`;
-        }
+        // Thêm vào danh sách segment
+        segmentsList += `file '${segmentPath.replace(/\\/g, '/')}'\n`;
         
-        // Thêm text cho mỗi phần, hiển thị ở góc dưới
-        const shortText = part.text.substring(0, 40) + (part.text.length > 40 ? '...' : '');
-        filterScript += `,drawtext=text='${shortText.replace(/'/g, "\\'")}':fontcolor=white:fontsize=20:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-10`;
-        
-        filterScript += `[v${i}];\n`;
-        
-        // Xử lý âm thanh
-        filterScript += `[${i*2+1}:a]adelay=${Math.round(totalDuration*1000)}|${Math.round(totalDuration*1000)}[a${i}];\n`;
-        
-        totalDuration += duration;
       } catch (error) {
-        console.error(`❌ Lỗi khi lấy thông tin audio phần ${i + 1}:`, error.message);
-        // Giả định thời lượng
-        console.log(`⚠️ Sử dụng thời lượng mặc định 5s cho phần ${i + 1}`);
-        const duration = 5;
+        console.error(`❌ Lỗi khi tạo segment cho phần ${i + 1}:`, error.message);
+        throw new Error(`Lỗi khi tạo segment video: ${error.message}`);
+      }
+    }
+    
+    // Ghi file danh sách segment
+    fs.writeFileSync(segmentListPath, segmentsList);
+    
+    // Ghép các segment thành video hoàn chỉnh
+    try {
+      console.log('🎬 Ghép các segment thành video cuối cùng...');
+      
+      // Sử dụng concat demuxer thay vì filter complex
+      const concatCommand = `ffmpeg -y -f concat -safe 0 -i "${segmentListPath}" -c copy "${outputPath}"`;
+      console.log(`🎬 Lệnh FFmpeg: ${concatCommand}`);
+      
+      execSync(concatCommand, { stdio: 'inherit' });
+      console.log('✅ FFmpeg đã tạo video thành công');
+      
+      // Dọn dẹp các file tạm
+      try {
+        segments.forEach(segment => {
+          if (fs.existsSync(segment)) {
+            fs.unlinkSync(segment);
+          }
+        });
         
-        // Tạo filter cho phần này với fadeout/fadein cho chuyển cảnh mượt mà hơn
-        filterScript += `[${i*2}:v]setpts=PTS-STARTPTS+${totalDuration}/TB,scale=1280:720,setdar=16/9`;
-        
-        // Thêm hiệu ứng fade cho hình ảnh (trừ hình đầu tiên)
-        if (i > 0) {
-          filterScript += `,fade=in:0:25`;
+        if (fs.existsSync(segmentListPath)) {
+          fs.unlinkSync(segmentListPath);
         }
         
-        // Thêm text cho mỗi phần, hiển thị ở góc dưới
-        const shortText = part.text.substring(0, 40) + (part.text.length > 40 ? '...' : '');
-        filterScript += `,drawtext=text='${shortText.replace(/'/g, "\\'")}':fontcolor=white:fontsize=20:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=h-th-10`;
-        
-        filterScript += `[v${i}];\n`;
-        
-        // Xử lý âm thanh
-        filterScript += `[${i*2+1}:a]adelay=${Math.round(totalDuration*1000)}|${Math.round(totalDuration*1000)}[a${i}];\n`;
-        totalDuration += duration;
+        console.log('✅ Đã xóa các file tạm');
+      } catch (cleanupError) {
+        console.error('⚠️ Lỗi khi xóa file tạm:', cleanupError.message);
       }
-    }
-    
-    // Tạo mệnh đề concat để ghép nối video và audio
-    let videoStreams = '';
-    let audioStreams = '';
-    
-    for (let i = 0; i < validParts.length; i++) {
-      videoStreams += `[v${i}]`;
-      audioStreams += `[a${i}]`;
-    }
-    
-    // Hoàn thiện filter script với concat
-    if (videoStreams && audioStreams) {
-      filterScript += `${videoStreams}concat=n=${validParts.length}:v=1:a=0[outv];\n`;
-      filterScript += `${audioStreams}amix=inputs=${validParts.length}:duration=longest[outa]`;
-    } else {
-      throw new Error('Không đủ media để tạo video');
-    }
-    
-    // Ghi file filter script
-    console.log('📝 Ghi file filter script...');
-    fs.writeFileSync(filterScriptPath, filterScript);
-    console.log('✅ Đã ghi file filter script');
-
-    // Tạo video bằng FFmpeg
-    try {
-      console.log('🎬 Thực thi lệnh FFmpeg...');
-      
-      // Xây dựng lệnh FFmpeg với tất cả các đầu vào riêng biệt
-      let ffmpegCommand = 'ffmpeg -y';
-      
-      // Thêm tất cả các file hình ảnh và âm thanh vào lệnh
-      for (let i = 0; i < validParts.length; i++) {
-        ffmpegCommand += ` -loop 1 -i "${validParts[i].imagePath}" -i "${validParts[i].audioPath}"`;
-      }
-      
-      ffmpegCommand += ` -filter_complex_script "${filterScriptPath}" -map "[outv]" -map "[outa]" -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 192k -shortest "${outputPath}"`;
-      console.log(`🎬 Lệnh FFmpeg: ${ffmpegCommand}`);
-      
-      execSync(ffmpegCommand, { stdio: 'inherit' });
-      console.log('✅ FFmpeg đã tạo video thành công');
       
       // Kiểm tra xem video có tồn tại không
       if (fs.existsSync(outputPath)) {
@@ -479,19 +487,11 @@ async function createVideoWithAudio(scriptPartsWithMedia, outputPath) {
         throw new Error('Không thể tạo video: File không được tạo');
       }
       
-      // Xóa file tạm
-      try {
-        fs.unlinkSync(filterScriptPath);
-        console.log('✅ Đã xóa các file tạm');
-      } catch (cleanupError) {
-        console.error('⚠️ Lỗi khi xóa file tạm:', cleanupError.message);
-      }
-      
       return outputPath;
     } catch (error) {
-      console.error('❌ Lỗi khi tạo video bằng FFmpeg:', error.message);
+      console.error('❌ Lỗi khi ghép video:', error.message);
       console.error('Chi tiết lỗi:', error.stack);
-      throw new Error(`Lỗi khi tạo video với FFmpeg: ${error.message}`);
+      throw new Error(`Lỗi khi ghép video: ${error.message}`);
     }
   } catch (error) {
     console.error('❌ Lỗi trong quá trình tạo video:', error);
@@ -644,7 +644,416 @@ const getAvailableVoices = async (req, res) => {
   }
 };
 
+/**
+ * API chuẩn bị kịch bản và phân tích thành các phần để chỉnh sửa
+ */
+const prepareVideoScript = async (req, res) => {
+  console.log('🚀 Bắt đầu chuẩn bị kịch bản...');
+  console.log('Body request:', JSON.stringify(req.body).substring(0, 200) + '...');
+  
+  const { topic, script, voiceId } = req.body;
+
+  if (!topic && !script) {
+    console.log('❌ Lỗi: Thiếu chủ đề hoặc kịch bản');
+    return res.status(400).json({ success: false, error: 'Vui lòng cung cấp chủ đề hoặc kịch bản!' });
+  }
+
+  try {
+    // Tạo thư mục đầu ra nếu chưa tồn tại
+    const tempDir = path.join(__dirname, '../../public/temp');
+    const audioDir = path.join(tempDir, 'audio');
+    
+    [tempDir, audioDir].forEach(dir => {
+      if (!fs.existsSync(dir)) {
+        console.log(`📁 Tạo thư mục: ${dir}`);
+        fs.mkdirSync(dir, { recursive: true });
+      }
+    });
+
+    // Kiểm tra FFmpeg
+    try {
+      console.log('🔍 Kiểm tra FFmpeg...');
+      const ffmpegVersion = execSync('ffmpeg -version').toString().split('\n')[0];
+      console.log(`✅ FFmpeg: ${ffmpegVersion}`);
+    } catch (error) {
+      console.error('❌ Lỗi FFmpeg:', error.message);
+      throw new Error('Cần cài đặt FFmpeg để tạo video. Hãy cài đặt FFmpeg và khởi động lại ứng dụng.');
+    }
+
+    // Tạo kịch bản nếu chưa có, và chuẩn hóa kịch bản nếu có
+    let finalScript = script;
+    
+    if (!script || script.trim() === '') {
+      console.log('🤖 Tạo kịch bản từ chủ đề:', topic);
+      try {
+        const generatedScript = await generateScriptByVertexAI(topic);
+        finalScript = generatedScript;
+        console.log('✅ Đã tạo kịch bản từ AI');
+      } catch (error) {
+        console.error('❌ Lỗi khi tạo kịch bản từ AI:', error);
+        throw new Error(`Không thể tạo kịch bản từ chủ đề: ${error.message}`);
+      }
+    } else {
+      // Chuẩn hóa kịch bản đã có
+      console.log('📝 Chuẩn hóa kịch bản đã có...');
+      
+      // Kiểm tra nếu kịch bản không phải là kịch bản thực, mà là danh sách đề xuất
+      if (finalScript.includes('Hãy nhấn vào 1 chủ đề để tạo kịch bản')) {
+        console.error('❌ Nội dung không phải là kịch bản mà là danh sách đề xuất');
+        throw new Error('Nội dung không phải là kịch bản. Vui lòng tạo kịch bản trước khi tạo video.');
+      }
+    }
+
+    console.log('📜 Kịch bản cuối cùng (đoạn đầu):', finalScript.substring(0, 200) + '...');
+
+    // Phân tích kịch bản
+    console.log('🔍 Phân tích kịch bản...');
+    const scriptParts = extractScriptParts(finalScript);
+    console.log(`✅ Phân tích được ${scriptParts.length} phần kịch bản`);
+    
+    if (scriptParts.length === 0) {
+      console.error('❌ Không tìm thấy phần nào trong kịch bản');
+      const errorMessage = 'Kịch bản không đúng định dạng. Hãy kiểm tra lại. ' + 
+                          'Kịch bản phải có các phần được đánh dấu bằng "## PHẦN" và có "**Lời thoại:**" và "**Hình ảnh:**".';
+      throw new Error(errorMessage);
+    }
+
+    // Tạo ID phiên làm việc để theo dõi
+    const sessionId = Date.now().toString();
+    
+    // Lưu kịch bản và các phần vào session để sử dụng sau
+    if (!req.session) {
+      req.session = {};
+    }
+    
+    req.session.videoPreparation = {
+      sessionId,
+      script: finalScript,
+      scriptParts: scriptParts.map((part, index) => ({
+        id: `part_${index}`,
+        index: index,
+        ...part,
+        audioPath: null,
+        imagePath: null
+      })),
+      voiceId
+    };
+
+    // Trả về thông tin kịch bản đã phân tích
+    return res.json({
+      success: true,
+      sessionId,
+      scriptParts: scriptParts.map((part, index) => ({
+        id: `part_${index}`,
+        index: index,
+        ...part
+      })),
+      voiceId,
+      script: finalScript
+    });
+  } catch (error) {
+    console.error('❌ LỖI:', error);
+    
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Lỗi không xác định khi chuẩn bị kịch bản',
+      stack: error.stack
+    });
+  }
+};
+
+/**
+ * API tạo/tạo lại hình ảnh cho một phần cụ thể
+ */
+const generateImageForPart = async (req, res) => {
+  console.log('🖼️ Bắt đầu tạo hình ảnh cho phần...');
+  
+  const { sessionId, partId, customPrompt } = req.body;
+  
+  if (!sessionId || !partId) {
+    return res.status(400).json({
+      success: false,
+      error: 'Thiếu thông tin phiên làm việc hoặc ID phần'
+    });
+  }
+  
+  try {
+    // Kiểm tra phiên làm việc
+    if (!req.session || !req.session.videoPreparation || req.session.videoPreparation.sessionId !== sessionId) {
+      throw new Error('Phiên làm việc không hợp lệ hoặc đã hết hạn');
+    }
+    
+    // Tìm phần cần tạo hình ảnh
+    const part = req.session.videoPreparation.scriptParts.find(p => p.id === partId);
+    
+    if (!part) {
+      throw new Error(`Không tìm thấy phần với ID: ${partId}`);
+    }
+    
+    // Xác định prompt cho hình ảnh
+    let imagePrompt = customPrompt;
+    
+    // Nếu không có prompt tùy chỉnh, sử dụng mô tả hình ảnh hoặc trích xuất từ văn bản
+    if (!imagePrompt) {
+      if (part.image && part.image.trim() !== '') {
+        const keywords = extractKeywordsFromDescription(part.image);
+        imagePrompt = keywords.join(', ');
+      } else {
+        // Trích xuất từ khóa từ văn bản
+        const textKeywords = part.text
+          .split(/\s+/)
+          .filter(word => word.length > 4)
+          .filter(word => !['như', 'nhưng', 'hoặc', 'những', 'được', 'trong', 'cùng'].includes(word.toLowerCase()))
+          .slice(0, 3);
+        
+        imagePrompt = textKeywords.join(', ');
+      }
+    }
+    
+    console.log(`🖼️ Tạo hình ảnh với prompt: ${imagePrompt}`);
+    
+    // Tạo thư mục tạm nếu chưa có
+    const tempDir = path.join(__dirname, '../../public/temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    // Tạo hình ảnh bằng API
+    const response = await axios.post('http://localhost:3000/api/image/generate', {
+      prompt: imagePrompt,
+      modelType: 'standard',
+      imageCount: 1
+    });
+    
+    if (response.data.success && response.data.images && response.data.images.length > 0) {
+      // Lưu ảnh vào thư mục tạm
+      const imageFilename = `part_${part.index}_${Date.now()}.jpg`;
+      const filePath = path.join(tempDir, imageFilename);
+      
+      if (response.data.images[0].type === 'base64') {
+        fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
+      } else if (response.data.images[0].type === 'url') {
+        const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
+        fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
+      }
+      
+      // Cập nhật đường dẫn hình ảnh trong session
+      part.imagePath = filePath;
+      
+      return res.json({
+        success: true,
+        imagePath: `/temp/${imageFilename}`,
+        prompt: imagePrompt
+      });
+    } else {
+      throw new Error('Không nhận được hình ảnh từ API tạo ảnh');
+    }
+  } catch (error) {
+    console.error('❌ Lỗi khi tạo hình ảnh:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Lỗi không xác định khi tạo hình ảnh'
+    });
+  }
+};
+
+/**
+ * API tạo/tạo lại giọng đọc cho một phần cụ thể
+ */
+const generateAudioForPart = async (req, res) => {
+  console.log('🔊 Bắt đầu tạo giọng đọc cho phần...');
+  
+  const { sessionId, partId, voiceId, customText } = req.body;
+  
+  if (!sessionId || !partId) {
+    return res.status(400).json({
+      success: false,
+      error: 'Thiếu thông tin phiên làm việc hoặc ID phần'
+    });
+  }
+  
+  try {
+    // Kiểm tra phiên làm việc
+    if (!req.session || !req.session.videoPreparation || req.session.videoPreparation.sessionId !== sessionId) {
+      throw new Error('Phiên làm việc không hợp lệ hoặc đã hết hạn');
+    }
+    
+    // Tìm phần cần tạo giọng đọc
+    const part = req.session.videoPreparation.scriptParts.find(p => p.id === partId);
+    
+    if (!part) {
+      throw new Error(`Không tìm thấy phần với ID: ${partId}`);
+    }
+    
+    // Xác định văn bản và giọng đọc
+    const text = customText || part.text;
+    const selectedVoiceId = voiceId || req.session.videoPreparation.voiceId || VIETNAMESE_VOICES.FEMALE_NEURAL_A;
+    
+    // Tạo thư mục lưu trữ
+    const audioDir = path.join(__dirname, '../../public/temp/audio');
+    if (!fs.existsSync(audioDir)) {
+      fs.mkdirSync(audioDir, { recursive: true });
+    }
+    
+    // Đường dẫn file đầu ra
+    const audioFilename = `part_${part.index}_${Date.now()}.mp3`;
+    const outputPath = path.join(audioDir, audioFilename);
+    
+    // Tạo giọng đọc
+    await convertTextToSpeech(text, outputPath, selectedVoiceId);
+    
+    // Cập nhật đường dẫn âm thanh trong session
+    part.audioPath = outputPath;
+    
+    // Nếu văn bản được tùy chỉnh, cập nhật nội dung text trong part
+    if (customText) {
+      part.text = customText;
+    }
+    
+    return res.json({
+      success: true,
+      audioPath: `/temp/audio/${audioFilename}`,
+      text: text
+    });
+  } catch (error) {
+    console.error('❌ Lỗi khi tạo giọng đọc:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Lỗi không xác định khi tạo giọng đọc'
+    });
+  }
+};
+
+/**
+ * API hoàn thiện video từ các phần đã chuẩn bị
+ */
+const finalizeAdvancedVideo = async (req, res) => {
+  console.log('🎬 Bắt đầu hoàn thiện video...');
+  
+  const { sessionId } = req.body;
+  
+  if (!sessionId) {
+    return res.status(400).json({
+      success: false,
+      error: 'Thiếu thông tin phiên làm việc'
+    });
+  }
+  
+  try {
+    // Kiểm tra phiên làm việc
+    if (!req.session || !req.session.videoPreparation || req.session.videoPreparation.sessionId !== sessionId) {
+      throw new Error('Phiên làm việc không hợp lệ hoặc đã hết hạn');
+    }
+    
+    // Lấy thông tin kịch bản và các phần
+    const { script, scriptParts } = req.session.videoPreparation;
+    
+    // Kiểm tra xem có đủ thông tin để tạo video không
+    const validParts = scriptParts.filter(part => part.imagePath && part.audioPath);
+    
+    if (validParts.length === 0) {
+      throw new Error('Không có phần nào có đủ media (hình ảnh và âm thanh)');
+    }
+    
+    // Tên file video
+    const outputDir = path.join(__dirname, '../../public/videos');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    
+    const videoFileName = `advanced_video_${sessionId}.mp4`;
+    const outputPath = path.join(outputDir, videoFileName);
+    
+    // Tạo video từ các phần
+    await createVideoWithAudio(validParts, outputPath);
+    
+    return res.json({
+      success: true,
+      videoUrl: `/videos/${videoFileName}`,
+      script: script
+    });
+  } catch (error) {
+    console.error('❌ Lỗi khi hoàn thiện video:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Lỗi không xác định khi tạo video'
+    });
+  }
+};
+
+/**
+ * API tải lên hình ảnh tùy chỉnh cho một phần cụ thể
+ * Lưu ý: Hàm này được thiết kế để xử lý từng request với middleware upload.single('image')
+ */
+const uploadImageForPart = async (req, res) => {
+  // req.file được thiết lập bởi multer sau khi tải lên thành công
+  if (!req.file) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Không tìm thấy file ảnh trong request' 
+    });
+  }
+
+  const { sessionId, partId } = req.body;
+  
+  if (!sessionId || !partId) {
+    // Xóa file đã tải lên nếu thông tin không hợp lệ
+    if (req.file.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    return res.status(400).json({
+      success: false,
+      error: 'Thiếu thông tin phiên làm việc hoặc ID phần'
+    });
+  }
+  
+  try {
+    // Kiểm tra phiên làm việc
+    if (!req.session || !req.session.videoPreparation || req.session.videoPreparation.sessionId !== sessionId) {
+      throw new Error('Phiên làm việc không hợp lệ hoặc đã hết hạn');
+    }
+    
+    // Tìm phần cần cập nhật hình ảnh
+    const part = req.session.videoPreparation.scriptParts.find(p => p.id === partId);
+    
+    if (!part) {
+      throw new Error(`Không tìm thấy phần với ID: ${partId}`);
+    }
+    
+    // Cập nhật đường dẫn hình ảnh trong session
+    part.imagePath = req.file.path;
+    
+    // Trả về đường dẫn tương đối để hiển thị trong frontend
+    const relativePath = `/temp/${path.basename(req.file.path)}`;
+    
+    return res.json({
+      success: true,
+      imagePath: relativePath,
+      filename: path.basename(req.file.path)
+    });
+  } catch (error) {
+    console.error('❌ Lỗi khi tải lên hình ảnh:', error);
+    
+    // Xóa file đã tải lên nếu xử lý thất bại
+    if (req.file.path && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Lỗi không xác định khi tải lên hình ảnh'
+    });
+  }
+};
+
 module.exports = { 
   generateAdvancedVideo,
-  getAvailableVoices
+  getAvailableVoices,
+  prepareVideoScript,
+  generateImageForPart,
+  generateAudioForPart,
+  finalizeAdvancedVideo,
+  uploadImageForPart,
+  upload // Export middleware upload để sử dụng trong router
 }; 
