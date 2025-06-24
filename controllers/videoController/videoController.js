@@ -1,143 +1,150 @@
 require('dotenv').config();
 const axios = require('axios');
 
-// Hàm tính thời lượng dựa vào độ dài text
+// Cấu hình giới hạn
+const CONFIG = {
+    MAX_TOTAL_DURATION: 60, // Giây
+    MAX_SCENE_DURATION: 3,  // Giây
+    MAX_SCENES: 20,
+    IMAGE_SRC: "https://photo.znews.vn/w1920/Uploaded/mdf_eioxrd/2021_07_06/2.jpg",
+    API_URL: 'https://api.json2video.com/v2/movies',
+    POLL_RETRIES: 40,
+    POLL_INTERVAL: 5000,
+    VIDEO_RESOLUTION: { width: 640, height: 360 }
+};
+
+// Ước lượng thời lượng từ text
 function estimateDurationFromText(text) {
     const words = text.trim().split(/\s+/).length;
-    const wordsPerSecond = 2.5;
-    return Math.ceil(words / wordsPerSecond) + 1;
+    const wordsPerSecond = 5;
+    return Math.min(CONFIG.MAX_SCENE_DURATION, Math.ceil(words / wordsPerSecond) + 1);
 }
 
-// ✅ Hàm phân tích script và tạo scenes (đã bổ sung background)
+// Lấy tất cả lời thoại trong dấu "..." từ toàn bộ script
+function extractQuotedLines(script) {
+    const matches = script.match(/"([^"]+)"/g) || [];
+    return matches.map(q => q.replace(/^"|"$/g, '').trim()).filter(Boolean);
+}
+
+// Chuyển lời thoại thành scenes
 function parseScriptToScenes(script) {
-    const lines = script.split('\n')
-        .map(line => line.trim())
-        .filter(line => line !== '');
+    const dialogues = extractQuotedLines(script);
 
     const scenes = [];
+    let totalDuration = 0;
 
-    for (let line of lines) {
-        // Bỏ qua mô tả (trong ngoặc đơn)
-        if (!line || /^\(.*\)$/.test(line)) continue;
-
-        // Tách các kiểu lời thoại khác nhau
-        const match = line.match(/^([A-Za-zÀ-ỹĐđ\s]+):\s*(.+)$/);
-        let speaker = null;
-        let text = line;
-
-        if (match) {
-            speaker = match[1].trim();
-            text = match[2].trim();
-        } else if (line.startsWith('Voiceover:')) {
-            speaker = 'Voiceover';
-            text = line.replace('Voiceover:', '').trim();
-        } else if (line.startsWith('Text on screen:')) {
-            speaker = null; // chỉ hiển thị text
-            text = line.replace('Text on screen:', '').trim();
-        }
-
+    for (const text of dialogues) {
         const duration = estimateDurationFromText(text);
-
-        // Thêm background mặc định cho mỗi scene
-        const scene = {
-            duration: duration + 1,
-            elements: [
-                {
-                    type: "background",
-                    color: "#000000"  // nền đen, bạn có thể đổi màu khác
-                }
-            ]
-        };
-
-        if (speaker !== null) {
-            scene.elements.push({
-                type: "voice",
-                text,
-                voice: "vi-VN-HoaiMyNeural",
-                model: "azure"
-            });
+        if (totalDuration + duration > CONFIG.MAX_TOTAL_DURATION) {
+            console.warn('⏱️ Cảnh bị cắt vì vượt giới hạn thời lượng tổng');
+            break;
         }
 
-        scene.elements.push({
-            type: "text",
-            text,
-            style: "001",
+        scenes.push({
             duration,
-            settings: {
-                "font-size": "40px"
-            }
+            elements: [
+                { type: "image", src: CONFIG.IMAGE_SRC, layer: "background" },
+                { type: "subtitles", text },
+                { type: "voice", text, voice: "vi-VN-HoaiMyNeural", model: "azure" }
+            ]
         });
 
-        scenes.push(scene);
+        totalDuration += duration;
+
+        if (scenes.length >= CONFIG.MAX_SCENES) {
+            console.warn('⚠️ Đạt số lượng cảnh tối đa');
+            break;
+        }
     }
 
+    console.log(`🎬 Tổng thời lượng: ${totalDuration}s, Số cảnh: ${scenes.length}`);
     return scenes;
 }
 
-// API chính
-const generateVideo = async (req, res) => {
-    const { script } = req.body;
-
-    if (!script || script.trim() === '') {
-        return res.status(400).json({ success: false, error: 'Script không được để trống' });
-    }
-
-    try {
-        const apiKey = process.env.JSON2VIDEO_API_KEY;
-        if (!apiKey) throw new Error('API key chưa được cấu hình.');
-
-        const scenes = parseScriptToScenes(script);
-
-        const movieJSON = {
-            resolution: "full-hd",
-            scenes
-        };
-
-        // ✅ Debug: log nội dung gửi lên API
-        console.log("Sending movieJSON to API:", JSON.stringify(movieJSON, null, 2));
-
-        const response = await axios.post('https://api.json2video.com/v2/movies', movieJSON, {
-            headers: {
-                'x-api-key': apiKey,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        const result = response.data;
-
-        if (!result.success) {
-            throw new Error(result.message || 'Lỗi khi render video.');
-        }
-
-        const projectId = result.project;
-        const videoUrl = await pollVideoUrl(apiKey, projectId);
-        return res.json({ success: true, videoUrl });
-
-    } catch (error) {
-        console.error('Lỗi khi tạo video:', error);
-        return res.status(500).json({ success: false, error: error.message || 'Lỗi khi tạo video từ API' });
-    }
-};
-
-// Hàm chờ video render xong
-async function pollVideoUrl(apiKey, projectId, retries = 40, interval = 5000) {
-    const url = `https://api.json2video.com/v2/movies?project=${projectId}`;
-    for (let i = 0; i < retries; i++) {
+// Chờ video render
+async function pollVideoUrl(apiKey, projectId) {
+    const url = `${CONFIG.API_URL}?project=${projectId}`;
+    
+    for (let i = 0; i < CONFIG.POLL_RETRIES; i++) {
         try {
             const response = await axios.get(url, {
-                headers: { 'x-api-key': apiKey }
+                headers: { 'x-api-key': apiKey },
+                timeout: 10000
             });
 
             const movieData = response.data?.movie;
             if (movieData?.url) {
+                console.log(`✅ Video sẵn sàng: ${movieData.url}`);
                 return movieData.url;
             }
         } catch (err) {
-            console.error('Lỗi khi kiểm tra video:', err.message);
+            console.error(`Lỗi lần ${i + 1}:`, err.message);
         }
-        await new Promise(resolve => setTimeout(resolve, interval));
+        await new Promise(resolve => setTimeout(resolve, CONFIG.POLL_INTERVAL));
     }
-    throw new Error('Không lấy được URL video sau nhiều lần thử.');
+
+    throw new Error(`Không lấy được URL video sau ${CONFIG.POLL_RETRIES} lần thử`);
 }
+
+// API tạo video
+const generateVideo = async (req, res) => {
+    const { script } = req.body;
+
+    try {
+        if (!script?.trim()) {
+            return res.status(400).json({ success: false, error: 'Script không được để trống' });
+        }
+
+        const apiKey = process.env.JSON2VIDEO_API_KEY;
+        if (!apiKey) throw new Error('API key chưa được cấu hình');
+
+        const scenes = parseScriptToScenes(script);
+        if (!scenes.length) {
+            return res.status(400).json({ success: false, error: 'Không có lời thoại nào hợp lệ' });
+        }
+
+        const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0);
+        if (totalDuration > CONFIG.MAX_TOTAL_DURATION) {
+            return res.status(400).json({ success: false, error: `Tổng thời lượng ${totalDuration}s vượt giới hạn` });
+        }
+
+        const movieJSON = {
+            resolution: "custom",
+            width: CONFIG.VIDEO_RESOLUTION.width,
+            height: CONFIG.VIDEO_RESOLUTION.height,
+            scenes
+        };
+
+        const response = await axios.post(CONFIG.API_URL, movieJSON, {
+            headers: {
+                'x-api-key': apiKey,
+                'Content-Type': 'application/json'
+            },
+            timeout: 30000
+        });
+
+        if (!response.data?.success) {
+            throw new Error(response.data?.message || 'Lỗi khi render video');
+        }
+
+        const videoUrl = await pollVideoUrl(apiKey, response.data.project);
+
+        return res.json({
+            success: true,
+            videoUrl,
+            metadata: {
+                totalDuration,
+                sceneCount: scenes.length
+            }
+        });
+
+    } catch (error) {
+        console.error('🚨 Lỗi tạo video:', error.message);
+        return res.status(error.response?.status || 500).json({
+            success: false,
+            error: error.message || 'Lỗi server'
+        });
+    }
+};
 
 module.exports = { generateVideo };
