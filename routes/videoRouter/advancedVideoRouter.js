@@ -6,7 +6,9 @@ const {
   prepareVideoScript,
   generateImageForPart,
   generateAudioForPart,
-  finalizeAdvancedVideo
+  finalizeAdvancedVideo,
+  uploadImageForPart,
+  upload
 } = require('../../controllers/videoController/advancedVideoController');
 const { execSync } = require('child_process');
 const path = require('path');
@@ -31,6 +33,9 @@ router.post('/prepare-script', prepareVideoScript);
 
 // API tạo/tạo lại hình ảnh cho một phần
 router.post('/generate-image-for-part', generateImageForPart);
+
+// API tải lên hình ảnh từ máy tính cho một phần
+router.post('/upload-image-for-part', upload.single('image'), uploadImageForPart);
 
 // API tạo/tạo lại giọng đọc cho một phần
 router.post('/generate-audio-for-part', generateAudioForPart);
