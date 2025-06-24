@@ -44,7 +44,7 @@ const upload = multer({
 });
 
 // Đường dẫn đến file credentials cho Text-to-Speech
-const ttsCredentialsPath = path.join(__dirname, '../../text to speed.json');
+const ttsCredentialsPath = path.join(__dirname, '../../text-to-speed.json');
 
 // Khởi tạo client Text-to-Speech
 let ttsClient;
@@ -230,8 +230,8 @@ async function downloadImagesForKeywords(keywords, tempDir) {
     try {
       console.log(`🖼️ Đang tạo ảnh cho từ khóa: ${keyword}`);
       
-      // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 10 giây)
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 15 giây)
+      await new Promise(resolve => setTimeout(resolve, 15000));
       
       // Gọi API imageController để tạo ảnh
       const response = await axios.post('http://localhost:3000/api/image/generate', {

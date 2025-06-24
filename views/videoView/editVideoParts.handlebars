@@ -25,6 +25,22 @@
             </div>
         </div>
     </div>
+    
+    <!-- Các nút tạo ảnh/giọng đọc và video -->
+    <div class="text-center mb-4">
+        <div class="d-flex justify-content-center gap-3">
+            <button id="generate-all-btn" class="btn btn-warning">
+                <i class="bi bi-magic"></i> Tạo tất cả ảnh và giọng đọc
+            </button>
+            <button id="create-video-btn" class="btn btn-success">
+                <i class="bi bi-film"></i> Tạo Video
+            </button>
+        </div>
+        <div class="progress mt-2" id="global-progress" style="display: none;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+        </div>
+        <small class="text-muted mt-1 d-block">Quá trình này có thể mất vài phút tùy thuộc vào số lượng phần</small>
+    </div>
 
     <div id="parts-container">
         <!-- Các phần sẽ được thêm vào đây bằng JavaScript -->
@@ -36,11 +52,7 @@
         </div>
     </div>
 
-    <div class="text-center mt-4 mb-5">
-        <button id="create-video-btn" class="btn btn-success btn-lg">
-            <i class="bi bi-film"></i> Tạo Video
-        </button>
-    </div>
+
     
     <div class="mt-5" id="result-container" style="display: none;">
         <div class="card">
@@ -194,6 +206,163 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Thiết lập sự kiện tạo video
     document.getElementById('create-video-btn').addEventListener('click', finalizeVideo);
+    
+    // Thiết lập sự kiện "Tạo tất cả"
+    document.getElementById('generate-all-btn').addEventListener('click', generateAllParts);
+    
+    // Hàm để tạo tất cả ảnh và giọng đọc cho tất cả các phần
+    async function generateAllParts() {
+        const generateBtn = document.getElementById('generate-all-btn');
+        generateBtn.disabled = true;
+        
+        // Hiển thị thanh tiến trình toàn cục
+        const globalProgress = document.getElementById('global-progress');
+        const globalProgressBar = globalProgress.querySelector('.progress-bar');
+        globalProgress.style.display = 'block';
+        globalProgressBar.style.width = '0%';
+        globalProgressBar.textContent = 'Đang chuẩn bị...';
+        
+        try {
+            // Lấy tất cả các phần
+            const allParts = scriptParts.map(part => part.id);
+            
+            // Tính toán tiến trình
+            const totalOperations = allParts.length * 2; // 2 operations per part (image + audio)
+            let completedOperations = 0;
+            
+            // Cập nhật tiến trình
+            const updateProgress = () => {
+                const percentage = Math.min(Math.round((completedOperations / totalOperations) * 100), 100);
+                globalProgressBar.style.width = percentage + '%';
+                globalProgressBar.textContent = `Tiến trình: ${percentage}%`;
+            };
+            
+            // Xử lý từng phần, lần lượt tạo ảnh và giọng đọc
+            for (const partId of allParts) {
+                const partElement = document.getElementById(`part-${partId}`);
+                
+                // Cuộn đến phần đang xử lý
+                partElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // 1. Tạo ảnh cho phần
+                try {
+                    globalProgressBar.textContent = `Đang tạo ảnh cho phần ${scriptParts.findIndex(p => p.id === partId) + 1}...`;
+                    
+                    // Lấy input prompt từ phần tương ứng
+                    const customPromptInput = partElement.querySelector('.custom-prompt');
+                    
+                    // Gọi API tạo hình ảnh
+                    const response = await fetch('/api/advanced-video/generate-image-for-part', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            sessionId,
+                            partId,
+                            customPrompt: customPromptInput.value.trim()
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Cập nhật giao diện
+                        const placeholderImage = partElement.querySelector('.placeholder-image');
+                        const partImage = partElement.querySelector('.part-image');
+                        placeholderImage.style.display = 'none';
+                        partImage.style.display = 'block';
+                        partImage.src = data.imagePath;
+                    } else {
+                        throw new Error(data.error || 'Không thể tạo hình ảnh');
+                    }
+                    
+                    // Cập nhật số lượng thao tác đã hoàn thành
+                    completedOperations++;
+                    updateProgress();
+                    
+                    // Thêm thời gian chờ giữa các lần tạo ảnh để tránh lỗi
+                    await new Promise(resolve => setTimeout(resolve, 8000)); // Đợi 8 giây
+                    
+                } catch (error) {
+                    console.error(`Lỗi khi tạo ảnh cho phần ${partId}:`, error);
+                    // Tiếp tục với phần tiếp theo nếu có lỗi
+                }
+                
+                // 2. Tạo giọng đọc cho phần
+                try {
+                    globalProgressBar.textContent = `Đang tạo giọng đọc cho phần ${scriptParts.findIndex(p => p.id === partId) + 1}...`;
+                    
+                    // Lấy nội dung text từ phần tương ứng
+                    const textContent = partElement.querySelector('.text-content');
+                    
+                    // Nếu không có nội dung, bỏ qua
+                    if (!textContent.value.trim()) {
+                        console.warn(`Phần ${partId} không có nội dung văn bản, bỏ qua tạo giọng đọc`);
+                        completedOperations++;
+                        updateProgress();
+                        continue;
+                    }
+                    
+                    // Gọi API tạo giọng đọc
+                    const response = await fetch('/api/advanced-video/generate-audio-for-part', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            sessionId,
+                            partId,
+                            voiceId,
+                            customText: textContent.value.trim()
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Cập nhật giao diện
+                        const audioContainer = partElement.querySelector('.audio-container');
+                        const audioPlayer = partElement.querySelector('.audio-player');
+                        audioContainer.style.display = 'block';
+                        audioPlayer.querySelector('source').src = data.audioPath;
+                        audioPlayer.load();
+                    } else {
+                        throw new Error(data.error || 'Không thể tạo giọng đọc');
+                    }
+                    
+                    // Cập nhật số lượng thao tác đã hoàn thành
+                    completedOperations++;
+                    updateProgress();
+                    
+                    // Thêm thời gian chờ giữa các lần tạo giọng đọc
+                    await new Promise(resolve => setTimeout(resolve, 3000)); // Đợi 3 giây
+                    
+                } catch (error) {
+                    console.error(`Lỗi khi tạo giọng đọc cho phần ${partId}:`, error);
+                    // Tiếp tục với phần tiếp theo nếu có lỗi
+                }
+            }
+            
+            // Hoàn thành
+            globalProgressBar.style.width = '100%';
+            globalProgressBar.textContent = 'Đã hoàn thành tất cả!';
+            globalProgressBar.classList.remove('progress-bar-animated');
+            globalProgressBar.classList.add('bg-success');
+            
+            // Hiển thị thông báo
+            alert('Đã tạo xong tất cả ảnh và giọng đọc. Bạn có thể xem lại và chỉnh sửa nếu cần.');
+            
+        } catch (error) {
+            console.error('Lỗi khi tạo tất cả:', error);
+            globalProgressBar.classList.add('bg-danger');
+            globalProgressBar.textContent = 'Đã xảy ra lỗi';
+            alert('Đã xảy ra lỗi khi tạo tất cả: ' + error.message);
+        } finally {
+            // Kích hoạt lại nút
+            generateBtn.disabled = false;
+        }
+    }
     
     // Hàm thiết lập tạo hình ảnh
     function setupImageGeneration(partId) {
