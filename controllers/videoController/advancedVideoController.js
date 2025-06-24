@@ -233,11 +233,15 @@ async function downloadImagesForKeywords(keywords, tempDir) {
       // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 15 giây)
       await new Promise(resolve => setTimeout(resolve, 15000));
       
-      // Gọi API imageController để tạo ảnh
+      // Lấy thông tin tỉ lệ khung hình từ session nếu có
+      const aspectRatio = req.session?.videoPreparation?.aspectRatio || '16:9';
+      
+      // Gọi API imageController để tạo ảnh với tỉ lệ khung hình phù hợp
       const response = await axios.post('http://localhost:3000/api/image/generate', {
         prompt: keyword,
         modelType: 'standard', // Có thể chọn 'ultra', 'standard', hoặc 'fast' tùy nhu cầu
-        imageCount: 1
+        imageCount: 1,
+        aspectRatio: aspectRatio
       });
       
       if (response.data.success && response.data.images && response.data.images.length > 0) {
@@ -357,7 +361,7 @@ async function downloadImagesForScriptParts(scriptParts, tempDir) {
 /**
  * Tạo video từ hình ảnh và âm thanh sử dụng FFmpeg
  */
-async function createVideoWithAudio(scriptPartsWithMedia, outputPath) {
+async function createVideoWithAudio(scriptPartsWithMedia, outputPath, aspectRatio = '16:9') {
   try {
     console.log('🎬 Bắt đầu tạo video với FFmpeg...');
     console.log(`📂 Đường dẫn xuất: ${outputPath}`);
@@ -425,8 +429,23 @@ async function createVideoWithAudio(scriptPartsWithMedia, outputPath) {
       try {
         console.log(`🔍 Đang tạo segment cho phần ${i + 1}...`);
         
-        // Tạo video segment cho mỗi phần với -af volume để đảm bảo âm lượng nhất quán
-        const segmentCommand = `ffmpeg -y -loop 1 -i "${part.imagePath}" -i "${part.audioPath}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -af "volume=1.0" -pix_fmt yuv420p -shortest "${segmentPath}"`;
+        // Xác định cài đặt video cho segment dựa trên tỉ lệ khung hình
+        let segmentSettings = '';
+        
+        if (aspectRatio === '16:9') {
+          segmentSettings = '-vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2"';
+        } else if (aspectRatio === '9:16') {
+          segmentSettings = '-vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"';
+        } else if (aspectRatio === '1:1') {
+          segmentSettings = '-vf "scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2"';
+        } else if (aspectRatio === '4:3') {
+          segmentSettings = '-vf "scale=1440:1080:force_original_aspect_ratio=decrease,pad=1440:1080:(ow-iw)/2:(oh-ih)/2"';
+        } else {
+          segmentSettings = '-vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2"';
+        }
+        
+        // Tạo video segment cho mỗi phần với resize theo tỉ lệ và -af volume để đảm bảo âm lượng nhất quán
+        const segmentCommand = `ffmpeg -y -loop 1 -i "${part.imagePath}" -i "${part.audioPath}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -af "volume=1.0" ${segmentSettings} -pix_fmt yuv420p -shortest "${segmentPath}"`;
         console.log(`🔍 Command: ${segmentCommand}`);
         
         execSync(segmentCommand, { stdio: 'inherit' });
@@ -447,9 +466,24 @@ async function createVideoWithAudio(scriptPartsWithMedia, outputPath) {
     try {
       console.log('🎬 Ghép các segment thành video cuối cùng...');
       
-      // Sử dụng concat demuxer thay vì filter complex
-      const concatCommand = `ffmpeg -y -f concat -safe 0 -i "${segmentListPath}" -c copy "${outputPath}"`;
-      console.log(`🎬 Lệnh FFmpeg: ${concatCommand}`);
+              // Xác định cài đặt video dựa trên tỉ lệ khung hình
+        let videoSettings = '';
+        
+        if (aspectRatio === '16:9') {
+          videoSettings = '-s 1920x1080';
+        } else if (aspectRatio === '9:16') {
+          videoSettings = '-s 1080x1920';
+        } else if (aspectRatio === '1:1') {
+          videoSettings = '-s 1080x1080';
+        } else if (aspectRatio === '4:3') {
+          videoSettings = '-s 1440x1080';
+        } else {
+          videoSettings = '-s 1920x1080'; // Mặc định 16:9
+        }
+        
+        // Sử dụng concat demuxer và áp dụng cài đặt tỉ lệ khung hình
+        const concatCommand = `ffmpeg -y -f concat -safe 0 -i "${segmentListPath}" -c:a copy ${videoSettings} "${outputPath}"`;
+        console.log(`🎬 Lệnh FFmpeg: ${concatCommand}`);
       
       execSync(concatCommand, { stdio: 'inherit' });
       console.log('✅ FFmpeg đã tạo video thành công');
@@ -651,7 +685,7 @@ const prepareVideoScript = async (req, res) => {
   console.log('🚀 Bắt đầu chuẩn bị kịch bản...');
   console.log('Body request:', JSON.stringify(req.body).substring(0, 200) + '...');
   
-  const { topic, script, voiceId } = req.body;
+  const { topic, script, voiceId, aspectRatio = '16:9' } = req.body;
 
   if (!topic && !script) {
     console.log('❌ Lỗi: Thiếu chủ đề hoặc kịch bản');
@@ -736,7 +770,8 @@ const prepareVideoScript = async (req, res) => {
         audioPath: null,
         imagePath: null
       })),
-      voiceId
+      voiceId,
+      aspectRatio
     };
 
     // Trả về thông tin kịch bản đã phân tích
@@ -749,6 +784,7 @@ const prepareVideoScript = async (req, res) => {
         ...part
       })),
       voiceId,
+      aspectRatio,
       script: finalScript
     });
   } catch (error) {
@@ -783,6 +819,9 @@ const generateImageForPart = async (req, res) => {
       throw new Error('Phiên làm việc không hợp lệ hoặc đã hết hạn');
     }
     
+    // Lấy thông tin tỉ lệ khung hình từ session
+    const aspectRatio = req.session.videoPreparation.aspectRatio || '16:9';
+    
     // Tìm phần cần tạo hình ảnh
     const part = req.session.videoPreparation.scriptParts.find(p => p.id === partId);
     
@@ -810,7 +849,11 @@ const generateImageForPart = async (req, res) => {
       }
     }
     
-    console.log(`🖼️ Tạo hình ảnh với prompt: ${imagePrompt}`);
+    // Sử dụng prompt gốc và thêm một số hướng dẫn cơ bản
+    const enhancedPrompt = `${imagePrompt}, chất lượng cao, chi tiết rõ nét, không có chữ hay watermark`;
+    
+    console.log(`🖼️ Tạo hình ảnh với prompt: ${enhancedPrompt}`);
+    console.log(`📐 Tỉ lệ khung hình: ${aspectRatio}`);
     
     // Tạo thư mục tạm nếu chưa có
     const tempDir = path.join(__dirname, '../../public/temp');
@@ -820,9 +863,10 @@ const generateImageForPart = async (req, res) => {
     
     // Tạo hình ảnh bằng API
     const response = await axios.post('http://localhost:3000/api/image/generate', {
-      prompt: imagePrompt,
+      prompt: enhancedPrompt,
       modelType: 'standard',
-      imageCount: 1
+      imageCount: 1,
+      aspectRatio: aspectRatio
     });
     
     if (response.data.success && response.data.images && response.data.images.length > 0) {
@@ -843,7 +887,7 @@ const generateImageForPart = async (req, res) => {
       return res.json({
         success: true,
         imagePath: `/temp/${imageFilename}`,
-        prompt: imagePrompt
+        prompt: enhancedPrompt
       });
     } else {
       throw new Error('Không nhận được hình ảnh từ API tạo ảnh');
@@ -930,7 +974,7 @@ const generateAudioForPart = async (req, res) => {
 const finalizeAdvancedVideo = async (req, res) => {
   console.log('🎬 Bắt đầu hoàn thiện video...');
   
-  const { sessionId } = req.body;
+  const { sessionId, aspectRatio = '16:9' } = req.body;
   
   if (!sessionId) {
     return res.status(400).json({
@@ -964,8 +1008,11 @@ const finalizeAdvancedVideo = async (req, res) => {
     const videoFileName = `advanced_video_${sessionId}.mp4`;
     const outputPath = path.join(outputDir, videoFileName);
     
-    // Tạo video từ các phần
-    await createVideoWithAudio(validParts, outputPath);
+    // Lưu thông tin tỉ lệ khung hình trong session
+    req.session.videoPreparation.aspectRatio = aspectRatio;
+    
+    // Tạo video từ các phần với tỉ lệ khung hình đã chọn
+    await createVideoWithAudio(validParts, outputPath, aspectRatio);
     
     return res.json({
       success: true,
@@ -1047,6 +1094,49 @@ const uploadImageForPart = async (req, res) => {
   }
 };
 
+/**
+ * API tạo mẫu âm thanh để nghe thử giọng đọc
+ */
+const generateSampleAudio = async (req, res) => {
+  console.log('🔊 Bắt đầu tạo mẫu âm thanh giọng đọc...');
+  
+  const { text, voiceId } = req.body;
+  
+  if (!text || !voiceId) {
+    return res.status(400).json({
+      success: false,
+      error: 'Thiếu nội dung văn bản hoặc ID giọng đọc'
+    });
+  }
+  
+  try {
+    // Tạo thư mục lưu trữ
+    const audioDir = path.join(__dirname, '../../public/temp/audio');
+    if (!fs.existsSync(audioDir)) {
+      fs.mkdirSync(audioDir, { recursive: true });
+    }
+    
+    // Đường dẫn file đầu ra
+    const audioFilename = `sample_${voiceId}_${Date.now()}.mp3`;
+    const outputPath = path.join(audioDir, audioFilename);
+    
+    // Tạo giọng đọc mẫu
+    await convertTextToSpeech(text, outputPath, voiceId);
+    
+    return res.json({
+      success: true,
+      audioUrl: `/temp/audio/${audioFilename}`,
+      text: text
+    });
+  } catch (error) {
+    console.error('❌ Lỗi khi tạo mẫu âm thanh:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Lỗi không xác định khi tạo mẫu âm thanh'
+    });
+  }
+};
+
 module.exports = { 
   generateAdvancedVideo,
   getAvailableVoices,
@@ -1055,5 +1145,6 @@ module.exports = {
   generateAudioForPart,
   finalizeAdvancedVideo,
   uploadImageForPart,
+  generateSampleAudio,
   upload // Export middleware upload để sử dụng trong router
 }; 

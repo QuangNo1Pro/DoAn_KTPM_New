@@ -12,11 +12,38 @@
                     <input type="text" class="form-control" id="topic" placeholder="Nhập chủ đề cho video">
                 </div>
                 
-                <div class="form-group mb-3">
-                    <label for="voice">Giọng đọc:</label>
-                    <select class="form-control" id="voice">
-                        <option value="">Đang tải...</option>
-                    </select>
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <div class="form-group">
+                            <label for="voice">Giọng đọc:</label>
+                            <div class="d-flex align-items-center">
+                                <select class="form-control" id="voice" style="flex: 1;">
+                                    <option value="">Đang tải...</option>
+                                </select>
+                                <button type="button" class="btn btn-outline-primary ms-2" id="listen-voice-btn">
+                                    <i class="bi bi-volume-up"></i> Nghe thử
+                                </button>
+                            </div>
+                            <div id="audio-player-container" class="mt-2" style="display: none;">
+                                <audio controls id="voice-preview" class="w-100">
+                                    <source src="" type="audio/mpeg">
+                                    Trình duyệt không hỗ trợ phát âm thanh.
+                                </audio>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="form-group">
+                            <label for="aspect-ratio">Tỉ lệ khung hình:</label>
+                            <select class="form-control" id="aspect-ratio">
+                                <option value="16:9" selected>16:9 - Ngang (Landscape)</option>
+                                <option value="9:16">9:16 - Dọc (Portrait)</option>
+                                <option value="1:1">1:1 - Vuông (Square)</option>
+                                <option value="4:3">4:3 - Truyền thống (Standard)</option>
+                            </select>
+                            <small class="form-text text-muted">Định dạng phù hợp với nền tảng đăng tải</small>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="form-group mb-3">
@@ -134,10 +161,62 @@ document.addEventListener('DOMContentLoaded', function() {
                     option.textContent = `${voice.gender} - ${voice.name} (${voice.quality})`;
                     voiceSelect.appendChild(option);
                 });
+                
+                // Xử lý nút nghe thử giọng đọc
+                const listenButton = document.getElementById('listen-voice-btn');
+                const audioPlayerContainer = document.getElementById('audio-player-container');
+                const audioPlayer = document.getElementById('voice-preview');
+                
+                listenButton.addEventListener('click', async function() {
+                    const selectedVoice = voiceSelect.value;
+                    if (!selectedVoice) {
+                        alert('Vui lòng chọn giọng đọc trước khi nghe thử!');
+                        return;
+                    }
+                    
+                    // Thay đổi trạng thái nút
+                    listenButton.disabled = true;
+                    listenButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Đang tạo...';
+                    
+                    try {
+                        // Gọi API để tạo mẫu âm thanh
+                        const response = await fetch('/api/advanced-video/sample-audio', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                text: 'Xin chào tôi là Phúc đẹp trai',
+                                voiceId: selectedVoice
+                            })
+                        });
+                        
+                        const audioData = await response.json();
+                        
+                        if (audioData.success) {
+                            // Hiển thị audio player
+                            audioPlayerContainer.style.display = 'block';
+                            audioPlayer.querySelector('source').src = audioData.audioUrl;
+                            audioPlayer.load();
+                            audioPlayer.play();
+                        } else {
+                            throw new Error(audioData.error || 'Không thể tạo mẫu âm thanh');
+                        }
+                    } catch (error) {
+                        console.error('Lỗi khi tạo mẫu âm thanh:', error);
+                        alert('Không thể tạo mẫu âm thanh: ' + error.message);
+                    } finally {
+                        // Khôi phục trạng thái nút
+                        listenButton.disabled = false;
+                        listenButton.innerHTML = '<i class="bi bi-volume-up"></i> Nghe thử';
+                    }
+                });
             }
         })
         .catch(error => {
             console.error('Lỗi khi tải danh sách giọng đọc:', error);
+            const voiceSelect = document.getElementById('voice');
+            voiceSelect.innerHTML = '<option value="">Lỗi khi tải danh sách giọng đọc</option>';
         });
     
     // Xử lý form tạo video
@@ -168,7 +247,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({
                     topic,
                     script,
-                    voiceId
+                    voiceId,
+                    aspectRatio: document.getElementById('aspect-ratio').value
                 })
             });
             
@@ -185,6 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 sessionStorage.setItem('videoScript', data.script);
                 sessionStorage.setItem('videoScriptParts', JSON.stringify(data.scriptParts));
                 sessionStorage.setItem('videoVoiceId', data.voiceId || '');
+                sessionStorage.setItem('videoAspectRatio', data.aspectRatio || '16:9');
                 
                 // Chuyển hướng đến trang chỉnh sửa từng phần
                 window.location.href = '/api/advanced-video/edit-parts';

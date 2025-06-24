@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const script = sessionStorage.getItem('videoScript');
     const scriptPartsJSON = sessionStorage.getItem('videoScriptParts');
     const voiceId = sessionStorage.getItem('videoVoiceId');
+    const aspectRatio = sessionStorage.getItem('videoAspectRatio') || '16:9'; // Mặc định là 16:9
     
     if (!sessionId || !script || !scriptPartsJSON) {
         alert('Không tìm thấy thông tin kịch bản. Vui lòng quay lại trang tạo kịch bản.');
@@ -605,7 +606,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    sessionId
+                    sessionId,
+                    aspectRatio
                 })
             });
             

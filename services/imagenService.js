@@ -96,9 +96,12 @@ const generateImageByImagen = async (prompt, options = {}) => {
         }
       ],
       "parameters": {
-        "sampleCount": imageCount
+        "sampleCount": imageCount,
+        "aspectRatio": aspectRatio
       }
     };
+    
+    console.log(`📐 Sử dụng tỷ lệ khung hình: ${aspectRatio}`);
 
     // Thử gọi API với cơ chế retry
     let response;

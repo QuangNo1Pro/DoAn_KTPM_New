@@ -1,9 +1,9 @@
 const { generateImageByImagen } = require('../services/imagenService');
 
 const generateImage = async (req, res) => {
-  const { prompt, modelType = 'ultra', imageCount = 1 } = req.body;
+  const { prompt, modelType = 'ultra', imageCount = 1, aspectRatio = '1:1' } = req.body;
   
-  console.log('Generate image request:', { prompt, modelType, imageCount });
+  console.log('Generate image request:', { prompt, modelType, imageCount, aspectRatio });
   
   try {
     if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
@@ -22,13 +22,20 @@ const generateImage = async (req, res) => {
       actualModelType = modelType;
     }
     
+    // Xác thực tỷ lệ khung hình
+    let validAspectRatio = '1:1'; // Giá trị mặc định
+    if (['1:1', '3:4', '4:3', '16:9', '9:16'].includes(aspectRatio)) {
+      validAspectRatio = aspectRatio;
+    }
+    
     try {
       // Gọi service để tạo ảnh
-      console.log(`🖼️ Đang gọi Imagen API (${actualModelType}) để tạo ${count} ảnh...`);
+      console.log(`🖼️ Đang gọi Imagen API (${actualModelType}) để tạo ${count} ảnh với tỷ lệ ${validAspectRatio}...`);
       
       const images = await generateImageByImagen(prompt, {
         modelType: actualModelType,
         imageCount: count,
+        aspectRatio: validAspectRatio,
         retryDelay: 5000, // 5 giây
         maxRetries: 5     // Thử tối đa 5 lần
       });
@@ -39,7 +46,8 @@ const generateImage = async (req, res) => {
       return res.json({
         success: true,
         images: images,
-        model: actualModelType
+        model: actualModelType,
+        aspectRatio: validAspectRatio
       });
     } catch (error) {
       console.error('❌ Lỗi khi tạo ảnh:', error);

@@ -8,6 +8,7 @@ const {
   generateAudioForPart,
   finalizeAdvancedVideo,
   uploadImageForPart,
+  generateSampleAudio,
   upload
 } = require('../../controllers/videoController/advancedVideoController');
 const { execSync } = require('child_process');
@@ -27,6 +28,9 @@ router.post('/generate-advanced', generateAdvancedVideo);
 
 // API lấy danh sách giọng đọc có sẵn
 router.get('/voices', getAvailableVoices);
+
+// API tạo mẫu âm thanh để nghe thử giọng đọc
+router.post('/sample-audio', generateSampleAudio);
 
 // API chuẩn bị kịch bản và phân tích thành các phần
 router.post('/prepare-script', prepareVideoScript);
@@ -71,7 +75,7 @@ router.get('/check-setup', async (req, res) => {
     }
     
     // Kiểm tra Google credentials
-    const ttsCredentialsPath = path.join(__dirname, '../../text to speed.json');
+    const ttsCredentialsPath = path.join(__dirname, '../../text-to-speed.json');
     if (fs.existsSync(ttsCredentialsPath)) {
       checks.googleCredentials = true;
     }
@@ -167,10 +171,10 @@ router.get('/debug', async (req, res) => {
     }
     
     // Kiểm tra file credentials
-    const credentialsFile = path.join(baseDir, 'text to speed.json');
+    const credentialsFile = path.join(baseDir, 'text-to-speed.json');
     if (fs.existsSync(credentialsFile)) {
       const stats = fs.statSync(credentialsFile);
-      debugInfo.credentials['text to speed.json'] = {
+      debugInfo.credentials['text-to-speed.json'] = {
         exists: true,
         size: stats.size,
         permissions: fs.constants.R_OK | fs.constants.W_OK ? 'đọc/ghi' : 'không đủ quyền',
@@ -181,10 +185,10 @@ router.get('/debug', async (req, res) => {
         const content = fs.readFileSync(credentialsFile, 'utf8');
         JSON.parse(content);
       } catch (error) {
-        debugInfo.credentials['text to speed.json'].validJson = false;
+        debugInfo.credentials['text-to-speed.json'].validJson = false;
       }
     } else {
-      debugInfo.credentials['text to speed.json'] = {
+      debugInfo.credentials['text-to-speed.json'] = {
         exists: false,
         message: 'File credentials không tồn tại'
       };
