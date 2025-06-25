@@ -14,6 +14,14 @@ router.get('/advanced-video', (req, res) => {
   })
 })
 
+// Route cho trang chỉnh sửa video
+router.get('/video-editor', (req, res) => {
+  res.render('videoView/videoEditor', {
+    title: 'Chỉnh Sửa Video',
+    user: req.session.user
+  })
+})
+
 // Sử dụng router cho API tạo video nâng cao
 router.use('/api/advanced-video', advancedVideoRouter)
 

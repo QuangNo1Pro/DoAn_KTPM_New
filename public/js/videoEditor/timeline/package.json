@@ -1,0 +1,18 @@
+{
+  "name": "video-editor-timeline",
+  "version": "1.0.0",
+  "description": "Module Timeline cho VideoEditor",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "timeline",
+    "video",
+    "editor",
+    "drag-drop"
+  ],
+  "author": "TKPM Team",
+  "license": "MIT"
+} 

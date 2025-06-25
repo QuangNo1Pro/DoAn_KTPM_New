@@ -47,6 +47,126 @@ router.post('/generate-audio-for-part', generateAudioForPart);
 // API hoàn thiện video từ các phần đã chuẩn bị
 router.post('/finalize-video', finalizeAdvancedVideo);
 
+// API tạo video cuối cùng từ dữ liệu đã chỉnh sửa
+router.post('/create-final-video', (req, res) => {
+  try {
+    const { sessionId, parts } = req.body;
+    
+    if (!sessionId || !parts || !Array.isArray(parts) || parts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Dữ liệu không hợp lệ'
+      });
+    }
+    
+    // Tạo thư mục đầu ra nếu chưa tồn tại
+    const outputDir = path.join(__dirname, '../../public/videos');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    
+    // Tên file video
+    const videoFileName = `advanced_video_${Date.now()}.mp4`;
+    const outputPath = path.join(outputDir, videoFileName);
+    
+    // Chuẩn bị dữ liệu cho việc tạo video
+    const validParts = parts.filter(part => part.imagePath && part.audioPath);
+    
+    if (validParts.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Không có phần nào có đủ media (hình ảnh và âm thanh)'
+      });
+    }
+    
+    // Tạo danh sách các segment và danh sách segment
+    const segmentListPath = path.join(outputDir, `segments_${Date.now()}.txt`);
+    let segmentsList = '';
+    const segments = [];
+    
+    // Tạo segment cho từng phần
+    for (let i = 0; i < validParts.length; i++) {
+      const part = validParts[i];
+      const segmentPath = path.join(outputDir, `segment_${i}_${Date.now()}.mp4`);
+      segments.push(segmentPath);
+      
+      // Xác định cài đặt video dựa trên tỉ lệ khung hình (mặc định 16:9)
+      let segmentSettings = '-vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2"';
+      
+      // Thêm văn bản chú thích nếu có
+      let captionFilter = '';
+      if (part.caption) {
+        const captionText = part.caption.replace(/'/g, "\\'");
+        
+        // Xác định vị trí caption
+        let captionY = '(h-text_h)/2'; // Mặc định ở giữa
+        
+        if (part.captionPosition === 'top') {
+          captionY = 'text_h';
+        } else if (part.captionPosition === 'bottom') {
+          captionY = 'h-text_h*2';
+        }
+        
+        captionFilter = `,drawtext=text='${captionText}':fontcolor=white:fontsize=36:x=(w-text_w)/2:y=${captionY}:shadowcolor=black:shadowx=2:shadowy=2`;
+        segmentSettings = `-vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2${captionFilter}"`;
+      }
+      
+      // Tạo video segment với thời lượng dựa trên thời gian hiển thị đã chọn
+      const duration = part.duration || 5;
+      
+      // Sử dụng ffmpeg để tạo segment
+      try {
+        const segmentCommand = `ffmpeg -y -loop 1 -i "${part.imagePath}" -i "${part.audioPath}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -af "volume=1.0" ${segmentSettings} -pix_fmt yuv420p -shortest "${segmentPath}"`;
+        execSync(segmentCommand);
+        
+        // Thêm vào danh sách segment
+        segmentsList += `file '${segmentPath.replace(/\\/g, '/')}'\n`;
+      } catch (error) {
+        console.error(`Lỗi khi tạo segment cho phần ${i + 1}:`, error.message);
+      }
+    }
+    
+    // Ghi file danh sách segment
+    fs.writeFileSync(segmentListPath, segmentsList);
+    
+    // Ghép các segment thành video hoàn chỉnh
+    try {
+      // Sử dụng concat demuxer
+      const concatCommand = `ffmpeg -y -f concat -safe 0 -i "${segmentListPath}" -c:a copy -s 1920x1080 "${outputPath}"`;
+      execSync(concatCommand);
+      
+      // Dọn dẹp các file tạm
+      segments.forEach(segment => {
+        if (fs.existsSync(segment)) {
+          fs.unlinkSync(segment);
+        }
+      });
+      
+      if (fs.existsSync(segmentListPath)) {
+        fs.unlinkSync(segmentListPath);
+      }
+      
+      // Trả về kết quả
+      return res.json({
+        success: true,
+        videoUrl: `/videos/${videoFileName}`
+      });
+    } catch (error) {
+      console.error('Lỗi khi ghép video:', error.message);
+      return res.status(500).json({
+        success: false,
+        error: `Lỗi khi ghép video: ${error.message}`
+      });
+    }
+  } catch (error) {
+    console.error('Lỗi khi tạo video cuối cùng:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Lỗi không xác định khi tạo video cuối cùng'
+    });
+  }
+});
+
 // API kiểm tra cài đặt
 router.get('/check-setup', async (req, res) => {
   try {
@@ -244,5 +364,21 @@ router.get('/debug', async (req, res) => {
     });
   }
 });
+
+// Import video editor controller
+const { 
+  saveVideoEdits, 
+  createFinalVideo, 
+  uploadMedia 
+} = require('../../controllers/videoController/videoEditorController');
+
+// API lưu dữ liệu chỉnh sửa video
+router.post('/save-video-edits', saveVideoEdits);
+
+// API tạo video cuối cùng từ dữ liệu đã chỉnh sửa
+router.post('/create-edited-video', createFinalVideo);
+
+// API tải lên media (hình ảnh, âm thanh) cho video editor
+router.post('/upload-media', upload.single('media'), uploadMedia);
 
 module.exports = router; 

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hướng Dẫn Sử Dụng Module Timeline</title>
+</head>
+<body>
+    <h1>Hướng Dẫn Sử Dụng Module Timeline</h1>
+    
+    <h2>Cấu Trúc Thư Mục</h2>
+    <pre>
+public/js/videoEditor/
+  ├── timeline/
+  │   ├── TimelineCore.js       - Lớp cơ sở và khởi tạo
+  │   ├── TimelineClips.js      - Quản lý các clip
+  │   ├── TimelineDragDrop.js   - Chức năng kéo thả
+  │   ├── TimelineUI.js         - Khởi tạo UI và các sự kiện
+  │   ├── TimelinePlayback.js   - Xử lý phát/dừng video
+  │   └── TimelineUtil.js       - Các hàm tiện ích
+  └── timeline.js               - File khởi tạo chính
+    </pre>
+    
+    <h2>Cách Thêm Vào HTML</h2>
+    <p>Cần đảm bảo thêm <code>type="module"</code> khi import vào HTML:</p>
+    <pre>
+&lt;script type="module" src="/public/js/videoEditor/timeline.js"&gt;&lt;/script&gt;
+    </pre>
+    
+    <h2>Sử Dụng Trong Javascript</h2>
+    <pre>
+// Tạo instance của Timeline
+const timeline = new Timeline({
+    containerId: 'timeline-container', // ID của container chứa timeline
+    duration: 30,                      // Thời lượng ban đầu (giây)
+    pixelsPerSecond: 100,              // Tỷ lệ pixels/giây
+    rulerInterval: 1,                  // Khoảng thời gian giữa các mốc trên ruler
+    autoScroll: true,                  // Tự động cuộn theo playhead
+    onTimeUpdate: (time) => {          // Callback khi cập nhật thời gian
+        console.log(`Thời gian hiện tại: ${time}s`);
+    }
+});
+
+// Thêm clip vào timeline
+timeline.addClipWithTimeConstraint({
+    name: 'Video Clip 1',
+    type: 'video',
+    imagePath: '/path/to/thumbnail.jpg',
+    audioPath: '/path/to/audio.mp3',
+    text: 'Nội dung text cho clip'
+}, 5.0, 0); // thời lượng 5 giây, bắt đầu tại 0s
+
+// Phát/dừng timeline
+document.getElementById('play-button').addEventListener('click', () => {
+    if (timeline.isPlaying) {
+        timeline.pause();
+    } else {
+        timeline.play();
+    }
+});
+
+// Di chuyển đến thời điểm cụ thể
+timeline.setCurrentTime(10); // Di chuyển đến giây thứ 10
+    </pre>
+    
+    <h2>Tùy chỉnh</h2>
+    <p>Nếu muốn sử dụng riêng các module, có thể import trực tiếp từ các file con:</p>
+    <pre>
+import * as TimelineClips from './timeline/TimelineClips.js';
+import * as TimelineDragDrop from './timeline/TimelineDragDrop.js';
+
+// Sử dụng các hàm từ module
+TimelineClips.renderClips(myTimeline);
+TimelineDragDrop.addDragDropEventsToClips(myTimeline);
+    </pre>
+    
+    <h2>Lưu Ý Quan Trọng</h2>
+    <ul>
+        <li>Đảm bảo cập nhật các đường dẫn import trong các file để phù hợp với cấu trúc dự án.</li>
+        <li>Cần có các phần tử HTML với ID tương ứng như 'timeline-container', 'timeline-tracks', v.v.</li>
+        <li>Nếu dùng bundler như Webpack, cần cấu hình để hỗ trợ ES modules.</li>
+    </ul>
+</body>
+</html> 

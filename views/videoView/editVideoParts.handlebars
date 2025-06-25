@@ -32,6 +32,9 @@
             <button id="generate-all-btn" class="btn btn-warning">
                 <i class="bi bi-magic"></i> Tạo tất cả ảnh và giọng đọc
             </button>
+            <button id="preview-edit-btn" class="btn btn-info">
+                <i class="bi bi-pencil-square"></i> Xem trước và chỉnh sửa
+            </button>
             <button id="create-video-btn" class="btn btn-success">
                 <i class="bi bi-film"></i> Tạo Video
             </button>
@@ -210,6 +213,47 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Thiết lập sự kiện "Tạo tất cả"
     document.getElementById('generate-all-btn').addEventListener('click', generateAllParts);
+    
+    // Thiết lập sự kiện "Xem trước và chỉnh sửa"
+    document.getElementById('preview-edit-btn').addEventListener('click', previewAndEdit);
+    
+    // Hàm để xem trước và chỉnh sửa video
+    async function previewAndEdit() {
+        try {
+            // Thu thập dữ liệu từ tất cả các phần
+            const videoData = {
+                sessionId,
+                scriptParts: []
+            };
+            
+            // Thu thập thông tin từ mỗi phần
+            const partCards = document.querySelectorAll('.part-card');
+            for (const card of partCards) {
+                const partId = card.dataset.partId;
+                const textContent = card.querySelector('.text-content').value.trim();
+                const imageElement = card.querySelector('.part-image');
+                const imagePath = imageElement.style.display !== 'none' ? imageElement.src : '';
+                const audioElement = card.querySelector('.audio-player source');
+                const audioPath = audioElement ? audioElement.src : '';
+                
+                videoData.scriptParts.push({
+                    partId,
+                    text: textContent,
+                    imagePath,
+                    audioPath
+                });
+            }
+            
+            // Lưu dữ liệu vào sessionStorage
+            sessionStorage.setItem('videoPreviewData', JSON.stringify(videoData));
+            
+            // Chuyển hướng đến trang chỉnh sửa video
+            window.location.href = '/video-editor';
+        } catch (error) {
+            console.error('Lỗi khi chuẩn bị dữ liệu xem trước:', error);
+            alert('Đã xảy ra lỗi khi chuẩn bị dữ liệu xem trước: ' + error.message);
+        }
+    }
     
     // Hàm để tạo tất cả ảnh và giọng đọc cho tất cả các phần
     async function generateAllParts() {

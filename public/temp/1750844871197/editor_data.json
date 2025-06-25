@@ -1,0 +1,90 @@
+[
+  {
+    "partId": "part_0",
+    "name": "Phần part_0",
+    "startTime": 0,
+    "duration": 4.368,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750844878016-366836667.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_0_1750844873236.mp3",
+    "text": "Nếu có một bảo bối của Doraemon, bạn sẽ chọn cái nào?",
+    "transition": "none",
+    "effect": {
+      "type": "brightness",
+      "value": 60
+    }
+  },
+  {
+    "partId": "audio_part_0",
+    "name": "Âm thanh part_0",
+    "startTime": 0,
+    "duration": 4.368,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_0_1750844873236.mp3",
+    "text": "Nếu có một bảo bối của Doraemon, bạn sẽ chọn cái nào?",
+    "transition": "none",
+    "effect": {
+      "type": "brightness",
+      "value": 60
+    }
+  },
+  {
+    "partId": "part_1",
+    "name": "Phần part_1",
+    "startTime": 4.368,
+    "duration": 3.336,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750844887795-263564814.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_1_1750844882056.mp3",
+    "text": "Top 5 bảo bối Doraemon mà ai cũng thèm muốn!",
+    "transition": "slide",
+    "effect": {
+      "type": "brightness",
+      "value": 60
+    }
+  },
+  {
+    "partId": "audio_part_1",
+    "name": "Âm thanh part_1",
+    "startTime": 4.368,
+    "duration": 3.336,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_1_1750844882056.mp3",
+    "text": "Top 5 bảo bối Doraemon mà ai cũng thèm muốn!",
+    "transition": "none",
+    "effect": {
+      "type": "brightness",
+      "value": 60
+    }
+  },
+  {
+    "partId": "part_2",
+    "name": "Phần part_2",
+    "startTime": 7.704000000000001,
+    "duration": 4.824,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750844894622-935023182.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_2_1750844882923.mp3",
+    "text": "Hạng 5, Chong chóng tre. Tạm biệt kẹt xe, vi vu khắp nơi!",
+    "transition": "none",
+    "effect": {
+      "type": "brightness",
+      "value": 60
+    }
+  },
+  {
+    "partId": "audio_part_2",
+    "name": "Âm thanh part_2",
+    "startTime": 7.704000000000001,
+    "duration": 4.824,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_2_1750844882923.mp3",
+    "text": "Hạng 5, Chong chóng tre. Tạm biệt kẹt xe, vi vu khắp nơi!",
+    "transition": "none",
+    "effect": {
+      "type": "brightness",
+      "value": 60
+    }
+  },
+  {
+    "type": "textOverlays",
+    "items": []
+  }
+]

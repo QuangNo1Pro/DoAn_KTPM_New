@@ -1,0 +1,311 @@
+{{!-- Giao diện chỉnh sửa video --}}
+<div class="container-fluid mt-3">
+    <h1 class="text-center mb-3">Chỉnh Sửa Video</h1>
+    
+    <div class="row">
+        <!-- Khu vực xem trước -->
+        <div class="col-md-8">
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Xem Trước</h3>
+                    <div>
+                        <button id="play-preview-btn" class="btn btn-sm btn-light">
+                            <i class="bi bi-play-fill"></i> Phát
+                        </button>
+                        <button id="export-video-btn" class="btn btn-sm btn-success">
+                            <i class="bi bi-download"></i> Xuất Video
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="preview-container" class="position-relative">
+                        <!-- Canvas xem trước -->
+                        <canvas id="preview-canvas" class="w-100 border"></canvas>
+                        
+                        <!-- Lớp phủ chữ sẽ hiển thị ở đây -->
+                        <div id="text-overlays-container" class="position-absolute top-0 start-0 w-100 h-100">
+                            <!-- Text overlays sẽ được thêm bằng JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Timeline -->
+            <div class="card mb-3">
+                <div class="card-header bg-dark text-white">
+                    <h3 class="mb-0">Timeline</h3>
+                </div>
+                <div class="card-body p-0">
+                    <div id="timeline-container" class="p-2">
+                        <div class="d-flex align-items-center mb-2">
+                            <button id="timeline-zoom-out" class="btn btn-sm btn-outline-secondary me-2">
+                                <i class="bi bi-zoom-out"></i>
+                            </button>
+                            <div class="timeline-ruler flex-grow-1 position-relative" id="timeline-ruler">
+                                <!-- Các đánh dấu thời gian sẽ được thêm bằng JS -->
+                            </div>
+                            <button id="timeline-zoom-in" class="btn btn-sm btn-outline-secondary ms-2">
+                                <i class="bi bi-zoom-in"></i>
+                            </button>
+                        </div>
+                        
+                        <div id="timeline-tracks" class="timeline-tracks">
+                            <!-- Các track sẽ được thêm bằng JS -->
+                        </div>
+                        
+                        <div id="timeline-playhead" class="timeline-playhead" style="width: 2px; background-color: red; height: 100%; top: 0; left: 0; pointer-events: none; z-index: 200;"></div>
+                    </div>
+                </div>
+                <div class="card-footer bg-dark d-flex justify-content-between align-items-center py-1">
+                    <span class="text-light" id="timeline-current-time">00:00.000</span>
+                    <div>
+                        <button id="timeline-toggle-play" class="btn btn-sm btn-light me-2">
+                            <i class="bi bi-play-fill"></i>
+                        </button>
+                        <input type="range" id="timeline-seek" class="form-range mx-2 d-inline-block" style="width: 200px;" min="0" max="100" value="0">
+                    </div>
+                    <span class="text-light" id="timeline-duration">00:00.000</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Khu vực công cụ chỉnh sửa -->
+        <div class="col-md-4">
+            <!-- Tab điều khiển -->
+            <div class="card mb-3">
+                <div class="card-header bg-secondary text-white">
+                    <ul class="nav nav-tabs card-header-tabs" id="editorTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="clips-tab" data-bs-toggle="tab" data-bs-target="#clips-panel" type="button" role="tab" aria-controls="clips-panel" aria-selected="true">Clips</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-panel" type="button" role="tab" aria-controls="text-panel" aria-selected="false">Chữ</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="effects-tab" data-bs-toggle="tab" data-bs-target="#effects-panel" type="button" role="tab" aria-controls="effects-panel" aria-selected="false">Hiệu Ứng</button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="editorTabsContent">
+                        <!-- Tab Clips -->
+                        <div class="tab-pane fade show active" id="clips-panel" role="tabpanel" aria-labelledby="clips-tab">
+                            <h4>Danh Sách Clips</h4>
+                            <div id="clips-list" class="list-group">
+                                <!-- Danh sách clips sẽ được thêm bằng JS -->
+                            </div>
+                            <div class="mt-3">
+                                <h5>Chỉnh Sửa Clip</h5>
+                                <div id="clip-editor" class="d-none">
+                                    <div class="mb-2">
+                                        <label class="form-label">Thời Lượng (giây)</label>
+                                        <input type="number" id="clip-duration" class="form-control" min="0.5" step="0.5" value="3">
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Điểm Bắt Đầu (giây)</label>
+                                        <input type="number" id="clip-start-time" class="form-control" min="0" step="0.1" value="0">
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Chuyển Cảnh</label>
+                                        <select id="clip-transition" class="form-select">
+                                            <option value="none">Không có</option>
+                                            <option value="fade">Mờ dần</option>
+                                            <option value="slide">Trượt</option>
+                                            <option value="zoom">Phóng to</option>
+                                        </select>
+                                    </div>
+                                    <button id="apply-clip-changes" class="btn btn-primary mt-2">Áp Dụng Thay Đổi</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab Text -->
+                        <div class="tab-pane fade" id="text-panel" role="tabpanel" aria-labelledby="text-tab">
+                            <div class="d-flex justify-content-between mb-3">
+                                <h4>Văn Bản</h4>
+                                <button id="add-text-btn" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-plus"></i> Thêm Chữ
+                                </button>
+                            </div>
+                            
+                            <div id="text-items-list" class="list-group mb-3">
+                                <!-- Danh sách văn bản sẽ được thêm bằng JS -->
+                            </div>
+                            
+                            <div id="text-editor" class="d-none">
+                                <h5>Chỉnh Sửa Văn Bản</h5>
+                                <div class="mb-2">
+                                    <label class="form-label">Nội Dung</label>
+                                    <textarea id="text-content" class="form-control" rows="2"></textarea>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Font</label>
+                                    <select id="text-font" class="form-select">
+                                        <option value="Arial">Arial</option>
+                                        <option value="Helvetica">Helvetica</option>
+                                        <option value="Times New Roman">Times New Roman</option>
+                                        <option value="Courier New">Courier New</option>
+                                        <option value="Verdana">Verdana</option>
+                                    </select>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col">
+                                        <label class="form-label">Kích Thước</label>
+                                        <input type="number" id="text-size" class="form-control" min="8" max="72" value="24">
+                                    </div>
+                                    <div class="col">
+                                        <label class="form-label">Màu Sắc</label>
+                                        <input type="color" id="text-color" class="form-control form-control-color" value="#ffffff">
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Vị Trí</label>
+                                    <select id="text-position" class="form-select">
+                                        <option value="top">Trên</option>
+                                        <option value="middle" selected>Giữa</option>
+                                        <option value="bottom">Dưới</option>
+                                    </select>
+                                </div>
+                                <div class="row mb-2">
+                                    <div class="col">
+                                        <label class="form-label">Thời Điểm Bắt Đầu (giây)</label>
+                                        <input type="number" id="text-start-time" class="form-control" min="0" step="0.1" value="0">
+                                    </div>
+                                    <div class="col">
+                                        <label class="form-label">Thời Lượng (giây)</label>
+                                        <input type="number" id="text-duration" class="form-control" min="0.5" step="0.5" value="3">
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="text-animation">
+                                        <label class="form-check-label" for="text-animation">
+                                            Hiệu Ứng Xuất Hiện
+                                        </label>
+                                    </div>
+                                </div>
+                                <button id="apply-text-changes" class="btn btn-primary">Áp Dụng Thay Đổi</button>
+                                <button id="delete-text-item" class="btn btn-danger">Xóa</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Tab Effects -->
+                        <div class="tab-pane fade" id="effects-panel" role="tabpanel" aria-labelledby="effects-tab">
+                            <h4>Hiệu Ứng</h4>
+                            <div class="list-group">
+                                <button class="list-group-item list-group-item-action" data-effect="none">Không có hiệu ứng</button>
+                                <button class="list-group-item list-group-item-action" data-effect="grayscale">Đen Trắng</button>
+                                <button class="list-group-item list-group-item-action" data-effect="sepia">Sepia</button>
+                                <button class="list-group-item list-group-item-action" data-effect="brightness">Tăng Sáng</button>
+                                <button class="list-group-item list-group-item-action" data-effect="contrast">Tăng Tương Phản</button>
+                                <button class="list-group-item list-group-item-action" data-effect="blur">Làm Mờ</button>
+                            </div>
+                            
+                            <div class="mt-3" id="effect-settings" style="display: none;">
+                                <h5>Thiết Lập Hiệu Ứng</h5>
+                                <div class="mb-2">
+                                    <label id="effect-value-label" class="form-label">Giá Trị</label>
+                                    <input type="range" id="effect-value" class="form-range" min="0" max="100" value="50">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Áp Dụng Cho</label>
+                                    <select id="effect-target" class="form-select">
+                                        <option value="selected">Clip Đang Chọn</option>
+                                        <option value="all">Toàn Bộ Video</option>
+                                    </select>
+                                </div>
+                                <button id="apply-effect" class="btn btn-primary mt-2">Áp Dụng Hiệu Ứng</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Các nút điều khiển chính -->
+    <div class="row mt-3 mb-5">
+        <div class="col-12 d-flex justify-content-between">
+            <button id="back-to-edit-btn" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Quay Lại
+            </button>
+            <button id="save-video-btn" class="btn btn-success">
+                <i class="bi bi-check-lg"></i> Lưu Thay Đổi
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal thêm văn bản -->
+<div class="modal fade" id="textModal" tabindex="-1" aria-labelledby="textModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="textModalLabel">Thêm Văn Bản</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="new-text-content" class="form-label">Nội Dung</label>
+                    <textarea id="new-text-content" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Vị Trí</label>
+                    <select id="new-text-position" class="form-select">
+                        <option value="top">Trên</option>
+                        <option value="middle" selected>Giữa</option>
+                        <option value="bottom">Dưới</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="confirm-add-text">Thêm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<link rel="stylesheet" href="/js/videoEditor/videoEditor.css">
+<script src="/js/videoEditor/timeline.js"></script>
+<script src="/js/videoEditor/textOverlay.js"></script>
+<script src="/js/videoEditor/effectsManager.js"></script>
+<script src="/js/videoEditor/videoEditor.js"></script>
+<script src="/js/videoEditor/debug.js"></script>
+<script src="/js/videoEditor/renderFix.js"></script>
+
+<!-- Thêm script để khởi tạo Timeline mà không cần ES modules -->
+<script src="/js/videoEditor/timeline.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("Đang khởi tạo Timeline...");
+        
+        try {
+            // Đảm bảo window.Timeline đã được định nghĩa
+            if (typeof window.Timeline !== 'function') {
+                console.error("Timeline class không được tìm thấy! Kiểm tra script đã được tải chưa.");
+                return;
+            }
+            
+            // Khởi tạo timeline
+            window.videoTimeline = new Timeline({
+                containerId: 'timeline-container', 
+                duration: 30,
+                pixelsPerSecond: 100,
+                onTimeUpdate: function(time) {
+                    console.log(`Timeline: thời gian hiện tại = ${time}s`);
+                }
+            });
+            
+            console.log("Timeline đã được khởi tạo thành công!");
+        } catch (error) {
+            console.error("Lỗi khi khởi tạo Timeline:", error);
+        }
+    });
+    
+    // Xử lý lỗi chung
+    window.addEventListener('error', function(e) {
+        console.error("Có lỗi xảy ra:", e.error || e.message);
+    });
+</script>
