@@ -219,19 +219,8 @@ export function updatePlayhead(timeline) {
         }
     }
     
-    // Nếu đã đến cuối thì dừng
-    if (timeline.currentTime >= timeline.duration) {
-        // Gọi hàm pause từ TimelinePlayback
-        if (timeline.pause) {
-            timeline.pause();
-        }
-        timeline.currentTime = timeline.duration;
-        timeline.playhead.style.left = `${timeline.currentTime * timeline.pixelsPerSecond}px`;
-        
-        // Gửi sự kiện khi phát hết
-        const event = new CustomEvent('timelineEnded');
-        timeline.container.dispatchEvent(event);
-    }
+    // Không xử lý việc dừng phát ở đây, để cho TimelinePlayback.js xử lý
+    // Điều này giúp tránh việc dừng phát khi kéo clip qua bên phải
 }
 
 /**

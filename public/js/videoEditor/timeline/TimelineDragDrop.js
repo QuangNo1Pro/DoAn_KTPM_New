@@ -228,6 +228,16 @@ export function moveClipToPosition(timeline, clipId, trackType, newStartTime) {
     if (clipIndex === -1) return;
     
     const clip = timeline.clips[clipIndex];
+    const originalType = clip.type;
+    
+    // Tìm clip liên quan (audio cho video hoặc ngược lại)
+    let relatedClip = null;
+    if (clip.type === 'video') {
+        relatedClip = timeline.clips.find(c => c.type === 'audio' && c.id === `audio_${clip.id}`);
+    } else if (clip.type === 'audio' && clip.id.startsWith('audio_')) {
+        const videoId = clip.id.replace('audio_', '');
+        relatedClip = timeline.clips.find(c => c.type === 'video' && c.id === videoId);
+    }
     
     // Nếu là clip audio và được kéo vào track video (hoặc ngược lại), cần xử lý đặc biệt
     if (clip.type !== trackType) {
@@ -243,54 +253,124 @@ export function moveClipToPosition(timeline, clipId, trackType, newStartTime) {
     }
     
     // Kiểm tra trước khi di chuyển, đảm bảo không chồng lên clip khác
-    // Nếu clip chồng lên clip khác, điều chỉnh vị trí bắt đầu
     const adjustedStartTime = getAvailableStartTime(timeline, clip, newStartTime, trackType);
     
-    // Cập nhật thời gian bắt đầu
+    // Cập nhật thời gian bắt đầu cho clip chính
     clip.startTime = adjustedStartTime;
+    
+    // Cập nhật thời gian bắt đầu cho clip liên quan nếu có
+    if (relatedClip) {
+        relatedClip.startTime = adjustedStartTime;
+        
+        // Nếu clip gốc đã đổi loại, đổi loại của clip liên quan
+        if (clip.type !== originalType) {
+            if (originalType === 'video') {
+                relatedClip.type = 'video';
+            } else if (originalType === 'audio') {
+                relatedClip.type = 'audio';
+            }
+        }
+    }
     
     // Sắp xếp lại clips theo thứ tự thời gian
     timeline.clips.sort((a, b) => a.startTime - b.startTime);
+    
+    // Tính toán thời lượng mới của timeline dựa trên clip được kéo
+    const clipEndTime = adjustedStartTime + clip.duration;
+    if (clipEndTime > timeline.duration) {
+        timeline.duration = clipEndTime;
+        
+        // Cập nhật UI sau khi thay đổi thời lượng
+        if (timeline.updateRuler) {
+            timeline.updateRuler();
+            timeline.createTracks();
+        }
+        
+        // Cập nhật hiển thị thời lượng
+        if (timeline.updateTimeDisplays) {
+            timeline.updateTimeDisplays();
+        }
+        
+        // Kích hoạt sự kiện để thông báo thời lượng đã thay đổi
+        const event = new CustomEvent('timelineDurationChanged', { 
+            detail: { duration: timeline.duration } 
+        });
+        timeline.container.dispatchEvent(event);
+        
+        // Cập nhật thanh seek
+        const seekBar = document.getElementById('timeline-seek');
+        if (seekBar) {
+            seekBar.max = timeline.duration;
+        }
+    }
+    
+    // Cập nhật thời lượng timeline - QUAN TRỌNG
+    if (timeline.updateTimelineDuration) {
+        timeline.updateTimelineDuration();
+    }
     
     // Render lại các clips
     renderClips(timeline);
     updateClipsList(timeline);
     
-    timeline.addDebugBox(`Đã di chuyển clip ${clipId} đến vị trí mới: ${adjustedStartTime.toFixed(1)}s`);
+    timeline.addDebugBox(`Đã di chuyển clip ${clipId} và clip liên quan đến vị trí mới: ${adjustedStartTime.toFixed(1)}s`);
 }
 
 /**
  * Tìm vị trí bắt đầu khả dụng gần nhất
  */
 export function getAvailableStartTime(timeline, currentClip, desiredStartTime, trackType) {
-    // Lấy danh sách các clip cùng loại, ngoại trừ clip hiện tại
+    // Xác định loại clip liên quan
+    let relatedType = null;
+    if (currentClip.type === 'video' || trackType === 'video') {
+        relatedType = 'audio';
+    } else if (currentClip.type === 'audio' || trackType === 'audio') {
+        relatedType = 'video';
+    }
+
+    // Lấy danh sách các clip cùng loại và clip liên quan, ngoại trừ clip hiện tại
     const sameTypeClips = timeline.clips.filter(clip => 
-        clip.type === trackType && clip.id !== currentClip.id
+        clip.type === trackType && 
+        clip.id !== currentClip.id &&
+        (currentClip.type === 'audio' ? !clip.id.startsWith('audio_' + currentClip.id.replace('audio_', '')) : true)
     );
-    
-    // Nếu không có clip nào khác cùng loại, trả về thời gian mong muốn
-    if (sameTypeClips.length === 0) {
+
+    const relatedClips = relatedType ? timeline.clips.filter(clip => 
+        clip.type === relatedType && 
+        clip.id !== (currentClip.type === 'video' ? `audio_${currentClip.id}` : currentClip.id.replace('audio_', ''))
+    ) : [];
+
+    // Nếu không có clip nào khác, trả về thời gian mong muốn
+    if (sameTypeClips.length === 0 && relatedClips.length === 0) {
         return desiredStartTime;
     }
-    
+
     // Tính thời điểm kết thúc của clip hiện tại nếu đặt ở vị trí mong muốn
     const desiredEndTime = desiredStartTime + currentClip.duration;
+
+    // Kiểm tra xung đột với tất cả các clip liên quan
+    const allClipsToCheck = [...sameTypeClips, ...relatedClips];
     
-    // Kiểm tra xem có xung đột với clip nào không
-    for (const clip of sameTypeClips) {
-        // Nếu có xung đột (clip hiện tại nằm giữa clip khác)
+    // Sắp xếp các clip theo thời gian bắt đầu
+    allClipsToCheck.sort((a, b) => a.startTime - b.startTime);
+
+    let safeStartTime = desiredStartTime;
+
+    for (const clip of allClipsToCheck) {
+        const clipEndTime = clip.startTime + clip.duration;
+
+        // Kiểm tra xung đột
         if (
-            (desiredStartTime >= clip.startTime && desiredStartTime < clip.startTime + clip.duration) || 
-            (desiredEndTime > clip.startTime && desiredEndTime <= clip.startTime + clip.duration) ||
-            (desiredStartTime <= clip.startTime && desiredEndTime >= clip.startTime + clip.duration)
+            (safeStartTime >= clip.startTime && safeStartTime < clipEndTime) || 
+            (safeStartTime + currentClip.duration > clip.startTime && safeStartTime + currentClip.duration <= clipEndTime) ||
+            (safeStartTime <= clip.startTime && safeStartTime + currentClip.duration >= clipEndTime)
         ) {
-            // Thử đặt clip sau clip đang xung đột
-            return clip.startTime + clip.duration;
+            // Nếu có xung đột, thử đặt sau clip này
+            safeStartTime = clipEndTime;
         }
     }
-    
-    // Nếu không có xung đột, trả về thời gian mong muốn
-    return desiredStartTime;
+
+    return safeStartTime;
 }
 
 /**
@@ -354,15 +434,11 @@ export function reorderClipsStartTimes(timeline) {
     const audioClips = timeline.clips.filter(clip => clip.type === 'audio');
     const textClips = timeline.clips.filter(clip => clip.type === 'text');
     
-    // Sắp xếp lại thời gian cho video clips
-    for (const clip of videoClips) {
-        clip.startTime = currentStartTime;
-        currentStartTime += clip.duration;
-    }
+    // Sắp xếp lại thời gian cho cả video và audio clips
+    const allClips = [...videoClips, ...audioClips];
+    allClips.sort((a, b) => a.startTime - b.startTime);
     
-    // Đặt lại thời gian bắt đầu cho audio
-    currentStartTime = 0;
-    for (const clip of audioClips) {
+    for (const clip of allClips) {
         clip.startTime = currentStartTime;
         currentStartTime += clip.duration;
     }

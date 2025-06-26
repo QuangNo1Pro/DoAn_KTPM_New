@@ -57,15 +57,21 @@ export function updateTimelineDuration(timeline) {
     } else {
         // Tính thời lượng dựa trên clip có endTime lớn nhất
         let maxEndTime = 0;
+        let clipWithMaxEnd = null;
+        
         for (const clip of timeline.clips) {
             const endTime = clip.startTime + clip.duration;
             if (endTime > maxEndTime) {
                 maxEndTime = endTime;
+                clipWithMaxEnd = clip;
             }
         }
         
         // Không cần thêm buffer, để timeline chính xác bằng với nội dung
         timeline.duration = maxEndTime;
+        
+        console.log(`Thời lượng timeline mới: ${maxEndTime}s (từ clip ${clipWithMaxEnd ? clipWithMaxEnd.id : 'unknown'})`);
+        console.log(`Clip có thời gian kết thúc xa nhất: startTime=${clipWithMaxEnd ? clipWithMaxEnd.startTime : 'N/A'}, duration=${clipWithMaxEnd ? clipWithMaxEnd.duration : 'N/A'}`);
     }
     
     // Cập nhật UI
@@ -75,7 +81,25 @@ export function updateTimelineDuration(timeline) {
     // Cập nhật hiển thị thời lượng
     updateTimeDisplays(timeline);
     
+    // Cập nhật thanh seek
+    const seekBar = document.getElementById('timeline-seek');
+    if (seekBar) {
+        seekBar.max = timeline.duration;
+    }
+    
+    // Kích hoạt sự kiện để thông báo thời lượng đã thay đổi
+    const event = new CustomEvent('timelineDurationChanged', { 
+        detail: { duration: timeline.duration } 
+    });
+    if (timeline.container) {
+        timeline.container.dispatchEvent(event);
+    }
+    
+    // Cập nhật các hiển thị debug
     console.log(`Timeline duration updated to: ${timeline.duration} seconds`);
+    if (timeline.addDebugBox) {
+        timeline.addDebugBox(`Timeline duration updated to: ${timeline.duration} seconds`);
+    }
 }
 
 /**

@@ -111,6 +111,29 @@ class VideoEditor {
             onTimeUpdate: (time) => this.updatePreview(time)
         });
         
+        // Lắng nghe sự kiện thay đổi thời lượng timeline
+        this.timeline.container.addEventListener('timelineDurationChanged', (e) => {
+            console.log(`Sự kiện timelineDurationChanged: Thời lượng mới = ${e.detail.duration}s`);
+            
+            // Cập nhật thời lượng trong UI
+            const durationElement = document.getElementById('timeline-duration');
+            if (durationElement) {
+                durationElement.textContent = this.formatTimeDetailed(e.detail.duration);
+            }
+            
+            // Cập nhật thanh seek
+            const seekBar = document.getElementById('timeline-seek');
+            if (seekBar) {
+                seekBar.max = e.detail.duration;
+            }
+            
+            // Nếu đang phát và thời gian hiện tại vượt quá thời lượng mới
+            if (this.isPlaying && this.currentTime > e.detail.duration) {
+                this.pausePreview();
+                this.timeline.setCurrentTime(e.detail.duration);
+            }
+        });
+        
         // Khởi tạo TextOverlay
         this.textOverlay = new TextOverlay();
         
@@ -278,14 +301,20 @@ class VideoEditor {
             
             // Thêm clip audio riêng nếu clip video có audio
             if (clipType === 'video' && part.audioPath) {
+                const audioClipId = `audio_${part.partId}`;
                 this.timeline.addClipWithTimeConstraint({
-                    id: `audio_${part.partId}`,
+                    id: audioClipId,
                     name: `Âm thanh ${part.partId}`,
                     type: 'audio',
                     imagePath: null,
                     audioPath: part.audioPath,
                     text: part.text
                 }, duration, startTime);
+                
+                // Đảm bảo audio được lưu với ID chính xác
+                if (audio) {
+                    this.loadedMediaItems[audioClipId] = audio;
+                }
                 
                 console.log(`Đã thêm clip audio riêng cho phần ${part.partId}`);
             }
@@ -355,37 +384,40 @@ class VideoEditor {
         // Xóa canvas
         this.ctx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
         
-        // Tìm clip đang hiển thị tại thời điểm hiện tại
-        const currentClip = this.timeline.clips.find(clip => 
-            time >= clip.startTime && time < (clip.startTime + clip.duration)
+        // Tìm clip video đang hiển thị tại thời điểm hiện tại
+        const currentVideoClip = this.timeline.clips.find(clip => 
+            clip.type === 'video' && time >= clip.startTime && time < (clip.startTime + clip.duration)
         );
         
-        if (currentClip) {
+        // Tìm clip audio đang phát tại thời điểm hiện tại
+        const currentAudioClip = this.timeline.clips.find(clip => 
+            clip.type === 'audio' && time >= clip.startTime && time < (clip.startTime + clip.duration)
+        );
+        
+        // Xử lý hiển thị video/ảnh
+        if (currentVideoClip) {
             // Lấy hình ảnh từ danh sách đã tải
-            const imageKey = `image_${currentClip.id}`;
-            // Nếu không tìm thấy hình với ID, thử dùng imagePath
+            const imageKey = `image_${currentVideoClip.id}`;
             let image = this.loadedMediaItems[imageKey];
             
             // Nếu không có hình, kiểm tra xem clip có đường dẫn imagePath không
-            if (!image && currentClip.imagePath) {
+            if (!image && currentVideoClip.imagePath) {
                 // Tìm trong danh sách đã tải hoặc tạo hình mới
                 const existingImages = Object.values(this.loadedMediaItems)
                     .filter(item => item instanceof HTMLImageElement);
                 
                 // Tìm hình theo đường dẫn
                 image = existingImages.find(img => 
-                    img.src.includes(currentClip.imagePath.split('/').pop())
+                    img.src.includes(currentVideoClip.imagePath.split('/').pop())
                 );
                 
                 // Nếu vẫn không tìm thấy, tạo hình mới
                 if (!image) {
                     image = new Image();
-                    image.src = this.convertToRelativePath(currentClip.imagePath);
+                    image.src = this.convertToRelativePath(currentVideoClip.imagePath);
                     this.loadedMediaItems[imageKey] = image;
                 }
             }
-            
-            const audio = this.loadedMediaItems[`audio_${currentClip.id}`];
             
             // Hiển thị hình ảnh với hiệu ứng
             if (image && image.complete) {
@@ -393,7 +425,7 @@ class VideoEditor {
                 this.ctx.drawImage(image, 0, 0, this.canvasElement.width, this.canvasElement.height);
                 
                 // Áp dụng hiệu ứng nếu có
-                this.effectsManager.applyEffectToCanvas(this.ctx, currentClip.id);
+                this.effectsManager.applyEffectToCanvas(this.ctx, currentVideoClip.id);
             } else {
                 // Vẽ nền đen với tên clip nếu không có hình
                 this.ctx.fillStyle = '#000';
@@ -403,28 +435,66 @@ class VideoEditor {
                 this.ctx.fillStyle = '#fff';
                 this.ctx.font = '24px Arial';
                 this.ctx.textAlign = 'center';
-                this.ctx.fillText(currentClip.name || `Clip ${currentClip.id}`, 
+                this.ctx.fillText(currentVideoClip.name || `Clip ${currentVideoClip.id}`, 
                     this.canvasElement.width / 2, this.canvasElement.height / 2);
             }
+        } else {
+            // Vẽ nền đen nếu không có clip video
+            this.ctx.fillStyle = '#000';
+            this.ctx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
+        }
+        
+        // Xử lý phát audio
+        if (this.isPlaying) {
+            // Dừng tất cả audio không liên quan
+            Object.entries(this.loadedMediaItems)
+                .filter(([key, item]) => item instanceof Audio)
+                .forEach(([key, audio]) => {
+                    // Nếu không phải audio hiện tại, dừng lại
+                    if (!currentAudioClip || !key.includes(currentAudioClip.id)) {
+                        audio.pause();
+                    }
+                });
             
-            // Nếu đang phát, điều chỉnh audio
-            if (this.isPlaying && audio) {
-                const clipTime = time - currentClip.startTime;
+            // Phát audio nếu có
+            if (currentAudioClip) {
+                // Tìm audio đúng cho clip này
+                let audioKey = currentAudioClip.id;
+                // Nếu ID không bắt đầu bằng "audio_", thêm tiền tố
+                if (!audioKey.startsWith('audio_')) {
+                    audioKey = `audio_${audioKey}`;
+                }
                 
-                if (audio.paused) {
-                    audio.currentTime = clipTime;
-                    audio.play().catch(err => console.error('Lỗi khi phát audio:', err));
-                } else {
-                    // Điều chỉnh thời gian nếu chênh lệch quá lớn
-                    if (Math.abs(audio.currentTime - clipTime) > 0.5) {
+                const audio = this.loadedMediaItems[audioKey] || this.loadedMediaItems[currentAudioClip.id];
+                
+                if (audio) {
+                    const clipTime = time - currentAudioClip.startTime;
+                    
+                    // Nếu audio đang tạm dừng hoặc chưa phát
+                    if (audio.paused) {
+                        // Đặt thời gian hiện tại và phát
                         audio.currentTime = clipTime;
+                        
+                        // Đảm bảo rằng audio sẽ phát hết
+                        const playPromise = audio.play();
+                        if (playPromise !== undefined) {
+                            playPromise.catch(err => console.error('Lỗi khi phát audio:', err));
+                        }
+                    } else {
+                        // Điều chỉnh thời gian nếu chênh lệch quá lớn
+                        if (Math.abs(audio.currentTime - clipTime) > 0.5) {
+                            audio.currentTime = clipTime;
+                        }
+                    }
+                    
+                    // Cập nhật thời lượng clip audio nếu cần
+                    if (audio.duration && audio.duration !== currentAudioClip.duration) {
+                        console.log(`Cập nhật thời lượng clip audio ${currentAudioClip.id} từ ${currentAudioClip.duration}s thành ${audio.duration}s`);
+                        currentAudioClip.duration = audio.duration;
+                        this.timeline.updateTimelineDuration();
                     }
                 }
             }
-        } else {
-            // Vẽ nền đen nếu không có clip nào
-            this.ctx.fillStyle = '#000';
-            this.ctx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
         }
         
         // Cập nhật text overlays
@@ -436,6 +506,10 @@ class VideoEditor {
      */
     playPreview() {
         if (this.isPlaying) return;
+        
+        // Lấy thời lượng hiện tại của timeline
+        const currentDuration = this.timeline.duration;
+        console.log(`Bắt đầu phát với thời lượng: ${currentDuration}s`);
         
         this.isPlaying = true;
         const startTime = performance.now() - (this.currentTime * 1000);
@@ -450,13 +524,18 @@ class VideoEditor {
         const updatePlayback = (timestamp) => {
             if (!this.isPlaying) return;
             
+            // Tính toán thời gian đã trôi qua
             const elapsedSeconds = (timestamp - startTime) / 1000;
             
-            // Kiểm tra xem đã đến cuối video chưa
-            if (elapsedSeconds >= this.timeline.duration) {
+            // Cập nhật thời gian hiện tại - QUAN TRỌNG: Sử dụng thời lượng hiện tại của timeline
+            // thay vì thời lượng đã lưu trước đó
+            const currentTimelineDuration = this.timeline.duration;
+            
+            // Kiểm tra xem đã đến cuối video chưa - sử dụng thời lượng hiện tại của timeline
+            if (elapsedSeconds >= currentTimelineDuration) {
                 // Dừng phát video và đặt playhead đúng ở cuối video
                 this.pausePreview();
-                this.timeline.setCurrentTime(this.timeline.duration);
+                this.timeline.setCurrentTime(currentTimelineDuration);
                 this.playPreviewBtn.innerHTML = '<i class="bi bi-play-fill"></i> Phát';
                 return;
             }
@@ -606,6 +685,17 @@ class VideoEditor {
         });
         
         return exportData;
+    }
+
+    /**
+     * Format thời gian chi tiết (mm:ss.ms)
+     */
+    formatTimeDetailed(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        const milliseconds = Math.floor((seconds % 1) * 1000);
+        
+        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
     }
 }
 

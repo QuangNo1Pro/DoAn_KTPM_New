@@ -1,4 +1,4 @@
- /**
+/**
  * TimelinePlayback.js - Xử lý phát/dừng video trong timeline
  */
 import { updatePlayhead, updateTimeDisplays } from './TimelineUI.js';
@@ -38,9 +38,32 @@ export function play(timeline) {
         if (!timeline.isPlaying) return;
         
         const elapsedSeconds = (timestamp - startTime) / 1000;
+        
+        // Lấy thời lượng hiện tại của timeline - QUAN TRỌNG
+        // Điều này đảm bảo chúng ta luôn sử dụng thời lượng mới nhất sau khi kéo clip
+        const currentDuration = timeline.duration;
+        
+        // Kiểm tra nếu đã đến cuối timeline
+        if (elapsedSeconds >= currentDuration) {
+            console.log(`Phát hết: elapsedSeconds=${elapsedSeconds}, duration=${currentDuration}`);
+            setCurrentTime(timeline, currentDuration);
+            timeline.isPlaying = false;
+            
+            // Cập nhật UI nút phát/dừng
+            const togglePlayBtn = document.getElementById('timeline-toggle-play');
+            if (togglePlayBtn) {
+                togglePlayBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+            }
+            
+            // Gửi sự kiện khi phát hết
+            const event = new CustomEvent('timelineEnded');
+            timeline.container.dispatchEvent(event);
+            return;
+        }
+        
         setCurrentTime(timeline, elapsedSeconds);
         
-        // Kiểm tra kết thúc đã được xử lý trong updatePlayhead()
+        // Tiếp tục vòng lặp phát nếu chưa kết thúc
         if (timeline.isPlaying) {
             timeline.playbackTimer = requestAnimationFrame(updatePlayback);
         }

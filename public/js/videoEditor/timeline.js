@@ -313,6 +313,28 @@ if (window.Timeline) {
                     clip.type = 'audio';
                 }
                 
+                // Tính toán thời lượng mới của timeline dựa trên clip được kéo
+                const clipEndTime = newStartTime + clip.duration;
+                if (clipEndTime > this.duration) {
+                    this.duration = clipEndTime;
+                    
+                    // Cập nhật UI
+                    this.updateRuler();
+                    this.createTracks();
+                    this.updateTimeDisplays();
+                    
+                    // Kích hoạt sự kiện để thông báo thời lượng đã thay đổi
+                    const event = new CustomEvent('timelineDurationChanged', { 
+                        detail: { duration: this.duration } 
+                    });
+                    this.container.dispatchEvent(event);
+                    
+                    console.log(`Timeline duration updated to: ${this.duration} seconds after drag`);
+                }
+                
+                // Cập nhật thời lượng timeline
+                this.updateTimelineDuration();
+                
                 // Render lại clip 
                 this.renderClips();
             });
@@ -484,7 +506,21 @@ if (window.Timeline) {
         // Cập nhật hiển thị thời lượng
         this.updateTimeDisplays();
         
+        // Cập nhật thanh seek
+        const seekBar = document.getElementById('timeline-seek');
+        if (seekBar) {
+            seekBar.max = this.duration;
+        }
+        
+        // Cập nhật các hiển thị debug
         console.log(`Timeline duration updated to: ${this.duration} seconds`);
+        this.addDebugBox(`Timeline duration updated to: ${this.duration} seconds`);
+        
+        // Kích hoạt sự kiện để thông báo thời lượng đã thay đổi
+        const event = new CustomEvent('timelineDurationChanged', { 
+            detail: { duration: this.duration } 
+        });
+        this.container.dispatchEvent(event);
     }
 
     /**
