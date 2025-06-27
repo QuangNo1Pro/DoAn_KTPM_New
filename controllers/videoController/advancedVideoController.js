@@ -8,7 +8,8 @@ const { VIETNAMESE_VOICES } = require('../../services/textToSpeechService');
 const textToSpeech = require('@google-cloud/text-to-speech');
 const multer = require('multer');
 const os = require('os');
-// Đã xóa import imagenService để chỉ sử dụng imageController
+const util = require('util');
+
 
 // Thiết lập multer cho việc tải lên file
 const storage = multer.diskStorage({
