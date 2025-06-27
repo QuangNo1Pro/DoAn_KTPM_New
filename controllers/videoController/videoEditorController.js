@@ -4,6 +4,45 @@ const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
 
 /**
+ * Lấy thời lượng audio bằng ffprobe
+ */
+function getAudioDuration(audioPath) {
+    try {
+        const result = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`);
+        return parseFloat(result.toString().trim());
+    } catch {
+        return 0;
+    }
+}
+
+/**
+ * Chuyển đổi giây sang định dạng SRT
+ */
+function secondsToSrtTime(seconds) {
+    const date = new Date(null);
+    date.setSeconds(Math.floor(seconds));
+    const ms = String(Math.floor((seconds % 1) * 1000)).padStart(3, '0');
+    return date.toISOString().substr(11, 8) + ',' + ms;
+}
+
+/**
+ * Sinh file phụ đề SRT cho các sequent
+ */
+function generateSrtFile(parts, srtPath) {
+    let srtContent = '';
+    let currentTime = 0;
+    parts.forEach((part, idx) => {
+        const audioPath = part.audioPath.startsWith('/') ? path.join(__dirname, '../../public', part.audioPath.substring(1)) : part.audioPath;
+        const duration = getAudioDuration(audioPath);
+        const start = secondsToSrtTime(currentTime);
+        const end = secondsToSrtTime(currentTime + duration);
+        srtContent += `${idx + 1}\n${start} --> ${end}\n${part.text || ''}\n\n`;
+        currentTime += duration;
+    });
+    fs.writeFileSync(srtPath, srtContent, 'utf8');
+}
+
+/**
  * Xử lý lưu dữ liệu chỉnh sửa video
  */
 const saveVideoEdits = async (req, res) => {
@@ -41,7 +80,7 @@ const saveVideoEdits = async (req, res) => {
 };
 
 /**
- * Xử lý tạo video từ dữ liệu đã chỉnh sửa
+ * Xử lý tạo video từ dữ liệu đã chỉnh sửa (có phụ đề)
  */
 const createFinalVideo = async (req, res) => {
     try {
@@ -152,18 +191,36 @@ const createFinalVideo = async (req, res) => {
             // Sử dụng concat demuxer
             const concatCommand = `ffmpeg -y -f concat -safe 0 -i "${segmentListPath}" -c copy "${outputPath}"`;
             execSync(concatCommand);
-            
+
+            // Sinh file SRT cho toàn bộ video
+            const srtPath = path.join(outputDir, `subtitles_${Date.now()}.srt`);
+            generateSrtFile(validParts, srtPath);
+
+            // Chèn phụ đề vào video
+            const subtitledOutput = path.join(outputDir, `output_${Date.now()}.mp4`);
+            const srtEscapedPath = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+            const subtitleCommand = `ffmpeg -y -i "${outputPath}" -vf "subtitles='${srtEscapedPath}'" -c:a copy "${subtitledOutput}"`;
+            execSync(subtitleCommand);
+
+            // Ghi đè file output cuối cùng
+            fs.copyFileSync(subtitledOutput, outputPath);
+
             // Dọn dẹp các file tạm
             segments.forEach(segment => {
                 if (fs.existsSync(segment)) {
                     fs.unlinkSync(segment);
                 }
             });
-            
             if (fs.existsSync(segmentListPath)) {
                 fs.unlinkSync(segmentListPath);
             }
-            
+            if (fs.existsSync(subtitledOutput)) {
+                fs.unlinkSync(subtitledOutput);
+            }
+            if (fs.existsSync(srtPath)) {
+                fs.unlinkSync(srtPath);
+            }
+
             // Trả về kết quả
             return res.json({
                 success: true,
@@ -217,4 +274,4 @@ module.exports = {
     saveVideoEdits,
     createFinalVideo,
     uploadMedia
-}; 
+};

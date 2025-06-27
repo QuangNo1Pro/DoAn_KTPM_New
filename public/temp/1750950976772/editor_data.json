@@ -1,0 +1,258 @@
+[
+  {
+    "partId": "part_0",
+    "name": "Phần part_0",
+    "startTime": 0,
+    "duration": 4.2,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750951048031-694251459.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_0_1750950987237.mp3",
+    "text": "Thấy người ta đu trend làm Bánh Mì Mây trên mạng trông cũng dễ...",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_0",
+    "name": "Âm thanh part_0",
+    "startTime": 0,
+    "duration": 4.2,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_0_1750950987237.mp3",
+    "text": "Thấy người ta đu trend làm Bánh Mì Mây trên mạng trông cũng dễ...",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_1",
+    "name": "Phần part_1",
+    "startTime": 4.2,
+    "duration": 3.6,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750951051742-985496345.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_1_1750950990959.mp3",
+    "text": "Tưởng là... đánh bông lòng trắng trứng nhẹ nhàng thế này.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_1",
+    "name": "Âm thanh part_1",
+    "startTime": 4.2,
+    "duration": 3.6,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_1_1750950990959.mp3",
+    "text": "Tưởng là... đánh bông lòng trắng trứng nhẹ nhàng thế này.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_2",
+    "name": "Phần part_2",
+    "startTime": 7.800000000000001,
+    "duration": 3.216,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750951055379-270075683.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_2_1750950994175.mp3",
+    "text": "Thực tế là... nó văng tung tóe khắp nơi!",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_2",
+    "name": "Âm thanh part_2",
+    "startTime": 7.800000000000001,
+    "duration": 3.216,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_2_1750950994175.mp3",
+    "text": "Thực tế là... nó văng tung tóe khắp nơi!",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_3",
+    "name": "Phần part_3",
+    "startTime": 11.016000000000002,
+    "duration": 3.744,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750951058822-630217802.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_3_1750950997289.mp3",
+    "text": "Tưởng là... tạo hình đám mây xinh xắn, mịn màng.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_3",
+    "name": "Âm thanh part_3",
+    "startTime": 11.016000000000002,
+    "duration": 3.744,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_3_1750950997289.mp3",
+    "text": "Tưởng là... tạo hình đám mây xinh xắn, mịn màng.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_4",
+    "name": "Phần part_4",
+    "startTime": 14.760000000000002,
+    "duration": 3.6,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750951064447-577928718.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_4_1750951000507.mp3",
+    "text": "Thực tế là... một bãi... gì đây không biết nữa.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_4",
+    "name": "Âm thanh part_4",
+    "startTime": 14.760000000000002,
+    "duration": 3.6,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_4_1750951000507.mp3",
+    "text": "Thực tế là... một bãi... gì đây không biết nữa.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_5",
+    "name": "Phần part_5",
+    "startTime": 18.360000000000003,
+    "duration": 3.144,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750951068601-488329924.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_5_1750951004199.mp3",
+    "text": "Tưởng thành phẩm sẽ bồng bềnh, xốp mịn như này.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_5",
+    "name": "Âm thanh part_5",
+    "startTime": 18.360000000000003,
+    "duration": 3.144,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_5_1750951004199.mp3",
+    "text": "Tưởng thành phẩm sẽ bồng bềnh, xốp mịn như này.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_6",
+    "name": "Phần part_6",
+    "startTime": 21.504000000000005,
+    "duration": 4.152,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750951072728-499770351.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_6_1750951007285.mp3",
+    "text": "Và đây là thực tế của tôi... một miếng trứng chiên xẹp lép.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_6",
+    "name": "Âm thanh part_6",
+    "startTime": 21.504000000000005,
+    "duration": 4.152,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_6_1750951007285.mp3",
+    "text": "Và đây là thực tế của tôi... một miếng trứng chiên xẹp lép.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_7",
+    "name": "Phần part_7",
+    "startTime": 25.656000000000006,
+    "duration": 3.696,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750951076543-713913167.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_7_1750951010490.mp3",
+    "text": "(Không có lời thoại, chỉ có tiếng thở dài ngao ngán)",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_7",
+    "name": "Âm thanh part_7",
+    "startTime": 25.656000000000006,
+    "duration": 3.696,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_7_1750951010490.mp3",
+    "text": "(Không có lời thoại, chỉ có tiếng thở dài ngao ngán)",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_8",
+    "name": "Phần part_8",
+    "startTime": 29.352000000000007,
+    "duration": 4.104,
+    "imagePath": "http://localhost:3000/temp/user_upload_1750951080427-503797327.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_8_1750951015025.mp3",
+    "text": "Bạn đã từng \"toang\" với trend nào? Comment cho tôi biết nhé!",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_8",
+    "name": "Âm thanh part_8",
+    "startTime": 29.352000000000007,
+    "duration": 4.104,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_8_1750951015025.mp3",
+    "text": "Bạn đã từng \"toang\" với trend nào? Comment cho tôi biết nhé!",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "type": "textOverlays",
+    "items": []
+  }
+]
