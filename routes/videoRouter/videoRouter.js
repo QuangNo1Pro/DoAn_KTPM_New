@@ -1,26 +1,16 @@
 const express = require('express')
 const router = express.Router()
-const { generateVideo } = require('../../controllers/videoController/videoController')
+const { 
+  renderAdvancedVideoPage,
+  renderVideoEditorPage
+} = require('../../controllers/videoController/videoController')
 const advancedVideoRouter = require('./advancedVideoRouter')
 
-// Route sinh video cơ bản
-router.post('/generate', generateVideo)
-
 // Route trang tạo video nâng cao
-router.get('/advanced-video', (req, res) => {
-  res.render('videoView/advancedVideo', {
-    title: 'Tạo Video AI Nâng Cao',
-    user: req.session.user
-  })
-})
+router.get('/advanced-video', renderAdvancedVideoPage)
 
 // Route cho trang chỉnh sửa video
-router.get('/video-editor', (req, res) => {
-  res.render('videoView/videoEditor', {
-    title: 'Chỉnh Sửa Video',
-    user: req.session.user
-  })
-})
+router.get('/video-editor', renderVideoEditorPage)
 
 // Sử dụng router cho API tạo video nâng cao
 router.use('/api/advanced-video', advancedVideoRouter)
