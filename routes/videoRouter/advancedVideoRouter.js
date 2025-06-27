@@ -369,7 +369,9 @@ router.get('/debug', async (req, res) => {
 const { 
   saveVideoEdits, 
   createFinalVideo, 
-  uploadMedia 
+  uploadMedia,
+  checkStatus,
+  checkRequestData
 } = require('../../controllers/videoController/videoEditorController');
 
 // API lưu dữ liệu chỉnh sửa video
@@ -380,5 +382,11 @@ router.post('/create-edited-video', createFinalVideo);
 
 // API tải lên media (hình ảnh, âm thanh) cho video editor
 router.post('/upload-media', upload.single('media'), uploadMedia);
+
+// API kiểm tra trạng thái controller
+router.get('/check-editor-status', checkStatus);
+
+// API kiểm tra dữ liệu request
+router.post('/check-request-data', checkRequestData);
 
 module.exports = router; 

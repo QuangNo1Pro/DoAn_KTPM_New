@@ -1,0 +1,62 @@
+[
+  {
+    "partId": "part_0",
+    "name": "Phần part_0",
+    "startTime": 0,
+    "duration": 4.368,
+    "imagePath": "http://localhost:3000/temp/part_0_1751001095787.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_0_1751001104436.mp3",
+    "text": "Nếu có một bảo bối của Doraemon, bạn sẽ chọn cái nào?",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_0",
+    "name": "Âm thanh part_0",
+    "startTime": 0,
+    "duration": 4.368,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_0_1751001104436.mp3",
+    "text": "Nếu có một bảo bối của Doraemon, bạn sẽ chọn cái nào?",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_1",
+    "name": "Phần part_1",
+    "startTime": 4.368,
+    "duration": 3.336,
+    "imagePath": "http://localhost:3000/temp/part_1_1751001119835.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_1_1751001127866.mp3",
+    "text": "Top 5 bảo bối Doraemon mà ai cũng thèm muốn!",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "audio_part_1",
+    "name": "Âm thanh part_1",
+    "startTime": 4.368,
+    "duration": 3.336,
+    "imagePath": null,
+    "audioPath": "http://localhost:3000/temp/audio/part_1_1751001127866.mp3",
+    "text": "Top 5 bảo bối Doraemon mà ai cũng thèm muốn!",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "type": "textOverlays",
+    "items": []
+  }
+]

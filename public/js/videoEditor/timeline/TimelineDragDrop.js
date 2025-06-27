@@ -143,7 +143,7 @@ export function addDragDropEventsToClipsList(timeline) {
             renderClips(timeline);
             updateClipsList(timeline);
             
-            timeline.addDebugBox(`Đã di chuyển clip ${clipId} đến vị trí mới trong danh sách`);
+            // Debug message removed
         }
     });
     
@@ -247,7 +247,7 @@ export function moveClipToPosition(timeline, clipId, trackType, newStartTime) {
             clip.type = trackType;
         } else {
             // Không cho phép kéo text clip vào video/audio hoặc ngược lại
-            timeline.addDebugBox(`Không thể kéo clip loại ${clip.type} vào track ${trackType}`);
+            // Debug message removed
             return;
         }
     }
@@ -313,7 +313,7 @@ export function moveClipToPosition(timeline, clipId, trackType, newStartTime) {
     renderClips(timeline);
     updateClipsList(timeline);
     
-    timeline.addDebugBox(`Đã di chuyển clip ${clipId} và clip liên quan đến vị trí mới: ${adjustedStartTime.toFixed(1)}s`);
+    // Debug message removed
 }
 
 /**

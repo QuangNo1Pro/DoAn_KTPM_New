@@ -329,7 +329,7 @@ if (window.Timeline) {
                     });
                     this.container.dispatchEvent(event);
                     
-                    console.log(`Timeline duration updated to: ${this.duration} seconds after drag`);
+                    
                 }
                 
                 // Cập nhật thời lượng timeline
@@ -431,99 +431,95 @@ if (window.Timeline) {
             
             // Cập nhật hiển thị thời gian
             this.updateTimeDisplays();
-    }
+        }
 
-    /**
-     * Thêm clip vào timeline với thời lượng cụ thể
+        /**
+         * Thêm clip vào timeline với thời lượng cụ thể
          * Phương thức này đảm bảo tương thích với videoEditor.js
-     */
-    addClipWithTimeConstraint(clip, duration, startAtTime = null) {
-        console.log('Thêm clip:', clip, duration, startAtTime);
-        
-        // Xác định ID cho clip nếu chưa có
-        if (!clip.id) {
-            clip.id = `clip-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        }
-        
-        // Thiết lập thời lượng cho clip
-        clip.duration = duration;
-        
-        // Xác định thời điểm bắt đầu
-        if (startAtTime === null) {
-            // Nếu không chỉ định, thêm vào cuối timeline
-            clip.startTime = this.duration;
-        } else {
-            // Nếu chỉ định, sử dụng thời điểm được chỉ định
-            clip.startTime = startAtTime;
-        }
-        
-        // Đảm bảo có thuộc tính type
-        if (!clip.type) {
-            clip.type = 'video';
-        }
-        
-        // Thêm clip vào danh sách
-        this.clips.push(clip);
-        
-        // Cập nhật thời lượng timeline
-        this.updateTimelineDuration();
-        
-        // Render lại các clips
-        this.renderClips();
-        
-        // Thêm vào danh sách bên panel
-        this.updateClipsList();
-        
-        console.log(`Đã thêm clip với duration ${duration}s tại ${clip.startTime}s. ID: ${clip.id}`);
-        return clip.id;
-    }
-
-    /**
-     * Cập nhật thời lượng timeline dựa trên clips
-     */
-    updateTimelineDuration() {
-        if (this.clips.length === 0) {
-            // Nếu không có clip, sử dụng thời lượng mặc định
-            this.duration = this.options.duration;
-        } else {
-            // Tính thời lượng dựa trên clip có endTime lớn nhất
-            let maxEndTime = 0;
-            for (const clip of this.clips) {
-                const endTime = clip.startTime + clip.duration;
-                if (endTime > maxEndTime) {
-                    maxEndTime = endTime;
-                }
+         */
+        addClipWithTimeConstraint(clip, duration, startAtTime = null) {
+            console.log('Thêm clip:', clip, duration, startAtTime);
+            
+            // Xác định ID cho clip nếu chưa có
+            if (!clip.id) {
+                clip.id = `clip-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
             }
             
-            // Không cần thêm buffer, để timeline chính xác bằng với nội dung
-            this.duration = maxEndTime;
+            // Thiết lập thời lượng cho clip
+            clip.duration = duration;
+            
+            // Xác định thời điểm bắt đầu
+            if (startAtTime === null) {
+                // Nếu không chỉ định, thêm vào cuối timeline
+                clip.startTime = this.duration;
+            } else {
+                // Nếu chỉ định, sử dụng thời điểm được chỉ định
+                clip.startTime = startAtTime;
+            }
+            
+            // Đảm bảo có thuộc tính type
+            if (!clip.type) {
+                clip.type = 'video';
+            }
+            
+            // Thêm clip vào danh sách
+            this.clips.push(clip);
+            
+            // Cập nhật thời lượng timeline
+            this.updateTimelineDuration();
+            
+            // Render lại các clips
+            this.renderClips();
+            
+            // Thêm vào danh sách bên panel
+            this.updateClipsList();
+            
+            console.log(`Đã thêm clip với duration ${duration}s tại ${clip.startTime}s. ID: ${clip.id}`);
+            return clip.id;
         }
-        
-        // Cập nhật UI
-        this.updateRuler();
-        this.createTracks();
-        
-        // Cập nhật hiển thị thời lượng
-        this.updateTimeDisplays();
-        
-        // Cập nhật thanh seek
-        const seekBar = document.getElementById('timeline-seek');
-        if (seekBar) {
-            seekBar.max = this.duration;
-        }
-        
-        // Cập nhật các hiển thị debug
-        console.log(`Timeline duration updated to: ${this.duration} seconds`);
-        this.addDebugBox(`Timeline duration updated to: ${this.duration} seconds`);
-        
-        // Kích hoạt sự kiện để thông báo thời lượng đã thay đổi
-        const event = new CustomEvent('timelineDurationChanged', { 
-            detail: { duration: this.duration } 
-        });
-        this.container.dispatchEvent(event);
-    }
 
-    /**
+        /**
+         * Cập nhật thời lượng timeline dựa trên clips
+         */
+        updateTimelineDuration() {
+            if (this.clips.length === 0) {
+                // Nếu không có clip, sử dụng thời lượng mặc định
+                this.duration = this.options.duration;
+            } else {
+                // Tính thời lượng dựa trên clip có endTime lớn nhất
+                let maxEndTime = 0;
+                for (const clip of this.clips) {
+                    const endTime = clip.startTime + clip.duration;
+                    if (endTime > maxEndTime) {
+                        maxEndTime = endTime;
+                    }
+                }
+                
+                // Không cần thêm buffer, để timeline chính xác bằng với nội dung
+                this.duration = maxEndTime;
+            }
+            
+            // Cập nhật UI
+            this.updateRuler();
+            this.createTracks();
+            
+            // Cập nhật hiển thị thời lượng
+            this.updateTimeDisplays();
+            
+            // Cập nhật thanh seek
+            const seekBar = document.getElementById('timeline-seek');
+            if (seekBar) {
+                seekBar.max = this.duration;
+            }
+            
+            // Kích hoạt sự kiện để thông báo thời lượng đã thay đổi
+            const event = new CustomEvent('timelineDurationChanged', { 
+                detail: { duration: this.duration } 
+            });
+            this.container.dispatchEvent(event);
+        }
+
+        /**
          * Render tất cả clips lên timeline
          */
         renderClips() {
@@ -705,50 +701,9 @@ if (window.Timeline) {
             
             // Giả lập cập nhật danh sách tạm thời để phục vụ videoEditor.js
             console.log('Updating clips list (simplified)');
-    }
-
-    /**
-     * Thêm hộp debug để hiển thị thông tin
-     */
-    addDebugBox(message) {
-        // Tìm hoặc tạo mới hộp debug
-        let debugBox = document.querySelector('.debug-box');
-        
-        if (!debugBox) {
-            debugBox = document.createElement('div');
-            debugBox.className = 'debug-box';
-            document.body.appendChild(debugBox);
         }
-        
-        // Thêm thông báo mới với timestamp
-        const time = new Date().toLocaleTimeString();
-        const msgElement = document.createElement('div');
-        msgElement.textContent = `[${time}] ${message}`;
-        
-        // Thêm vào đầu để tin nhắn mới nhất hiển thị trên cùng
-        debugBox.prepend(msgElement);
-        
-        // Giới hạn số lượng tin nhắn
-        if (debugBox.childElementCount > 20) {
-            debugBox.removeChild(debugBox.lastChild);
-        }
-        
-        // Tự động xóa sau 10 giây
-        setTimeout(() => {
-            if (msgElement.parentNode === debugBox) {
-                debugBox.removeChild(msgElement);
-            }
-            
-            if (debugBox.childElementCount === 0) {
-                document.body.removeChild(debugBox);
-            }
-        }, 10000);
-        
-        // Cũng log ra console
-        console.log(`DEBUG: ${message}`);
-    }
 
-    /**
+        /**
          * Xóa clip khỏi timeline
          */
         removeClip(clipId) {

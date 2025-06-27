@@ -56,22 +56,23 @@ export function updateTimelineDuration(timeline) {
         timeline.duration = timeline.options.duration;
     } else {
         // Tính thời lượng dựa trên clip có endTime lớn nhất
-        let maxEndTime = 0;
-        let clipWithMaxEnd = null;
+        const maxEndTime = calculateMaxEndTime(timeline.clips);
         
-        for (const clip of timeline.clips) {
-            const endTime = clip.startTime + clip.duration;
-            if (endTime > maxEndTime) {
-                maxEndTime = endTime;
-                clipWithMaxEnd = clip;
-            }
-        }
-        
-        // Không cần thêm buffer, để timeline chính xác bằng với nội dung
+        // Cập nhật thời lượng timeline
         timeline.duration = maxEndTime;
         
-        console.log(`Thời lượng timeline mới: ${maxEndTime}s (từ clip ${clipWithMaxEnd ? clipWithMaxEnd.id : 'unknown'})`);
-        console.log(`Clip có thời gian kết thúc xa nhất: startTime=${clipWithMaxEnd ? clipWithMaxEnd.startTime : 'N/A'}, duration=${clipWithMaxEnd ? clipWithMaxEnd.duration : 'N/A'}`);
+        // Log debug info
+        if (timeline.addDebugBox) {
+            // timeline.addDebugBox(`Timeline duration updated to: ${timeline.duration} seconds`);
+        }
+        
+        // Kích hoạt sự kiện nếu có
+        const event = new CustomEvent('timelineDurationChanged', { 
+            detail: { duration: timeline.duration } 
+        });
+        if (timeline.container) {
+            timeline.container.dispatchEvent(event);
+        }
     }
     
     // Cập nhật UI
@@ -87,18 +88,8 @@ export function updateTimelineDuration(timeline) {
         seekBar.max = timeline.duration;
     }
     
-    // Kích hoạt sự kiện để thông báo thời lượng đã thay đổi
-    const event = new CustomEvent('timelineDurationChanged', { 
-        detail: { duration: timeline.duration } 
-    });
-    if (timeline.container) {
-        timeline.container.dispatchEvent(event);
-    }
-    
-    // Cập nhật các hiển thị debug
-    console.log(`Timeline duration updated to: ${timeline.duration} seconds`);
     if (timeline.addDebugBox) {
-        timeline.addDebugBox(`Timeline duration updated to: ${timeline.duration} seconds`);
+        // timeline.addDebugBox(`Timeline duration updated to: ${timeline.duration} seconds`);
     }
 }
 
@@ -153,7 +144,9 @@ export function renderClips(timeline) {
     clipElements.forEach(el => el.remove());
     
     // Thêm debug box
-    timeline.addDebugBox(`Rendering ${timeline.clips.length} clips`);
+    if (timeline.addDebugBox) {
+        // timeline.addDebugBox(`Rendering ${timeline.clips.length} clips`);
+    }
     
     // Render lại clips
     timeline.clips.forEach((clip, index) => {
@@ -161,7 +154,9 @@ export function renderClips(timeline) {
         const startPosition = clip.startTime * timeline.pixelsPerSecond;
         const width = clip.duration * timeline.pixelsPerSecond;
         
-        timeline.addDebugBox(`Clip ${index+1}: startPos=${startPosition}px, width=${width}px`);
+        if (timeline.addDebugBox) {
+            // timeline.addDebugBox(`Clip ${index+1}: startPos=${startPosition}px, width=${width}px`);
+        }
         
         // Tạo element cho clip
         const clipElement = document.createElement('div');
@@ -291,27 +286,36 @@ export function renderClips(timeline) {
         }
         
         // Tìm và thêm vào track tương ứng
-        const track = document.querySelector(`.timeline-track[data-track-type="${clip.type}"]`);
+        const track = getTrackByType(timeline, clip.type);
         if (track) {
             track.appendChild(clipElement);
-            timeline.addDebugBox(`Clip ${clip.id} added to track ${clip.type}`);
+            if (timeline.addDebugBox) {
+                // timeline.addDebugBox(`Clip ${clip.id} added to track ${clip.type}`);
+            }
         } else {
-            console.error(`Không tìm thấy track cho loại: ${clip.type}`);
-            timeline.addDebugBox(`ERROR: No track for type ${clip.type}`);
+            if (timeline.addDebugBox) {
+                // timeline.addDebugBox(`ERROR: No track for type ${clip.type}`);
+            }
             
             // Thử tìm track bằng ID
             const trackById = document.getElementById(`${clip.type}-track`);
             if (trackById) {
                 trackById.appendChild(clipElement);
-                timeline.addDebugBox(`Clip ${clip.id} added to track by ID: ${clip.type}-track`);
+                if (timeline.addDebugBox) {
+                    // timeline.addDebugBox(`Clip ${clip.id} added to track by ID: ${clip.type}-track`);
+                }
             } else {
                 // Thêm vào track mặc định (track đầu tiên) nếu không tìm thấy track phù hợp
-                const firstTrack = document.querySelector('.timeline-track');
-                if (firstTrack) {
-                    firstTrack.appendChild(clipElement);
-                    timeline.addDebugBox(`Clip ${clip.id} added to default track as fallback`);
+                const anyTrack = document.querySelector('.timeline-track');
+                if (anyTrack) {
+                    anyTrack.appendChild(clipElement);
+                    if (timeline.addDebugBox) {
+                        // timeline.addDebugBox(`Clip ${clip.id} added to default track as fallback`);
+                    }
                 } else {
-                    timeline.addDebugBox(`CRITICAL ERROR: No tracks available to add clip ${clip.id}`);
+                    if (timeline.addDebugBox) {
+                        // timeline.addDebugBox(`CRITICAL ERROR: No tracks available to add clip ${clip.id}`);
+                    }
                 }
             }
         }
@@ -326,9 +330,12 @@ export function renderClips(timeline) {
         // Sự kiện kéo thả sẽ được thêm từ TimelineDragDrop.js
     });
     
-    // Thêm thông báo debug nếu không có clip nào
-    if (timeline.clips.length === 0) {
-        timeline.addDebugBox("No clips to render");
+    // Empty clips case
+    if (!timeline.clips || timeline.clips.length === 0) {
+        if (timeline.addDebugBox) {
+            // timeline.addDebugBox("No clips to render");
+        }
+        return;
     }
 }
 
@@ -414,4 +421,24 @@ function formatTime(seconds) {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function calculateMaxEndTime(clips) {
+    let maxEndTime = 0;
+    let clipWithMaxEnd = null;
+    
+    for (const clip of clips) {
+        const endTime = clip.startTime + clip.duration;
+        if (endTime > maxEndTime) {
+            maxEndTime = endTime;
+            clipWithMaxEnd = clip;
+        }
+    }
+    
+    return maxEndTime;
+}
+
+function getTrackByType(timeline, type) {
+    const track = document.querySelector(`.timeline-track[data-track-type="${type}"]`);
+    return track;
 } 

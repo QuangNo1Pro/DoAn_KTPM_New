@@ -57,46 +57,7 @@ class TimelineCore {
         }
     }
 
-    /**
-     * Thêm hộp debug để hiển thị thông tin
-     */
-    addDebugBox(message) {
-        // Tìm hoặc tạo mới hộp debug
-        let debugBox = document.querySelector('.debug-box');
-        
-        if (!debugBox) {
-            debugBox = document.createElement('div');
-            debugBox.className = 'debug-box';
-            document.body.appendChild(debugBox);
-        }
-        
-        // Thêm thông báo mới với timestamp
-        const time = new Date().toLocaleTimeString();
-        const msgElement = document.createElement('div');
-        msgElement.textContent = `[${time}] ${message}`;
-        
-        // Thêm vào đầu để tin nhắn mới nhất hiển thị trên cùng
-        debugBox.prepend(msgElement);
-        
-        // Giới hạn số lượng tin nhắn
-        if (debugBox.childElementCount > 20) {
-            debugBox.removeChild(debugBox.lastChild);
-        }
-        
-        // Tự động xóa sau 10 giây
-        setTimeout(() => {
-            if (msgElement.parentNode === debugBox) {
-                debugBox.removeChild(msgElement);
-            }
-            
-            if (debugBox.childElementCount === 0) {
-                document.body.removeChild(debugBox);
-            }
-        }, 10000);
-        
-        // Cũng log ra console
-        console.log(`DEBUG: ${message}`);
-    }
+
 }
 
 export default TimelineCore; 

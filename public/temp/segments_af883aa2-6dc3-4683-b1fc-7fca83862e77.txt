@@ -1,0 +1,3 @@
+file 'C:/BaitapLAPTRINH/ThietkePM/DoAn_KTPM_New/public/temp/segment_af883aa2-6dc3-4683-b1fc-7fca83862e77_0.mp4'
+file 'C:/BaitapLAPTRINH/ThietkePM/DoAn_KTPM_New/public/temp/segment_af883aa2-6dc3-4683-b1fc-7fca83862e77_1.mp4'
+file 'C:/BaitapLAPTRINH/ThietkePM/DoAn_KTPM_New/public/temp/segment_af883aa2-6dc3-4683-b1fc-7fca83862e77_2.mp4'

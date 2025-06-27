@@ -1,0 +1,62 @@
+[
+  {
+    "partId": "part_0",
+    "name": "Phần part_0",
+    "startTime": 0,
+    "duration": 3.312,
+    "imagePath": "http://localhost:3000/temp/user_upload_1751031207994-848573267.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_0_1751031201670.mp3",
+    "text": "Bạn có tin tôi có thể biến thành nhân vật này không?",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_1",
+    "name": "Phần part_1",
+    "startTime": 3.312,
+    "duration": 2.784,
+    "imagePath": "http://localhost:3000/temp/user_upload_1751031213171-417375395.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_1_1751031199441.mp3",
+    "text": "Tất cả bắt đầu từ những vật liệu thô sơ này.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "partId": "part_2",
+    "name": "Phần part_2",
+    "startTime": 6.096,
+    "duration": 2.88,
+    "imagePath": "http://localhost:3000/temp/user_upload_1751031217820-582168716.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_2_1751031203895.mp3",
+    "text": "Tạo kiểu cho bộ tóc giả là bước quan trọng nhất.",
+    "transition": "none",
+    "effect": {
+      "type": "none",
+      "value": 0
+    }
+  },
+  {
+    "type": "textOverlays",
+    "items": [
+      {
+        "id": "text-1751036567849-951",
+        "content": "được đi",
+        "font": "Arial",
+        "size": 24,
+        "color": "#ffffff",
+        "position": "middle",
+        "startTime": 0,
+        "duration": 7,
+        "animation": false,
+        "x": 0.5,
+        "y": 0.5
+      }
+    ]
+  }
+]

@@ -1,0 +1,48 @@
+[
+  {
+    "partId": "part_0",
+    "name": "Phần part_0",
+    "startTime": 0,
+    "duration": 3.384,
+    "imagePath": "http://localhost:3000/temp/part_0_1751009421694.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_0_1751009429726.mp3",
+    "text": "Thác Niagara đột nhiên chuyển sang màu đỏ như máu.",
+    "transition": "none",
+    "effect": {
+      "type": "brightness",
+      "value": 100
+    }
+  },
+  {
+    "partId": "part_1",
+    "name": "Phần part_1",
+    "startTime": 3.384,
+    "duration": 3.024,
+    "imagePath": "http://localhost:3000/temp/part_1_1751009442508.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_1_1751009450576.mp3",
+    "text": "Khung cảnh trông không khác gì một bộ phim kinh dị.",
+    "transition": "none",
+    "effect": {
+      "type": "brightness",
+      "value": 100
+    }
+  },
+  {
+    "partId": "part_2",
+    "name": "Phần part_2",
+    "startTime": 6.4079999999999995,
+    "duration": 2.136,
+    "imagePath": "http://localhost:3000/temp/part_2_1751009488056.jpg",
+    "audioPath": "http://localhost:3000/temp/audio/part_2_1751009496329.mp3",
+    "text": "Vậy sự thật đằng sau là gì?",
+    "transition": "none",
+    "effect": {
+      "type": "brightness",
+      "value": 100
+    }
+  },
+  {
+    "type": "textOverlays",
+    "items": []
+  }
+]

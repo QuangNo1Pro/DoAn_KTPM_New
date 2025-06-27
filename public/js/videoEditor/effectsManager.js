@@ -108,8 +108,10 @@ class EffectsManager {
             return;
         }
         
-        const value = parseInt(this.effectValue.value);
-        const target = this.effectTarget.value;
+        const value = parseInt(this.effectValue.value) || 50; // Giá trị mặc định nếu không có input
+        const target = this.effectTarget ? this.effectTarget.value : 'all';
+        
+        console.log(`Áp dụng hiệu ứng ${this.selectedEffect} với giá trị ${value} cho ${target}`);
         
         if (target === 'all') {
             // Áp dụng cho toàn bộ video
@@ -117,18 +119,74 @@ class EffectsManager {
                 type: this.selectedEffect,
                 value
             };
-        } else if (window.editor && window.editor.timeline.selectedClipId) {
-            // Áp dụng cho clip đang chọn
-            const clipId = window.editor.timeline.selectedClipId;
-            this.effects.clips[clipId] = {
-                type: this.selectedEffect,
-                value
-            };
+            console.log('Đã áp dụng hiệu ứng toàn cục:', this.effects.global);
+        } else {
+            // Tìm clip để áp dụng hiệu ứng
+            let clipId = null;
+            
+            // Kiểm tra các nguồn khác nhau để lấy clipId
+            if (window.editor && window.editor.timeline && window.editor.timeline.selectedClipId) {
+                clipId = window.editor.timeline.selectedClipId;
+            } else if (window.videoEditor && window.videoEditor.timeline && window.videoEditor.timeline.selectedClipId) {
+                clipId = window.videoEditor.timeline.selectedClipId;
+            }
+            
+            // Nếu không có clip được chọn nhưng vẫn muốn áp dụng cho clip hiện tại
+            if (!clipId) {
+                // Thử lấy clip hiện tại dựa trên thời gian
+                let currentTime = 0;
+                
+                if (window.editor && window.editor.getCurrentTime) {
+                    currentTime = window.editor.getCurrentTime();
+                } else if (window.videoEditor && window.videoEditor.getCurrentTime) {
+                    currentTime = window.videoEditor.getCurrentTime();
+                }
+                
+                // Tìm clip tại thời điểm hiện tại
+                const timeline = window.editor?.timeline || window.videoEditor?.timeline;
+                if (timeline && timeline.clips) {
+                    const currentClip = timeline.clips.find(clip => 
+                        currentTime >= clip.startTime && currentTime < (clip.startTime + clip.duration)
+                    );
+                    
+                    if (currentClip) {
+                        clipId = currentClip.id;
+                    }
+                }
+            }
+            
+            if (clipId) {
+                // Áp dụng cho clip cụ thể
+                this.effects.clips[clipId] = {
+                    type: this.selectedEffect,
+                    value
+                };
+                console.log(`Đã áp dụng hiệu ứng cho clip ${clipId}:`, this.effects.clips[clipId]);
+            } else {
+                // Nếu không tìm thấy clip, áp dụng toàn cục
+                this.effects.global = {
+                    type: this.selectedEffect,
+                    value
+                };
+                console.log('Không tìm thấy clip, áp dụng hiệu ứng toàn cục:', this.effects.global);
+                
+                // Hiển thị thông báo
+                alert('Không có clip nào được chọn. Hiệu ứng sẽ được áp dụng cho toàn bộ video.');
+            }
         }
         
         // Thông báo cập nhật preview
         if (typeof this.options.onEffectApplied === 'function') {
             this.options.onEffectApplied(this.effects);
+        } else {
+            // Thử cập nhật preview bằng cách khác nếu không có callback
+            if (window.editor && window.editor.updatePreview) {
+                const currentTime = window.editor.getCurrentTime ? window.editor.getCurrentTime() : 0;
+                window.editor.updatePreview(currentTime);
+            } else if (window.videoEditor && window.videoEditor.updatePreview) {
+                const currentTime = window.videoEditor.getCurrentTime ? window.videoEditor.getCurrentTime() : 0;
+                window.videoEditor.updatePreview(currentTime);
+            }
         }
     }
 
@@ -147,76 +205,99 @@ class EffectsManager {
 
     /**
      * Áp dụng hiệu ứng lên canvas
-     * @param {CanvasRenderingContext2D|HTMLImageElement} source - Context hoặc hình ảnh nguồn
+     * @param {CanvasRenderingContext2D} ctx - Context để vẽ
      * @param {string} clipId - ID của clip (nếu có)
      */
-    applyEffectToCanvas(source, clipId = null) {
-        if (!this.canvasElement) {
-            return;
-        }
-
-        // Lấy context
-        let ctx;
-        if (source instanceof CanvasRenderingContext2D) {
-            // Nếu truyền vào là context, sử dụng trực tiếp
-            ctx = source;
-        } else if (source instanceof HTMLImageElement) {
-            // Nếu truyền vào là hình ảnh, vẽ lên canvas
-            if (!this.ctx) return;
-            ctx = this.ctx;
+    applyEffectToCanvas(ctx, clipId = null) {
+        try {
+            if (!ctx) {
+                console.error('Context không tồn tại');
+                return;
+            }
             
-            // Vẽ hình ảnh gốc
-            const width = this.canvasElement.width;
-            const height = this.canvasElement.height;
-            ctx.drawImage(source, 0, 0, width, height);
-        } else {
-            console.error('Không thể xác định nguồn để áp dụng hiệu ứng');
-            return;
-        }
-        
-        // Lấy hiệu ứng áp dụng
-        const effect = this.getEffectForClip(clipId);
-        
-        // Nếu không có hiệu ứng, không cần xử lý thêm
-        if (effect.type === 'none') {
-            return;
-        }
-        
-        // Lấy kích thước canvas
-        const width = this.canvasElement.width;
-        const height = this.canvasElement.height;
-        
-        // Lấy dữ liệu ảnh
-        const imageData = ctx.getImageData(0, 0, width, height);
-        const data = imageData.data;
-        
-        // Áp dụng hiệu ứng
-        switch (effect.type) {
-            case 'grayscale':
-                this.applyGrayscale(data, effect.value / 100);
-                break;
-            case 'sepia':
-                this.applySepia(data, effect.value / 100);
-                break;
-            case 'brightness':
-                this.applyBrightness(data, effect.value);
-                break;
-            case 'contrast':
-                this.applyContrast(data, effect.value);
-                break;
-            case 'blur':
+            // Log để debug
+            console.log(`Đang áp dụng hiệu ứng cho clip: ${clipId || 'toàn cục'}`);
+            
+            // Lấy hiệu ứng áp dụng
+            const effect = this.getEffectForClip(clipId);
+            
+            // Log hiệu ứng đang áp dụng
+            console.log(`Hiệu ứng được áp dụng:`, effect);
+            
+            // Nếu không có hiệu ứng, không cần xử lý thêm
+            if (!effect || effect.type === 'none' || !effect.type) {
+                console.log('Không có hiệu ứng cần áp dụng');
+                return;
+            }
+            
+            // Lấy kích thước canvas
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            
+            if (effect.type === 'blur') {
                 // Sử dụng CSS filter cho blur
-                ctx.filter = `blur(${effect.value / 10}px)`;
-                // Cần vẽ lại với filter nếu đang sử dụng hình ảnh
-                if (source instanceof HTMLImageElement) {
-                    ctx.drawImage(source, 0, 0, width, height);
-                }
+                ctx.filter = `blur(${Math.max(1, effect.value) / 10}px)`;
+                
+                // Lấy dữ liệu hình ảnh hiện tại
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(ctx.canvas, 0, 0);
+                
+                // Xóa canvas hiện tại
+                ctx.clearRect(0, 0, width, height);
+                
+                // Vẽ lại với filter
+                ctx.drawImage(tempCanvas, 0, 0);
+                
+                // Xóa filter sau khi vẽ
                 ctx.filter = 'none';
-                return;  // Trong trường hợp blur, không cần xử lý tiếp theo
+                
+                console.log('Đã áp dụng hiệu ứng blur');
+                return;
+            }
+            
+            // Lấy dữ liệu ảnh
+            let imageData;
+            try {
+                imageData = ctx.getImageData(0, 0, width, height);
+            } catch (e) {
+                console.error('Lỗi khi lấy dữ liệu ảnh:', e);
+                return;
+            }
+            
+            const data = imageData.data;
+            
+            // Áp dụng hiệu ứng
+            switch (effect.type) {
+                case 'grayscale':
+                    this.applyGrayscale(data, effect.value / 100);
+                    console.log('Đã áp dụng hiệu ứng grayscale');
+                    break;
+                case 'sepia':
+                    this.applySepia(data, effect.value / 100);
+                    console.log('Đã áp dụng hiệu ứng sepia');
+                    break;
+                case 'brightness':
+                    this.applyBrightness(data, effect.value);
+                    console.log('Đã áp dụng hiệu ứng brightness');
+                    break;
+                case 'contrast':
+                    this.applyContrast(data, effect.value);
+                    console.log('Đã áp dụng hiệu ứng contrast');
+                    break;
+                default:
+                    console.warn('Hiệu ứng không được nhận dạng:', effect.type);
+                    return;
+            }
+            
+            // Cập nhật lại ảnh
+            ctx.putImageData(imageData, 0, 0);
+        } catch (error) {
+            console.error('Lỗi khi áp dụng hiệu ứng:', error);
         }
-        
-        // Cập nhật lại ảnh
-        ctx.putImageData(imageData, 0, 0);
     }
 
     /**

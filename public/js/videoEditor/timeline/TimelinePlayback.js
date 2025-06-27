@@ -49,12 +49,6 @@ export function play(timeline) {
             setCurrentTime(timeline, currentDuration);
             timeline.isPlaying = false;
             
-            // Cập nhật UI nút phát/dừng
-            const togglePlayBtn = document.getElementById('timeline-toggle-play');
-            if (togglePlayBtn) {
-                togglePlayBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
-            }
-            
             // Gửi sự kiện khi phát hết
             const event = new CustomEvent('timelineEnded');
             timeline.container.dispatchEvent(event);
@@ -93,20 +87,6 @@ export function bindPlaybackEvents(timeline) {
     if (seekBar) {
         seekBar.addEventListener('input', () => {
             setCurrentTime(timeline, parseFloat(seekBar.value));
-        });
-    }
-    
-    // Sự kiện nút phát/dừng
-    const togglePlayBtn = document.getElementById('timeline-toggle-play');
-    if (togglePlayBtn) {
-        togglePlayBtn.addEventListener('click', () => {
-            if (timeline.isPlaying) {
-                pause(timeline);
-                togglePlayBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
-            } else {
-                play(timeline);
-                togglePlayBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
-            }
         });
     }
     

@@ -1,6 +1,19 @@
 {{!-- Giao diện chỉnh sửa video --}}
 <div class="container-fluid mt-3">
-    <h1 class="text-center mb-3">Chỉnh Sửa Video</h1>
+    {{!-- Nút thoát khẩn cấp --}}
+    <div class="position-fixed" style="top: 10px; right: 10px; z-index: 9999;">
+        <a href="/" class="btn btn-danger btn-sm" id="emergency-exit">
+            <i class="bi bi-x-circle-fill"></i> Thoát
+        </a>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <button id="back-to-edit-btn" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Quay Lại
+        </button>
+        <h1 class="text-center m-0">Chỉnh Sửa Video</h1>
+        <div style="width: 100px;"></div> <!-- Phần tử rỗng để cân bằng layout -->
+    </div>
     
     <div class="row">
         <!-- Khu vực xem trước -->
@@ -18,15 +31,33 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <div id="preview-container" class="position-relative">
-                        <!-- Canvas xem trước -->
-                        <canvas id="preview-canvas" class="w-100 border"></canvas>
+                    <div id="preview-container" class="position-relative" style="height: 0; padding-bottom: 56.25%;">
+                        <!-- Lớp phụ trợ để đảm bảo có nội dung hiển thị khi gặp lỗi -->
+                        <div id="preview-fallback" class="w-100 h-100 position-absolute" style="top: 0; left: 0; background: #000; z-index: 0;">
+                            <div class="d-flex align-items-center justify-content-center h-100">
+                                <div class="text-center text-muted">
+                                    <p>Đang tải preview...</p>
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Đang tải...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Canvas xem trước - chuyển ra khỏi absolute -->
+                        <canvas id="preview-canvas" class="position-absolute" style="top: 0; left: 0; width: 100%; height: 100%; z-index: 1;"></canvas>
                         
                         <!-- Lớp phủ chữ sẽ hiển thị ở đây -->
-                        <div id="text-overlays-container" class="position-absolute top-0 start-0 w-100 h-100">
-                            <!-- Text overlays sẽ được thêm bằng JS -->
-                        </div>
+                        <div id="text-overlays-container" class="position-absolute" style="top: 0; left: 0; width: 100%; height: 100%; background: transparent !important; background-color: transparent !important; pointer-events: none; z-index: 5; mix-blend-mode: normal; backdrop-filter: none;"></div>
                     </div>
+                </div>
+                <!-- Thanh điều khiển phát được di chuyển lên đây -->
+                <div class="bg-dark d-flex justify-content-between align-items-center py-1 px-2">
+                    <span class="text-light" id="timeline-current-time">00:00.000</span>
+                    <div>
+                        <input type="range" id="timeline-seek" class="form-range mx-2 d-inline-block" style="width: 200px;" min="0" max="100" value="0">
+                    </div>
+                    <span class="text-light" id="timeline-duration">00:00.000</span>
                 </div>
             </div>
             
@@ -55,16 +86,6 @@
                         
                         <div id="timeline-playhead" class="timeline-playhead" style="width: 2px; background-color: red; height: 100%; top: 0; left: 0; pointer-events: none; z-index: 200;"></div>
                     </div>
-                </div>
-                <div class="card-footer bg-dark d-flex justify-content-between align-items-center py-1">
-                    <span class="text-light" id="timeline-current-time">00:00.000</span>
-                    <div>
-                        <button id="timeline-toggle-play" class="btn btn-sm btn-light me-2">
-                            <i class="bi bi-play-fill"></i>
-                        </button>
-                        <input type="range" id="timeline-seek" class="form-range mx-2 d-inline-block" style="width: 200px;" min="0" max="100" value="0">
-                    </div>
-                    <span class="text-light" id="timeline-duration">00:00.000</span>
                 </div>
             </div>
         </div>
@@ -222,22 +243,10 @@
             </div>
         </div>
     </div>
-    
-    <!-- Các nút điều khiển chính -->
-    <div class="row mt-3 mb-5">
-        <div class="col-12 d-flex justify-content-between">
-            <button id="back-to-edit-btn" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Quay Lại
-            </button>
-            <button id="save-video-btn" class="btn btn-success">
-                <i class="bi bi-check-lg"></i> Lưu Thay Đổi
-            </button>
-        </div>
-    </div>
 </div>
 
 <!-- Modal thêm văn bản -->
-<div class="modal fade" id="textModal" tabindex="-1" aria-labelledby="textModalLabel" aria-hidden="true">
+<div class="modal fade" id="textModal" tabindex="-1" aria-labelledby="textModalLabel" aria-hidden="true" data-bs-backdrop="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -268,44 +277,42 @@
 
 <!-- Scripts -->
 <link rel="stylesheet" href="/js/videoEditor/videoEditor.css">
+
+<!-- Load các thành phần cơ bản -->
 <script src="/js/videoEditor/timeline.js"></script>
 <script src="/js/videoEditor/textOverlay.js"></script>
 <script src="/js/videoEditor/effectsManager.js"></script>
+
+<!-- Load các module mới -->
+<script src="/js/videoEditor/MediaLoader.js"></script>
+<script src="/js/videoEditor/PreviewManager.js"></script>
+<script src="/js/videoEditor/VideoDataConverter.js"></script>
+<script src="/js/videoEditor/ExportManager.js"></script>
+<script src="/js/videoEditor/VideoEditorCore.js"></script>
+
+<!-- File videoEditor.js làm nhiệm vụ khởi tạo -->
 <script src="/js/videoEditor/videoEditor.js"></script>
-<script src="/js/videoEditor/debug.js"></script>
+
+<!-- Fix render -->
 <script src="/js/videoEditor/renderFix.js"></script>
 
-<!-- Thêm script để khởi tạo Timeline mà không cần ES modules -->
-<script src="/js/videoEditor/timeline.js"></script>
+<!-- Script để đảm bảo modal không làm tối màn hình sau khi đóng -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log("Đang khởi tạo Timeline...");
-        
-        try {
-            // Đảm bảo window.Timeline đã được định nghĩa
-            if (typeof window.Timeline !== 'function') {
-                console.error("Timeline class không được tìm thấy! Kiểm tra script đã được tải chưa.");
-                return;
-            }
-            
-            // Khởi tạo timeline
-            window.videoTimeline = new Timeline({
-                containerId: 'timeline-container', 
-                duration: 30,
-                pixelsPerSecond: 100,
-                onTimeUpdate: function(time) {
-                    console.log(`Timeline: thời gian hiện tại = ${time}s`);
-                }
+document.addEventListener('DOMContentLoaded', function() {
+    const textModal = document.getElementById('textModal');
+    if (textModal) {
+        textModal.addEventListener('hidden.bs.modal', function () {
+            // Xóa lớp modal-backdrop khỏi body nếu còn sót lại
+            const modalBackdrops = document.querySelectorAll('.modal-backdrop');
+            modalBackdrops.forEach(backdrop => {
+                backdrop.remove();
             });
             
-            console.log("Timeline đã được khởi tạo thành công!");
-        } catch (error) {
-            console.error("Lỗi khi khởi tạo Timeline:", error);
-        }
-    });
-    
-    // Xử lý lỗi chung
-    window.addEventListener('error', function(e) {
-        console.error("Có lỗi xảy ra:", e.error || e.message);
-    });
+            // Xóa các class và style trên body
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        });
+    }
+});
 </script>
