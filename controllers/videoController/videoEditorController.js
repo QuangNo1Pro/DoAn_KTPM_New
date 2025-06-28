@@ -31,15 +31,47 @@ function secondsToSrtTime(seconds) {
 function generateSrtFile(parts, srtPath) {
     let srtContent = '';
     let currentTime = 0;
+    
+    console.log(`Đang tạo phụ đề SRT cho ${parts.length} phần video...`);
+    
     parts.forEach((part, idx) => {
-        const audioPath = part.audioPath.startsWith('/') ? path.join(__dirname, '../../public', part.audioPath.substring(1)) : part.audioPath;
+        // Chuyển đổi đường dẫn audio thành đường dẫn tuyệt đối
+        const audioPath = convertUrlToFilePath(part.audioPath);
+        if (!audioPath || !fs.existsSync(audioPath)) {
+            console.warn(`⚠️ Không tìm thấy file audio cho phần ${idx + 1}: ${part.audioPath}`);
+            return; // Bỏ qua phần này
+        }
+        
+        // Lấy thời lượng audio
         const duration = getAudioDuration(audioPath);
+        if (!duration) {
+            console.warn(`⚠️ Không thể lấy thời lượng audio cho phần ${idx + 1}`);
+            return; // Bỏ qua phần này
+        }
+        
+        // Tạo thời gian bắt đầu và kết thúc
         const start = secondsToSrtTime(currentTime);
         const end = secondsToSrtTime(currentTime + duration);
-        srtContent += `${idx + 1}\n${start} --> ${end}\n${part.text || ''}\n\n`;
+        
+        // Lấy văn bản phụ đề - ưu tiên theo thứ tự: caption > text > transcript > description
+        const subtitleText = part.caption || part.text || part.transcript || part.description || '';
+        
+        // Thêm vào nội dung SRT
+        srtContent += `${idx + 1}\n${start} --> ${end}\n${subtitleText}\n\n`;
+        
+        // Cập nhật thời gian hiện tại
         currentTime += duration;
+        
+        console.log(`✅ Đã thêm phụ đề cho phần ${idx + 1}: ${subtitleText.substring(0, 30)}${subtitleText.length > 30 ? '...' : ''}`);
     });
-    fs.writeFileSync(srtPath, srtContent, 'utf8');
+    
+    // Ghi file SRT
+    try {
+        fs.writeFileSync(srtPath, srtContent, 'utf8');
+        console.log(`✅ Đã ghi file phụ đề thành công: ${srtPath}`);
+    } catch (error) {
+        console.error(`❌ Lỗi khi ghi file phụ đề: ${error.message}`);
+    }
 }
 
 /**
@@ -120,6 +152,12 @@ const createFinalVideo = async (req, res) => {
         const outputDir = path.join(__dirname, '../../public/videos');
         if (!fs.existsSync(outputDir)) {
             fs.mkdirSync(outputDir, { recursive: true });
+        }
+        
+        // Đảm bảo thư mục phụ đề tồn tại
+        const subtitleDir = path.join(outputDir, 'subtitles');
+        if (!fs.existsSync(subtitleDir)) {
+            fs.mkdirSync(subtitleDir, { recursive: true });
         }
         
         // Tên file video
@@ -297,44 +335,86 @@ const createFinalVideo = async (req, res) => {
             execSync(concatCommand);
             
             // Tạo file phụ đề
-            const srtPath = path.join(outputDir, 'subtitles', `subtitles_${sessionId}.srt`);
-            const assPath = path.join(outputDir, 'subtitles', `subtitles_${sessionId}.ass`);
+            const subtitleDir = path.join(outputDir, 'subtitles');
+            if (!fs.existsSync(subtitleDir)) {
+                fs.mkdirSync(subtitleDir, { recursive: true });
+            }
             
-            // Đảm bảo thư mục tồn tại
-            fs.mkdirSync(path.dirname(srtPath), { recursive: true });
+            const srtPath = path.join(subtitleDir, `subtitles_${sessionId}.srt`);
+            const assPath = path.join(subtitleDir, `subtitles_${sessionId}.ass`);
             
             // Tạo file phụ đề
             generateSrtFile(validParts, srtPath);
             
-            // Chuyển đổi SRT sang ASS để có nhiều tùy chọn style hơn
-            const srt2assCommand = `ffmpeg -i "${srtPath}" "${assPath}"`;
-            execSync(srt2assCommand);
-            
-            // Ghép phụ đề vào video
-            const outputWithSubsPath = path.join(outputDir, `final_${videoFileName}`);
-            const subtitleCommand = `ffmpeg -i "${outputPath}" -vf "subtitles=${assPath.replace(/\\/g, '/')}" "${outputWithSubsPath}"`;
-            
-            try {
-                execSync(subtitleCommand);
+            // Kiểm tra nội dung phụ đề
+            const srtContent = fs.readFileSync(srtPath, 'utf8').trim();
+            if (!srtContent) {
+                console.warn('⚠️ File SRT rỗng hoặc không tồn tại, bỏ qua bước thêm phụ đề');
+            } else {
+                console.log('✅ Đã tạo file phụ đề SRT thành công');
                 
-                // Thay thế file gốc bằng file có phụ đề
-                fs.unlinkSync(outputPath);
-                fs.renameSync(outputWithSubsPath, outputPath);
-            } catch (subsError) {
-                console.error('Lỗi khi thêm phụ đề:', subsError.message);
-                // Tiếp tục mà không có phụ đề
+                try {
+                    // Chuyển đổi SRT sang ASS để có nhiều tùy chọn style hơn
+                    const srt2assCommand = `ffmpeg -i "${srtPath}" "${assPath}"`;
+                    execSync(srt2assCommand);
+                    console.log('✅ Đã chuyển đổi SRT sang ASS thành công');
+                    
+                    // Chuẩn bị đường dẫn file phụ đề cho ffmpeg (xử lý ký tự đặc biệt)
+                    const assEscapedPath = assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+                    
+                    // Ghép phụ đề vào video
+                    const outputWithSubsPath = path.join(outputDir, `final_${videoFileName}`);
+                    const subtitleCommand = `ffmpeg -i "${outputPath}" -vf "subtitles='${assEscapedPath}'" -c:a copy "${outputWithSubsPath}"`;
+                    console.log('🔄 Đang thêm phụ đề vào video...');
+                    
+                    // Thực hiện lệnh
+                    execSync(subtitleCommand);
+                    
+                    // Thay thế file gốc bằng file có phụ đề
+                    fs.unlinkSync(outputPath);
+                    fs.renameSync(outputWithSubsPath, outputPath);
+                    console.log('✅ Đã thêm phụ đề vào video thành công');
+                } catch (subsError) {
+                    console.error('❌ Lỗi khi thêm phụ đề với ASS:', subsError.message);
+                    
+                    // Thử lại với SRT nếu không thành công
+                    try {
+                        console.log('🔄 Đang thử thêm phụ đề với định dạng SRT...');
+                        const srtEscapedPath = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+                        const alternativeOutputPath = path.join(outputDir, `alt_final_${videoFileName}`);
+                        const alternativeCommand = `ffmpeg -i "${outputPath}" -vf "subtitles='${srtEscapedPath}'" -c:a copy "${alternativeOutputPath}"`;
+                        
+                        execSync(alternativeCommand);
+                        
+                        // Thay thế file gốc bằng file có phụ đề
+                        fs.unlinkSync(outputPath);
+                        fs.renameSync(alternativeOutputPath, outputPath);
+                        console.log('✅ Đã thêm phụ đề với định dạng SRT thành công');
+                    } catch (altError) {
+                        console.error('❌ Không thể thêm phụ đề:', altError.message);
+                        // Tiếp tục mà không có phụ đề
+                    }
+                }
             }
             
             // Dọn dẹp: xóa các file tạm
             segments.forEach(segment => {
                 try {
                     fs.unlinkSync(segment);
-                } catch (e) {}
+                } catch (e) {
+                    console.warn(`Không thể xóa file tạm: ${segment}`, e);
+                }
             });
             
             try {
                 fs.unlinkSync(segmentListPath);
-            } catch (e) {}
+            } catch (e) {
+                console.warn(`Không thể xóa file danh sách segment: ${segmentListPath}`, e);
+            }
+            
+            // Kiểm tra kích thước file video cuối cùng
+            const stats = fs.statSync(outputPath);
+            console.log(`Video đã được tạo: ${outputPath} (${(stats.size / (1024 * 1024)).toFixed(2)} MB)`);
             
             return res.json({
                 success: true,
