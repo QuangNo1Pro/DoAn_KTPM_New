@@ -2,6 +2,8 @@ const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
 const { v4: uuidv4 } = require('uuid');
+const { uploadFile } = require(path.resolve(__dirname,'../../services/firebaseService'));
+const videoModel     = require('../../models/videoModel');
 
 /**
  * Lấy thời lượng audio bằng ffprobe
@@ -139,8 +141,20 @@ const saveVideoEdits = async (req, res) => {
  */
 const createFinalVideo = async (req, res) => {
     try {
-        const { sessionId, parts } = req.body;
-        
+        const {
+      sessionId,
+      parts              = [],
+      aspectRatio        = '16:9',
+
+      script             = null
+    } = req.body;
+
+    // Lấy userId (ưu tiên session, sau đó body – tuỳ app auth)
+    const userId = (req.session && req.session.userId) || req.body.userId || null;
+     // Lấy **topic** lưu trong session (đã được set ở prepareVideoScript)
+ const topic  = req.session?.videoPreparation?.topic
+             || req.body.topic
+             || 'Video không tiêu đề';
         if (!sessionId || !parts || !Array.isArray(parts)) {
             return res.status(400).json({
                 success: false,
@@ -416,11 +430,38 @@ const createFinalVideo = async (req, res) => {
             const stats = fs.statSync(outputPath);
             console.log(`Video đã được tạo: ${outputPath} (${(stats.size / (1024 * 1024)).toFixed(2)} MB)`);
             
-            return res.json({
-                success: true,
-                message: 'Đã tạo video thành công',
-                videoUrl: `/videos/${videoFileName}`
-            });
+            const firebaseKey = `videos/${videoFileName}`;
+    const publicUrl   = await uploadFile(outputPath, firebaseKey, { contentType:'video/mp4' });
+    console.log('🚀 Upload Firebase thành công:', publicUrl);
+
+    /* ------------------------------------------------
+       6. GHI DATABASE
+    -------------------------------------------------*/
+    
+    const sizeMb = (stats.size/1024/1024).toFixed(2);
+
+    await videoModel.insertVideo({
+      filename   : videoFileName,
+      firebaseKey: firebaseKey,
+      publicUrl  : publicUrl,
+      sizeMb     : sizeMb,
+      title      : topic,
+      script     : script,
+      userId     : userId
+    });
+
+    /* ------------------------------------------------
+       7. DỌN TEMP & RESPONSE
+    -------------------------------------------------*/
+    
+
+    return res.json({
+      success  : true,
+      videoUrl : publicUrl,
+      localPath: `/videos/${videoFileName}`,
+      title :topic,
+      userId
+    });
             
         } catch (error) {
             console.error('Lỗi khi ghép video:', error.message);

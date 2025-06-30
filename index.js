@@ -65,7 +65,7 @@ const searchRouter = require('./routes/searchRouter/seachRouter')
 const suggestRouter = require('./routes/searchRouter/suggestRouter')
 const videoRouter = require('./routes/videoRouter/videoRouter')
 const imageRouter = require('./routes/imageRouter')
-
+const videoAdminRouter = require('./routes/videoAdminRouter');
 // Sử dụng Routers
 app.use(homeRouter)
 app.use(registerRouter)
@@ -76,7 +76,7 @@ app.use(searchRouter)
 app.use(suggestRouter)
 app.use(videoRouter)
 app.use(imageRouter)
-
+app.use('/', videoAdminRouter);
 // Khởi động server
 app.listen(port, () => {
   console.log(`Server đang chạy tại http://localhost:${port}`)
