@@ -1,0 +1,67 @@
+<div class="container mt-5">
+    <h2 class="text-warning mb-4">📊 Thống kê Video YouTube</h2>
+
+    <!-- Form lọc -->
+    <form class="row g-3 mb-4" method="get" action="/thongke">
+        <div class="col-md-3">
+            <label for="month" class="form-label">📅 Chọn tháng</label>
+            <input type="month" class="form-control" name="month" id="month" value="{{filterMonth}}">
+        </div>
+        <div class="col-md-3 align-self-end">
+            <button type="submit" class="btn btn-warning"><i class="bi bi-funnel"></i> Lọc</button>
+        </div>
+    </form>
+
+    <!-- Tổng quan -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card text-bg-dark border-warning">
+                <div class="card-body">
+                    <h5 class="card-title">🎬 Tổng số video</h5>
+                    <p class="display-6 fw-bold text-warning">{{stats.totalVideos}}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card text-bg-dark border-info">
+                <div class="card-body">
+                    <h5 class="card-title">👁️ Tổng lượt xem</h5>
+                    <p class="display-6 fw-bold text-info">{{stats.totalViews}}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danh sách video -->
+    <div class="table-responsive">
+        <table class="table table-hover table-dark table-striped align-middle">
+            <thead class="table-warning">
+                <tr>
+                    <th>📌 Tiêu đề</th>
+                    <th>⏰ Ngày upload</th>
+                    <th>🔗 Link YouTube</th>
+                    <th>👁️‍🗨️ Lượt xem</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each videos}}
+                <tr>
+                    <td>{{this.title}}</td>
+                    <td>{{this.updated_at}}</td>
+                    <td>
+                        <a href="https://www.youtube.com/watch?v={{this.youtube_id}}"
+                            class="btn btn-sm btn-outline-light" target="_blank">
+                            <i class="bi bi-play-circle"></i> Xem
+                        </a>
+                    </td>
+                    <td><span class="badge bg-info">{{this.viewCount}}</span></td>
+                </tr>
+                {{else}}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">Không có video nào trong thời gian được chọn.</td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+</div>

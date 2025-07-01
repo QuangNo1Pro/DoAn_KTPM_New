@@ -66,7 +66,8 @@ const suggestRouter = require('./routes/searchRouter/suggestRouter')
 const videoRouter = require('./routes/videoRouter/videoRouter')
 const imageRouter = require('./routes/imageRouter')
 const videoAdminRouter = require('./routes/videoAdminRouter');
-const uploadYoutube=require('./routes/videoRouter/upLoadYoutubeRouter')
+const uploadYoutube = require('./routes/videoRouter/upLoadYoutubeRouter')
+const thongke= require('./routes/ThongkeRouter/thongkeRouter');
 // Sử dụng Routers
 app.use(homeRouter)
 app.use(registerRouter)
@@ -79,6 +80,7 @@ app.use(videoRouter)
 app.use(imageRouter)
 app.use('/', videoAdminRouter);
 app.use(uploadYoutube);
+app.use(thongke);
 // Khởi động server
 app.listen(port, () => {
   console.log(`Server đang chạy tại http://localhost:${port}`)

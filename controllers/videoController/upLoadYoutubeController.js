@@ -2,27 +2,44 @@ const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
-
+const { db}=require('../../models/connectDb')
 /**
  * Hàm tạo OAuth2Client từ thông tin token trong req.user
  */
+const REQUIRED_SCOPES = [
+  'https://www.googleapis.com/auth/youtube.upload',
+  'https://www.googleapis.com/auth/youtube.readonly',
+  'https://www.googleapis.com/auth/youtube.force-ssl'
+];
+
+
+/**
+ * Hàm lấy OAuth2Client có gắn access_token và refresh_token từ user
+ */
 function getOAuth2Client(req) {
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_CALLBACK_URL
-    );
-  
-    const access_token = req.user?.googleAccessToken;
-    const refresh_token = req.user?.googleRefreshToken;
-  
-    if (!access_token && !refresh_token) {
-      throw new Error('Bạn chưa đăng nhập Google hoặc chưa cấp quyền upload.');
-    }
-  
-    oauth2Client.setCredentials({ access_token, refresh_token });
-    return oauth2Client;
+  const oauth2Client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_CALLBACK_URL
+  );
+
+  const access_token = req.user?.googleAccessToken;
+  const refresh_token = req.user?.googleRefreshToken;
+
+  if (!access_token && !refresh_token) {
+    // Gợi ý: có thể trả về URL để xin lại quyền (nếu bạn muốn)
+    const authUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: REQUIRED_SCOPES,
+      prompt: 'consent' // Luôn hiện popup xin quyền mới
+    });
+
+    throw new Error(`Bạn chưa đăng nhập Google hoặc chưa cấp đủ quyền. Vui lòng truy cập: ${authUrl}`);
   }
+
+  oauth2Client.setCredentials({ access_token, refresh_token });
+  return oauth2Client;
+}
 /**
  * Hàm xử lý upload video lên YouTube
  */
@@ -35,7 +52,7 @@ async function uploadYoutube(req, res) {
       return res.status(400).json({ success: false, error: 'Thiếu đường dẫn video (url).' });
     }
 
-    const filename = path.basename(url);  // Ví dụ: "video_123.mp4"
+    const filename = path.basename(url);  
     const localPath = path.join(__dirname, '../../public/videos', filename);
 
     if (!fs.existsSync(localPath)) {
@@ -61,7 +78,10 @@ async function uploadYoutube(req, res) {
 
     if (!response?.data?.id) {
       return res.status(500).json({ success: false, error: 'Không nhận được ID video từ YouTube.' });
-    }
+      }
+    const videoId = req.params.id;
+      // Lưu ID video vào DB nếu cần
+    await db.query('UPDATE videos SET youtube_id = $1 WHERE id = $2', [response.data.id, videoId]);  
 
     const youtubeUrl = `https://www.youtube.com/watch?v=${response.data.id}`;
     return res.json({ success: true, youtubeUrl });

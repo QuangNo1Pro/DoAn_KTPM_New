@@ -56,11 +56,6 @@ const googleCallback = async (req, res, next) => {
       req.session.user_id = user.id_nguoidung;
       req.session.name = user.tennguoidung;
 
-      // Gỡ lỗi token
-      console.log('✅ Google login successful');
-      console.log('Access Token:', user.googleAccessToken);
-      console.log('Refresh Token:', user.googleRefreshToken);
-
       return res.render('dashboard');
     });
   })(req, res, next);

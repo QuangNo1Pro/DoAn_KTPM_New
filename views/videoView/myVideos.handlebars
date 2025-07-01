@@ -31,7 +31,7 @@
           </td>
           <td>
             <button class="btn btn-sm btn-outline-danger btn-youtube" title="Up video này lên YouTube" data-id="{{id}}"
-              data-url="{{local_path}}">
+              data-url="{{local_path}}" data-title="{{title}}" >
               <i class="bi bi-youtube"></i> YouTube
             </button>
           </td>
@@ -74,6 +74,7 @@
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const url = btn.dataset.url;
+        const title = btn.dataset.title;
 
         console.log('Up video #' + id + ' với URL:', url);
         if (!url) {
@@ -91,7 +92,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ url })
+            body: JSON.stringify({ url,title })
           });
 
           const contentType = res.headers.get("content-type") || '';

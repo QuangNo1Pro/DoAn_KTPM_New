@@ -77,8 +77,6 @@ passport.use(new GoogleStrategy({
     const user = await createGoogleUser(googleId, name, email);
 
     // Lưu accessToken và refreshToken vào user để serialize vào session
-    console.log('Access Token:', accessToken);
-    console.log('Refresh Token:', refreshToken);
     user.googleAccessToken = accessToken;
     user.googleRefreshToken = refreshToken;
 
