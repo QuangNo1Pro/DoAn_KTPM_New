@@ -2,8 +2,9 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../../models/videoModel');
+const { isAuthenticated } = require('../../middleware/authMiddleware')
 
-router.get('/videos', async (req, res) => {
+router.get('/videos',isAuthenticated, async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT id, filename, public_url, size_mb,
@@ -18,7 +19,7 @@ router.get('/videos', async (req, res) => {
   }
 });
 
-router.delete('/videos/:id', async (req, res) => {
+router.delete('/videos/:id',isAuthenticated, async (req, res) => {
   try {
     const { id } = req.params;
     // xoá metadata; *không* xoá file Firebase để an toàn

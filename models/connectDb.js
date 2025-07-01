@@ -3,10 +3,10 @@ const pgp = require('pg-promise')({ capSQL: true });
 
 const dbConfig = {
     user: 'postgres',
-    password: '123456789',
+    password: '123456',
     host: 'localhost',
     port: 5432,
-    database: 'AI Video',
+    database: 'KTPM',
 };
 const db = pgp(dbConfig);
 // Lấy tất cả người dùng

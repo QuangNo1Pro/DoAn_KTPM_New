@@ -1,18 +1,53 @@
 // controllers/videoAdminController.js
 const path       = require('path');
 const videoModel = require('../../models/videoModel');
+const fs = require('fs');
 
 /* -------- PAGE /my-videos ------------------------------------------- */
 async function renderVideoListPage(req, res) {
   try {
     const videos = await videoModel.listVideos({ limit: 100, offset: 0 });
-    res.render('videoView/myVideos', {            // handlebars/ejs/pug tuỳ bạn
-      title : 'Video của tôi',
-      videos
+
+    const videosWithPaths = videos.map(video => {
+      const filename = video.filename || '';
+
+      // Kiểm tra nếu filename không tồn tại
+      if (!filename || typeof filename !== 'string') {
+        console.warn(`⚠️ Video ID ${video.id} thiếu hoặc sai filename`);
+        return {
+          ...video,
+          local_path: '',
+          server_path: '',
+          file_exists: false
+        };
+      }
+
+      const localPath = `/videos/${filename}`;
+      const serverPath = path.join(__dirname, '../../public/videos', filename);
+
+      // Optional: Kiểm tra nếu file thực sự tồn tại
+      const exists = fs.existsSync(serverPath);
+
+      if (!exists) {
+        console.warn(`⚠️ File không tồn tại: ${serverPath}`);
+      }
+
+      return {
+        ...video,
+        local_path: localPath,
+        server_path: serverPath,
+        file_exists: exists
+      };
     });
+
+    res.render('videoView/myVideos', {
+      title: 'Video của tôi',
+      videos: videosWithPaths
+    });
+
   } catch (err) {
-    console.error('renderVideoListPage:', err);
-    res.status(500).send('Lỗi server');
+    console.error('❌ renderVideoListPage error:', err);
+    res.status(500).send('Lỗi server khi tải danh sách video.');
   }
 }
 

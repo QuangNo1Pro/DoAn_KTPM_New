@@ -4,7 +4,7 @@ const { engine } = require('express-handlebars')
 const passport = require('passport')
 const session = require('express-session')
 const flash = require('connect-flash')
-const googleAuthRouter = require('./routes/googleAuthRouter')
+ //const googleAuthRouter = require('./routes/googleAuthRouter')
 
 require('dotenv').config(); // Load biến môi trường từ file .env
 
@@ -66,17 +66,19 @@ const suggestRouter = require('./routes/searchRouter/suggestRouter')
 const videoRouter = require('./routes/videoRouter/videoRouter')
 const imageRouter = require('./routes/imageRouter')
 const videoAdminRouter = require('./routes/videoAdminRouter');
+const uploadYoutube=require('./routes/videoRouter/upLoadYoutubeRouter')
 // Sử dụng Routers
 app.use(homeRouter)
 app.use(registerRouter)
 app.use(loginRouter)
 app.use(logoutRouter)
-app.use('/', googleAuthRouter)
+//app.use('/', googleAuthRouter)
 app.use(searchRouter)
 app.use(suggestRouter)
 app.use(videoRouter)
 app.use(imageRouter)
 app.use('/', videoAdminRouter);
+app.use(uploadYoutube);
 // Khởi động server
 app.listen(port, () => {
   console.log(`Server đang chạy tại http://localhost:${port}`)
