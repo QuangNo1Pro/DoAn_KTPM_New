@@ -1,6 +1,7 @@
 // controllers/videoAdminController.js
 const videoModel = require('../../models/videoModel');
-
+const path = require('path');
+const fs = require('fs');
 /*───────────────────────────────────────────────────────────────────*/
 /* TIỆN ÍCH LẤY VIDEO + META                                         */
 /*───────────────────────────────────────────────────────────────────*/
@@ -41,23 +42,60 @@ async function renderVideoListPage(req, res) {
     /*====== CHỈ LẤY VIDEO CỦA CHÍNH USER ĐĂNG NHẬP ======*/
     const userId =
           req.session?.user_id              // set từ loginController
-       ?? req.session?.user?.id_nguoidung   // fallback (nếu đã tạo middleware)
+       ?? req.session?.user?.id_nguoidung   // fallback
        ?? null;
 
+    if (!userId) {
+      return res.redirect('/login');
+    }
+
+    // ===== Lấy danh sách video phân trang =====
     const data = await fetchPagedVideos({
       page : req.query.page,
-      limit: req.query.limit,
+      limit: req.query.limit || 12,
       userId
     });
 
+    // ===== Xử lý đường dẫn và kiểm tra tồn tại =====
+    const videosWithPaths = data.videos.map(video => {
+      const filename = video.filename || '';
+
+      if (!filename || typeof filename !== 'string') {
+        console.warn(`⚠️ Video ID ${video.id} thiếu hoặc sai filename`);
+        return {
+          ...video,
+          local_path: '',
+          server_path: '',
+          file_exists: false
+        };
+      }
+
+      const localPath = `/videos/${filename}`;
+      const serverPath = path.join(__dirname, '../../public/videos', filename);
+      const exists = fs.existsSync(serverPath);
+
+      if (!exists) {
+        console.warn(`⚠️ File không tồn tại: ${serverPath}`);
+      }
+
+      return {
+        ...video,
+        local_path: localPath,
+        server_path: serverPath,
+        file_exists: exists
+      };
+    });
+
+    // ===== Render view với video có đủ thông tin =====
     res.render('videoView/myVideos', {
       title : 'Video của tôi',
-      ...data
+      ...data,
+      videos: videosWithPaths // override data.videos
     });
 
   } catch (err) {
     console.error('[renderVideoListPage]', err);
-    res.status(500).send('Lỗi server');
+    res.status(500).send('Lỗi server khi tải danh sách video.');
   }
 }
 

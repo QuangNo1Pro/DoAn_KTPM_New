@@ -1,10 +1,11 @@
 const { db } = require('../models/connectDb');
 
 async function getYoutubeUploadedVideos(userId, filter = {}) {
-  // 1. Lấy tất cả video đã upload lên YouTube của user
+  // 1. Lấy video theo id_nguoidung
   const sql = `
-    SELECT title, updated_at,youtube_id
+    SELECT title, updated_at, youtube_id
     FROM videos
+    WHERE id_nguoidung = $1
     ORDER BY updated_at DESC
   `;
   const allVideos = await db.any(sql, [userId]);
@@ -14,7 +15,7 @@ async function getYoutubeUploadedVideos(userId, filter = {}) {
     return allVideos;
   }
 
-  // 3. Lọc theo JS
+  // 3. Lọc thêm bằng JavaScript nếu có yêu cầu cụ thể về thời gian
   const filteredVideos = allVideos.filter(video => {
     const date = new Date(video.updated_at);
 
@@ -39,7 +40,7 @@ async function getYoutubeUploadedVideos(userId, filter = {}) {
       return date >= from && date <= to;
     }
 
-    return true; // fallback: không có điều kiện lọc
+    return true;
   });
 
   return filteredVideos;
