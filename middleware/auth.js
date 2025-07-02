@@ -62,7 +62,9 @@ passport.use(new GoogleStrategy({
   scope: [
     'profile',
     'email',
-    'https://www.googleapis.com/auth/youtube.upload'
+    'https://www.googleapis.com/auth/youtube.upload',
+    'https://www.googleapis.com/auth/youtube.readonly',     // ✅ thêm quyền xem thống kê
+    'https://www.googleapis.com/auth/youtube.force-ssl'  
   ]
 }, async (accessToken, refreshToken, profile, done) => {
   try {
