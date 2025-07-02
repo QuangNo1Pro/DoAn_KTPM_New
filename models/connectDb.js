@@ -3,10 +3,10 @@ const pgp = require('pg-promise')({ capSQL: true });
 
 const dbConfig = {
     user: 'postgres',
-    password: '123456789',
+    password: '123456',
     host: 'localhost',
     port: 5432,
-    database: 'postgres',
+    database: 'KTPM',
 };
 const db = pgp(dbConfig);
 // Lấy tất cả người dùng
@@ -98,6 +98,7 @@ const createGoogleUser = async (googleId, tennguoidung, email) => {
     }
 };
 module.exports = {
+    db,
     all,
     checkAccountExists,
     getUserByEmail,
