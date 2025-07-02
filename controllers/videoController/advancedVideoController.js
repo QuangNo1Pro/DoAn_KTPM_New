@@ -1000,7 +1000,11 @@ const finalizeAdvancedVideo = async (req, res) => {
     // (tuỳ chọn) ghi vào bảng videos
     const stats  = fs.statSync(outputPath);
     const sizeMb = (stats.size / 1024 / 1024).toFixed(2);
-const userId = req.session?.user?.id_nguoidung
+    console.log("ID nguoi dung: ",req.session.user)
+const userId =
+        req.session?.user_id           // <-- loginController đã gán
+     || req.user?.id_nguoidung
+     || null;
     await videoModel.insertVideo({
       filename   : videoFileName,
       firebaseKey: firebaseKey,
@@ -1253,7 +1257,10 @@ const createFinalVideo = async (req, res) => {
     /* (tùy chọn) ghi DB --------------------------------*/
     const stats   = fs.statSync(outputPath);
     const sizeMb  = (stats.size / 1024 / 1024).toFixed(2);
-    const userId = req.session?.user?.id_nguoidung   // hoặc req.user.id, tuỳ app auth
+   const userId =
+        req.session?.user_id
+     || req.user?.id_nguoidung
+     || null;
  await videoModel.insertVideo({
   filename, firebaseKey, publicUrl, sizeMb,
    title, script, userId

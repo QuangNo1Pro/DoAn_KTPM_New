@@ -150,7 +150,10 @@ const createFinalVideo = async (req, res) => {
     } = req.body;
 
     // Lấy userId (ưu tiên session, sau đó body – tuỳ app auth)
-    const userId = (req.session && req.session.userId) || req.body.userId || null;
+    const userId =
+        req.session?.user_id
+     || req.user?.id_nguoidung
+     || null;
      // Lấy **topic** lưu trong session (đã được set ở prepareVideoScript)
  const topic  = req.session?.videoPreparation?.topic
              || req.body.topic

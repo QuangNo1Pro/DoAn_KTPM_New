@@ -1,143 +1,115 @@
 {{!-- views/videoView/myVideos.handlebars --}}
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
 
-<div class="container my-5">
-  <h2 class="mb-4 text-center text-warning">📁 Video của bạn</h2>
+<style>
+/* ======= MÀU – FONT ======= */
+body{background:#0f1720;color:#e8e8e8;min-height:100vh}
+.badge-size{font-size:.75rem;padding:.35em .6em;border-radius:.5rem}
+.btn-outline-sky   {color:#0dcaf0;border-color:#0dcaf0}
+.btn-outline-sky:hover{background:#0dcaf0;color:#fff}
+.btn-outline-danger{color:#ff6b6b;border-color:#ff6b6b}
+.btn-outline-danger:hover{background:#ff6b6b;color:#fff}
+
+/* ======= CARD ======= */
+.video-card{border:0;border-radius:.75rem;overflow:hidden;background:#111722;
+            transition:transform .2s}
+.video-card:hover{transform:translateY(-4px)}
+.video-card .card-body{background:#0e1118}
+
+/* thumbnail */
+.video-thumb{position:relative;display:block;width:100%;aspect-ratio:16/9}
+.video-thumb video{width:100%;height:100%;object-fit:cover}
+.play-overlay{position:absolute;inset:0;display:flex;align-items:center;
+              justify-content:center;font-size:3.2rem;color:#fff;
+              background:rgba(0,0,0,.35);opacity:0;transition:.25s}
+.video-thumb:hover .play-overlay{opacity:1}
+</style>
+
+<div class="container py-5">
+  <h2 class="text-center mb-4 text-warning">📁 Video của bạn</h2>
 
   {{#if videos.length}}
-  <div class="table-responsive">
-    <table class="table table-dark table-striped align-middle">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Tiêu đề</th>
-          <th>Dung lượng (MB)</th>
-          <th>Xem</th>
-          <th>Up YouTube</th>
-          <th>Xoá</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each videos}}
-        <tr id="row-{{id}}">
-          <td>{{id}}</td>
-          <td>{{title}}</td>
-          <td>{{size_mb}}</td>
-          <td>
-            <a class="btn btn-sm btn-outline-info" href="{{public_url}}" target="_blank" title="Xem video">
-              <i class="bi bi-play-circle"></i> Xem
-            </a>
-          </td>
-          <td>
-            <button class="btn btn-sm btn-outline-danger btn-youtube" title="Up video này lên YouTube" data-id="{{id}}"
-              data-url="{{local_path}}" data-title="{{title}}" >
-              <i class="bi bi-youtube"></i> YouTube
-            </button>
-          </td>
-          <td>
-            <button class="btn btn-sm btn-outline-danger btn-del" title="Xoá video này" data-id="{{id}}">
-              <i class="bi bi-trash"></i> Xoá
-            </button>
-          </td>
-        </tr>
-        {{/each}}
-      </tbody>
-    </table>
+  <div class="row g-4">
+    {{#each videos}}
+    <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+      <div class="video-card shadow-sm h-100 d-flex flex-column">
+
+        {{!-- thumbnail + nút play --}}
+        <a href="{{public_url}}" target="_blank" class="video-thumb flex-shrink-0">
+          <video src="{{public_url}}#t=0.25" muted playsinline loop></video>
+          <span class="play-overlay"><i class="bi bi-play-circle-fill"></i></span>
+        </a>
+
+        {{!-- info + xoá --}}
+        <div class="card-body d-flex flex-column">
+          <h6 class="mb-2 text-truncate" title="{{title}}">{{title}}</h6>
+
+          <span class="badge bg-primary-subtle text-primary-emphasis badge-size mb-auto">
+            {{size_mb}} MB
+          </span>
+
+          <button class="btn btn-sm btn-outline-danger w-100 mt-3 btn-del"
+                  data-id="{{id}}">
+            <i class="bi bi-trash me-1"></i>Xoá
+          </button>
+        </div>
+
+      </div>
+    </div>
+    {{/each}}
   </div>
+
+    {{!-- ============= PAGINATION ============== --}}
+  <nav class="mt-5 d-flex justify-content-center">
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item {{#if (eq page 1)}}disabled{{/if}}">
+        <a class="page-link" href="?page={{prevPage}}">&laquo;</a>
+      </li>
+
+      {{!-- chỉ in 1 … mỗi phía --}}
+      {{#each pages}}
+        {{#if (or (lte this 2) (gte this ../lastPageMinus1) (between this ../pageMinus1 ../pagePlus1))}}
+          <li class="page-item {{#if (eq ../page this)}}active{{/if}}">
+            <a class="page-link" href="?page={{this}}">{{this}}</a>
+          </li>
+        {{else}}
+          {{!-- in “ … ” đúng 1 lần --}}
+          {{#unless (lookup ../_ellipsis this)}}
+            {{set ../_ellipsis this true}}
+            <li class="page-item disabled">
+              <span class="page-link">…</span>
+            </li>
+          {{/unless}}
+        {{/if}}
+      {{/each}}
+
+      <li class="page-item {{#if (eq page lastPage)}}disabled{{/if}}">
+        <a class="page-link" href="?page={{nextPage}}">&raquo;</a>
+      </li>
+    </ul>
+  </nav>
+
+
   {{else}}
-  <p class="text-center text-muted">Chưa có video nào.</p>
+    <p class="text-center fs-5 text-muted">Bạn chưa tạo video nào.</p>
   {{/if}}
 </div>
 
 <script>
-  document.querySelectorAll('.btn-del').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.dataset.id;
-      if (!confirm('Xoá video #' + id + ' ?')) return;
-      try {
-        const res = await fetch('/api/videos/' + id, { method: 'DELETE' });
-        const js = await res.json();
-        if (js.success) {
-          document.getElementById('row-' + id)?.remove();
-        } else {
-          alert('Lỗi: ' + (js.error || 'không rõ'));
-        }
-      } catch (e) {
-        console.error(e);
-        alert('❌ Xoá thất bại! Xem console để biết thêm chi tiết.');
-      }
-    });
+/* ==== XOÁ VIDEO ==== */
+document.querySelectorAll('.btn-del').forEach(btn=>{
+  btn.addEventListener('click',async()=>{
+    const id = btn.dataset.id;
+    if(!confirm('Xoá video #'+id+'?')) return;
+    try{
+      const res = await fetch('/api/videos/'+id,{method:'DELETE'});
+      const js  = await res.json();
+      if(js.success) btn.closest('.col-12')?.remove();
+      else alert(js.error||'Xoá thất bại!');
+    }catch{ alert('Lỗi mạng!'); }
   });
-
-  document.querySelectorAll('.btn-youtube').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
-        const url = btn.dataset.url;
-        const title = btn.dataset.title;
-
-        console.log('Up video #' + id + ' với URL:', url);
-        if (!url) {
-          alert('❌ Thiếu URL video.');
-          return;
-        }
-
-        if (!confirm('Bạn muốn up video #' + id + ' lên YouTube?')) return;
-
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang up...';
-
-        try {
-          const res = await fetch('/api/videos/' + id + '/upload-youtube', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ url,title })
-          });
-
-          const contentType = res.headers.get("content-type") || '';
-          const text = await res.text();
-          let js;
-
-          if (!res.ok) {
-            // Nếu là lỗi 401 → không đăng nhập
-            if (res.status === 401) {
-              alert('❌ Bạn chưa đăng nhập. Vui lòng đăng nhập lại.');
-              window.location.href = '/login';
-              return;
-            }
-
-            // Nếu là HTML (như trang login), không phải JSON
-            if (!contentType.includes("application/json")) {
-              console.error('❌ Server trả về HTML thay vì JSON:', text);
-              alert('Lỗi: Server trả về không hợp lệ (HTML)');
-              return;
-            }
-          }
-
-          // Thử parse JSON
-          try {
-            js = JSON.parse(text);
-          } catch (err) {
-            console.error('❌ Không phải JSON:', text);
-            alert('Lỗi: Server trả về không hợp lệ:\n' + text);
-            return;
-          }
-
-          // Xử lý kết quả từ server
-          if (js.success) {
-            alert('✅ Đã up lên YouTube!\n👉 ' + js.youtubeUrl);
-          } else {
-            alert('❌ Upload thất bại: ' + (js.error || 'Không rõ lỗi'));
-          }
-
-        } catch (e) {
-          console.error('❌ Lỗi khi gọi API upload:', e);
-          alert('❌ Upload thất bại. Vui lòng kiểm tra console hoặc thử lại sau.');
-        }
-
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-youtube"></i> YouTube';
-      });
-  });
+});
 </script>

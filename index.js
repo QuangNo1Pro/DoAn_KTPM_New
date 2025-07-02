@@ -1,5 +1,6 @@
 const path = require('path')
 const express = require('express')
+const exphbs      = require('express-handlebars'); 
 const { engine } = require('express-handlebars')
 const passport = require('passport')
 const session = require('express-session')
@@ -11,7 +12,34 @@ require('dotenv').config(); // Load biến môi trường từ file .env
 const { initializePassport } = require('./middleware/auth'); // Cấu hình Passport với chiến lược tự xây dựng
 
 const port = 3000
+const hbs      = require('handlebars'); 
 const app = express()
+
+
+hbs.registerHelper({
+  /* logic cơ bản */
+  eq  : (a, b)     => a == b,
+  gt  : (a, b)     => a >  b,
+  gte : (a, b)     => a >= b,
+  lt  : (a, b)     => a <  b,
+  lte : (a, b)     => a <= b,
+  not : v          => !v,
+  or  : (...args)  => {                       // args = [a, b, options]
+    const options = args.pop();               // remove object cuối
+    return args.some(Boolean);
+  },
+  and : (...args) => {
+    const options = args.pop();
+    return args.every(Boolean);
+  },
+  between : (n, a, b) => n >= a && n <= b,
+
+  /* helper gán biến tạm – dùng trong pagination */
+  set : function (ctx, key, val) {            // MUST dùng function
+    ctx[key] = val;
+  }
+});
+app.set('view engine', 'handlebars');
 
 // Phục vụ tệp tĩnh từ thư mục public
 app.use(express.static(path.join(__dirname, 'public')))

@@ -1,82 +1,104 @@
 // controllers/videoAdminController.js
-const path       = require('path');
 const videoModel = require('../../models/videoModel');
-const fs = require('fs');
 
-/* -------- PAGE /my-videos ------------------------------------------- */
+/*───────────────────────────────────────────────────────────────────*/
+/* TIỆN ÍCH LẤY VIDEO + META                                         */
+/*───────────────────────────────────────────────────────────────────*/
+async function fetchPagedVideos({ page = 1, limit = 20, userId = null }) {
+  limit = Number(limit) > 0 ? Number(limit) : 20;
+  page  = Number(page)  > 0 ? Number(page)  : 1;
+  const offset = (page - 1) * limit;
+
+  /* chỉ query khi có userId – tránh trả nhầm video người khác */
+  const [videos, total] = userId
+    ? await Promise.all([
+        videoModel.listVideos({ limit, offset, userId }),
+        videoModel.countVideos({ userId })
+      ])
+    : [[], 0];
+
+  const lastPage = Math.max(1, Math.ceil(total / limit));
+  if (page > lastPage) return fetchPagedVideos({ page: lastPage, limit, userId });
+
+  return {
+    videos,
+    page,
+    limit,
+    offset,
+    total,
+    lastPage,
+    prevPage : Math.max(1, page - 1),
+    nextPage : Math.min(lastPage, page + 1),
+    pages    : Array.from({ length: lastPage }, (_, i) => i + 1)
+  };
+}
+
+/*───────────────────────────────────────────────────────────────────*/
+/* PAGE  /my-videos                                                  */
+/*───────────────────────────────────────────────────────────────────*/
 async function renderVideoListPage(req, res) {
   try {
-    const videos = await videoModel.listVideos({ limit: 100, offset: 0 });
+    /*====== CHỈ LẤY VIDEO CỦA CHÍNH USER ĐĂNG NHẬP ======*/
+    const userId =
+          req.session?.user_id              // set từ loginController
+       ?? req.session?.user?.id_nguoidung   // fallback (nếu đã tạo middleware)
+       ?? null;
 
-    const videosWithPaths = videos.map(video => {
-      const filename = video.filename || '';
-
-      // Kiểm tra nếu filename không tồn tại
-      if (!filename || typeof filename !== 'string') {
-        console.warn(`⚠️ Video ID ${video.id} thiếu hoặc sai filename`);
-        return {
-          ...video,
-          local_path: '',
-          server_path: '',
-          file_exists: false
-        };
-      }
-
-      const localPath = `/videos/${filename}`;
-      const serverPath = path.join(__dirname, '../../public/videos', filename);
-
-      // Optional: Kiểm tra nếu file thực sự tồn tại
-      const exists = fs.existsSync(serverPath);
-
-      if (!exists) {
-        console.warn(`⚠️ File không tồn tại: ${serverPath}`);
-      }
-
-      return {
-        ...video,
-        local_path: localPath,
-        server_path: serverPath,
-        file_exists: exists
-      };
+    const data = await fetchPagedVideos({
+      page : req.query.page,
+      limit: req.query.limit,
+      userId
     });
 
     res.render('videoView/myVideos', {
-      title: 'Video của tôi',
-      videos: videosWithPaths
+      title : 'Video của tôi',
+      ...data
     });
 
   } catch (err) {
-    console.error('❌ renderVideoListPage error:', err);
-    res.status(500).send('Lỗi server khi tải danh sách video.');
+    console.error('[renderVideoListPage]', err);
+    res.status(500).send('Lỗi server');
   }
 }
 
-/* -------- API: GET list --------------------------------------------- */
+/*───────────────────────────────────────────────────────────────────*/
+/* API  GET /api/videos                                              */
+/*───────────────────────────────────────────────────────────────────*/
 async function apiListVideos(req, res) {
   try {
-    const limit  = Number(req.query.limit  || 20);
-    const page   = Number(req.query.page   || 1);
-    const offset = (page - 1) * limit;
-    const userId = req.session?.user?.id_nguoidung;
+    const userId =
+          req.session?.user_id
+       ?? req.session?.user?.id_nguoidung
+       ?? null;
 
-    const videos = await videoModel.listVideos({ userId });
-    res.json({ success: true, videos });
+    const data = await fetchPagedVideos({
+      page : req.query.page,
+      limit: req.query.limit,
+      userId
+    });
+
+    res.json({ success: true, ...data });
   } catch (err) {
-    console.error('apiListVideos:', err);
+    console.error('[apiListVideos]', err);
     res.status(500).json({ success: false, error: err.message });
   }
 }
 
-/* -------- API: DELETE ----------------------------------------------- */
+/*───────────────────────────────────────────────────────────────────*/
+/* API  DELETE /api/videos/:id                                       */
+/*───────────────────────────────────────────────────────────────────*/
 async function apiDeleteVideo(req, res) {
   try {
-    const { id } = req.params;
-    await videoModel.deleteById(id);
+    await videoModel.deleteById(req.params.id);
     res.json({ success: true });
   } catch (err) {
-    console.error('apiDeleteVideo:', err);
+    console.error('[apiDeleteVideo]', err);
     res.status(500).json({ success: false, error: err.message });
   }
 }
 
-module.exports = { renderVideoListPage, apiListVideos, apiDeleteVideo };
+module.exports = {
+  renderVideoListPage,
+  apiListVideos,
+  apiDeleteVideo
+};
