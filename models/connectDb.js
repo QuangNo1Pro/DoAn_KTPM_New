@@ -18,7 +18,6 @@ const all = async () => {
         throw e;
     }
 };
-
 // Kiểm tra tài khoản theo email
 const checkAccountExists = async (email) => {
     try {
