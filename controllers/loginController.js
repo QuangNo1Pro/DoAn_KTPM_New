@@ -29,7 +29,9 @@ const googleAuth = passport.authenticate('google', {
   scope: [
     'profile',
     'email',
-    'https://www.googleapis.com/auth/youtube.upload' // Nếu cần upload YouTube
+    'https://www.googleapis.com/auth/youtube.upload',
+    'https://www.googleapis.com/auth/youtube.readonly',     // ✅ thêm quyền xem thống kê
+    'https://www.googleapis.com/auth/youtube.force-ssl'  // Nếu cần upload YouTube
   ],
   accessType: 'offline', // Để nhận refresh_token
   prompt: 'consent'       // Ép user xác nhận lại mỗi lần login

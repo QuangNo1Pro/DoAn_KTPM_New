@@ -14,14 +14,13 @@ async function getYoutubeStatsPage(req, res) {
     if (!userId) return res.redirect('/login');
 
     const { month } = req.query;
-    const monthFilter = parseMonthParam(month); 
+    const monthFilter = parseMonthParam(month);
 
     const videos = await getYoutubeUploadedVideos(userId, monthFilter);
 
     const oauth2Client = getOAuth2Client(req);
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
-    // 🔁 Lấy danh sách youtube_id để gọi API YouTube
     const ids = videos.map(v => v.youtube_id).filter(Boolean);
     let viewsMap = {};
 
@@ -37,12 +36,11 @@ async function getYoutubeStatsPage(req, res) {
     }
 
     for (let v of videos) {
-      v.viewCount = viewsMap[v.youtube_id] || 0;  // ✅ Sử dụng youtube_id
+      v.viewCount = viewsMap[v.youtube_id] || 0;
     }
 
     const totalViews = videos.reduce((sum, v) => sum + parseInt(v.viewCount || 0), 0);
-      const totalVideos = videos.length;
-      console.log(videos);
+    const totalVideos = videos.length;
 
     res.render('thongkeVideo', {
       title: 'Thống kê video YouTube',
@@ -53,7 +51,10 @@ async function getYoutubeStatsPage(req, res) {
 
   } catch (err) {
     console.error('Lỗi thống kê:', err);
-    res.status(500).send('Lỗi khi thống kê video YouTube');
+    if (err.message.includes('Insufficient Permission')) {
+      return res.status(403).send('Token Google không đủ quyền để xem thống kê video. Vui lòng đăng nhập lại.');
+    }
+    return res.status(500).send('Lỗi khi thống kê video YouTube');
   }
 }
 

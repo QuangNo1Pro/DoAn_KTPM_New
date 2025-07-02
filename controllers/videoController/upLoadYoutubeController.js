@@ -2,16 +2,13 @@ const { google } = require('googleapis');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
-const { db}=require('../../models/connectDb')
-/**
- * Hàm tạo OAuth2Client từ thông tin token trong req.user
- */
+const { db } = require('../../models/connectDb');
+
 const REQUIRED_SCOPES = [
   'https://www.googleapis.com/auth/youtube.upload',
   'https://www.googleapis.com/auth/youtube.readonly',
   'https://www.googleapis.com/auth/youtube.force-ssl'
 ];
-
 
 /**
  * Hàm lấy OAuth2Client có gắn access_token và refresh_token từ user
@@ -26,33 +23,32 @@ function getOAuth2Client(req) {
   const access_token = req.user?.googleAccessToken;
   const refresh_token = req.user?.googleRefreshToken;
 
-  if (!access_token && !refresh_token) {
-    // Gợi ý: có thể trả về URL để xin lại quyền (nếu bạn muốn)
+  // Kiểm tra token hợp lệ
+  if (!access_token || !refresh_token) {
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: REQUIRED_SCOPES,
-      prompt: 'consent' // Luôn hiện popup xin quyền mới
+      prompt: 'consent' // bắt buộc xin lại quyền
     });
 
-    throw new Error(`Bạn chưa đăng nhập Google hoặc chưa cấp đủ quyền. Vui lòng truy cập: ${authUrl}`);
+    throw new Error(`Bạn chưa đăng nhập Google hoặc chưa cấp đủ quyền. Truy cập để cấp lại quyền: ${authUrl}`);
   }
 
   oauth2Client.setCredentials({ access_token, refresh_token });
   return oauth2Client;
 }
+
 /**
  * Hàm xử lý upload video lên YouTube
  */
 async function uploadYoutube(req, res) {
-    try {
-       
+  try {
     const { url, title, description } = req.body;
-    console.log(url, title, description);
     if (!url) {
       return res.status(400).json({ success: false, error: 'Thiếu đường dẫn video (url).' });
     }
 
-    const filename = path.basename(url);  
+    const filename = path.basename(url);
     const localPath = path.join(__dirname, '../../public/videos', filename);
 
     if (!fs.existsSync(localPath)) {
@@ -78,10 +74,10 @@ async function uploadYoutube(req, res) {
 
     if (!response?.data?.id) {
       return res.status(500).json({ success: false, error: 'Không nhận được ID video từ YouTube.' });
-      }
+    }
+
     const videoId = req.params.id;
-      // Lưu ID video vào DB nếu cần
-    await db.query('UPDATE videos SET youtube_id = $1 WHERE id = $2', [response.data.id, videoId]);  
+    await db.query('UPDATE videos SET youtube_id = $1 WHERE id = $2', [response.data.id, videoId]);
 
     const youtubeUrl = `https://www.youtube.com/watch?v=${response.data.id}`;
     return res.json({ success: true, youtubeUrl });
@@ -92,7 +88,6 @@ async function uploadYoutube(req, res) {
   }
 }
 
-// ✨ Export tách riêng
 module.exports = {
   uploadYoutube,
   getOAuth2Client
