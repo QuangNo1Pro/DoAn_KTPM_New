@@ -15,13 +15,24 @@ class VideoEditorCore {
         // Gán instance vào window để các module khác có thể truy cập
         window.videoEditor = this;
         
-        // Các phần tử DOM
-        this.canvasElement = document.getElementById('preview-canvas');
-        this.ctx = this.canvasElement ? this.canvasElement.getContext('2d') : null;
-        this.playPreviewBtn = document.getElementById('play-preview-btn');
-        this.exportVideoBtn = document.getElementById('export-video-btn');
-        this.backToEditBtn = document.getElementById('back-to-edit-btn');
-        this.emergencyExitBtn = document.getElementById('emergency-exit');
+        // Các phần tử DOM - Thêm try-catch để tránh lỗi khi truy cập DOM
+        try {
+            this.canvasElement = document.getElementById('preview-canvas');
+            this.ctx = this.canvasElement ? this.canvasElement.getContext('2d') : null;
+            this.playPreviewBtn = document.getElementById('play-preview-btn');
+            this.exportVideoBtn = document.getElementById('export-video-btn');
+            this.backToEditBtn = document.getElementById('back-to-edit-btn');
+            this.emergencyExitBtn = document.getElementById('emergency-exit');
+        } catch (error) {
+            console.warn('Lỗi khi truy cập các phần tử DOM:', error);
+            // Khởi tạo các giá trị mặc định
+            this.canvasElement = null;
+            this.ctx = null;
+            this.playPreviewBtn = null;
+            this.exportVideoBtn = null;
+            this.backToEditBtn = null; 
+            this.emergencyExitBtn = null;
+        }
         
         // Các thuộc tính
         this.videoData = null;
@@ -284,49 +295,88 @@ class VideoEditorCore {
      * Gắn các sự kiện
      */
     bindEvents() {
-        // Sự kiện nút phát preview
-        if (this.playPreviewBtn) {
-            this.playPreviewBtn.addEventListener('click', () => {
-                if (this.previewManager.isPlaying) {
-                    this.pausePreview();
-                    this.playPreviewBtn.innerHTML = '<i class="bi bi-play-fill"></i> Phát';
-                } else {
-                    this.playPreview();
-                    this.playPreviewBtn.innerHTML = '<i class="bi bi-pause-fill"></i> Tạm dừng';
+        try {
+            // Nếu playPreviewBtn không tồn tại, tìm lại
+            if (!this.playPreviewBtn) {
+                this.playPreviewBtn = document.getElementById('play-preview-btn');
+            }
+            
+            // Sự kiện nút phát preview
+            if (this.playPreviewBtn) {
+                this.playPreviewBtn.addEventListener('click', () => {
+                    if (this.previewManager.isPlaying) {
+                        this.pausePreview();
+                        this.playPreviewBtn.innerHTML = '<i class="bi bi-play-fill"></i> Phát';
+                    } else {
+                        this.playPreview();
+                        this.playPreviewBtn.innerHTML = '<i class="bi bi-pause-fill"></i> Tạm dừng';
+                    }
+                });
+            }
+            
+            // Nếu exportVideoBtn không tồn tại, tìm lại
+            if (!this.exportVideoBtn) {
+                this.exportVideoBtn = document.getElementById('export-video-btn');
+            }
+            
+            // Sự kiện nút xuất video - xử lý đơn giản và an toàn
+            if (this.exportVideoBtn) {
+                // Thêm ID đặc biệt để đánh dấu đã xử lý
+                if (!this.exportVideoBtn.hasAttribute('data-event-bound')) {
+                    // Tạo một biến tham chiếu để sử dụng trong hàm
+                    const self = this;
+                    
+                    // Hàm xử lý sự kiện click
+                    const exportHandler = function(e) {
+                        // Gọi hàm xuất video
+                        self.exportVideo();
+                    };
+                    
+                    // Thêm event listener
+                    this.exportVideoBtn.addEventListener('click', exportHandler);
+                    
+                    // Đánh dấu là đã xử lý
+                    this.exportVideoBtn.setAttribute('data-event-bound', 'true');
+                    
+                    console.log('Đã gán sự kiện xuất video cho nút #export-video-btn');
+                }
+            }
+            
+            // Nếu backToEditBtn không tồn tại, tìm lại
+            if (!this.backToEditBtn) {
+                this.backToEditBtn = document.getElementById('back-to-edit-btn');
+            }
+            
+            // Sự kiện nút quay lại
+            if (this.backToEditBtn) {
+                this.backToEditBtn.addEventListener('click', () => {
+                    if (confirm('Bạn có chắc muốn quay lại trang trước? Các thay đổi chưa lưu sẽ bị mất.')) {
+                        window.location.href = '/api/advanced-video/edit-parts';
+                    }
+                });
+            }
+            
+            // Sự kiện resize cửa sổ
+            window.addEventListener('resize', () => {
+                if (this.previewManager) {
+                    this.previewManager.setupCanvas();
+                    this.updatePreview(this.getCurrentTime());
                 }
             });
-        }
-        
-        // Sự kiện nút xuất video
-        if (this.exportVideoBtn) {
-            this.exportVideoBtn.addEventListener('click', () => {
-                this.exportVideo();
-            });
-        }
-        
-        // Sự kiện nút quay lại
-        if (this.backToEditBtn) {
-            this.backToEditBtn.addEventListener('click', () => {
-                if (confirm('Bạn có chắc muốn quay lại trang trước? Các thay đổi chưa lưu sẽ bị mất.')) {
-                    window.location.href = '/api/advanced-video/edit-parts';
-                }
-            });
-        }
-        
-        // Sự kiện resize cửa sổ
-        window.addEventListener('resize', () => {
-            this.previewManager.setupCanvas();
-            this.updatePreview(this.getCurrentTime());
-        });
-        
-        // Thêm sự kiện cho thanh seek
-        const seekBar = document.getElementById('timeline-seek');
-        if (seekBar) {
-            seekBar.addEventListener('input', () => {
-                const time = parseFloat(seekBar.value);
-                this.timeline.setCurrentTime(time);
-                this.updatePreview(time);
-            });
+            
+            // Thêm sự kiện cho thanh seek
+            const seekBar = document.getElementById('timeline-seek');
+            if (seekBar) {
+                seekBar.addEventListener('input', () => {
+                    const time = parseFloat(seekBar.value);
+                    if (this.timeline) {
+                        this.timeline.setCurrentTime(time);
+                        this.updatePreview(time);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Lỗi khi gắn các sự kiện:', error);
         }
     }
 

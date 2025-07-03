@@ -121,49 +121,93 @@ class ExportManager {
         // Đảm bảo TextOverlay đã được tải hoàn tất trước khi xuất video
         const ensureTextOverlayLoaded = () => {
             return new Promise((resolve) => {
-                if (!this.dataConverter || !this.dataConverter.textOverlay) {
-                    console.warn('Không tìm thấy đối tượng TextOverlay, sẽ xuất video không có text');
+                // Kiểm tra nếu dataConverter hoặc textOverlay không tồn tại
+                if (!this.dataConverter) {
+                    console.error('Không tìm thấy dataConverter, không thể xuất text');
                     resolve(false);
                     return;
                 }
                 
-                // Kiểm tra nếu TextOverlay đã sẵn sàng
-                if (typeof this.dataConverter.textOverlay.getTextItems === 'function') {
-                    const textItems = this.dataConverter.textOverlay.getTextItems();
-                    console.log('Text items sẵn sàng để xuất:', textItems);
-                    resolve(true);
-                    return;
-                }
-                
-                // Nếu textOverlay chưa tải xong, kiểm tra thuộc tính textItems trực tiếp
-                if (this.dataConverter.textOverlay.textItems && Array.isArray(this.dataConverter.textOverlay.textItems)) {
-                    console.log('Đối tượng TextOverlay.textItems sẵn sàng:', this.dataConverter.textOverlay.textItems);
-                    resolve(true);
-                    return;
-                }
-                
-                // Nếu chưa sẵn sàng và có hàm moduleLoaded, đợi module được tải xong
-                if (window.textOverlayModuleState && !window.textOverlayModuleState.isLoaded) {
-                    console.log('Đang đợi TextOverlay module được tải xong...');
+                // Kiểm tra nếu TextOverlay chưa được khởi tạo
+                if (!this.dataConverter.textOverlay) {
+                    console.warn('TextOverlay chưa được khởi tạo, thử lấy từ window.videoEditor');
                     
-                    // Đặt timeout để tránh đợi quá lâu
-                    setTimeout(() => {
-                        console.warn('Đã đạt timeout khi đợi TextOverlay, tiếp tục xuất video');
+                    // Thử lấy từ window.videoEditor hoặc window.editor
+                    const editorInstance = window.videoEditor || window.editor;
+                    
+                    if (editorInstance && editorInstance.textOverlay) {
+                        console.log('Đã tìm thấy textOverlay từ editorInstance');
+                        this.dataConverter.textOverlay = editorInstance.textOverlay;
+                    } else {
+                        console.warn('Không tìm thấy đối tượng TextOverlay, sẽ xuất video không có text');
                         resolve(false);
-                    }, 2000);
-                    
-                    // Kiểm tra mỗi 100ms xem module đã tải xong chưa
-                    const checkInterval = setInterval(() => {
-                        if (window.textOverlayModuleState && window.textOverlayModuleState.isLoaded) {
-                            clearInterval(checkInterval);
-                            console.log('TextOverlay module đã tải xong, tiếp tục xuất video');
-                            resolve(true);
-                        }
-                    }, 100);
-                } else {
-                    // Không có cách nào để đợi, tiếp tục xuất
-                    resolve(false);
+                        return;
+                    }
                 }
+                
+                // Kiểm tra và log trạng thái của textOverlay
+                console.log('TextOverlay state:', {
+                    hasTextOverlay: !!this.dataConverter.textOverlay,
+                    hasGetTextItemsMethod: typeof this.dataConverter.textOverlay.getTextItems === 'function',
+                    hasTextItemsProperty: !!(this.dataConverter.textOverlay.textItems),
+                    textItemsLength: this.dataConverter.textOverlay.textItems ? this.dataConverter.textOverlay.textItems.length : 0
+                });
+                
+                // Kiểm tra nếu TextOverlay đã sẵn sàng và có phương thức getTextItems
+                if (typeof this.dataConverter.textOverlay.getTextItems === 'function') {
+                    try {
+                        const textItems = this.dataConverter.textOverlay.getTextItems();
+                        console.log('Text items sẵn sàng để xuất:', textItems);
+                        
+                        // Log cụ thể số lượng text items tìm thấy
+                        if (textItems && textItems.length > 0) {
+                            console.log(`Đã tìm thấy ${textItems.length} text items để xuất`);
+                        } else {
+                            console.warn('Không tìm thấy text items, mảng rỗng hoặc null');
+                        }
+                        
+                        resolve(true);
+                    } catch (error) {
+                        console.error('Lỗi khi gọi getTextItems:', error);
+                        resolve(false);
+                    }
+                    return;
+                }
+                
+                // Nếu không có phương thức getTextItems, thử kiểm tra thuộc tính textItems trực tiếp
+                if (this.dataConverter.textOverlay.textItems) {
+                    if (Array.isArray(this.dataConverter.textOverlay.textItems)) {
+                        console.log('Đối tượng TextOverlay.textItems sẵn sàng:', this.dataConverter.textOverlay.textItems);
+                        
+                        // Log cụ thể số lượng text items tìm thấy
+                        if (this.dataConverter.textOverlay.textItems.length > 0) {
+                            console.log(`Đã tìm thấy ${this.dataConverter.textOverlay.textItems.length} text items từ thuộc tính trực tiếp`);
+                        } else {
+                            console.warn('Thuộc tính textItems tồn tại nhưng mảng rỗng');
+                        }
+                    } else {
+                        console.warn('Thuộc tính textItems tồn tại nhưng không phải là mảng');
+                    }
+                    resolve(true);
+                    return;
+                }
+                
+                // Nếu chưa sẵn sàng, thử đợi một khoảng thời gian ngắn
+                console.log('TextOverlay chưa sẵn sàng, thử đợi 500ms...');
+                setTimeout(() => {
+                    console.log('Kiểm tra TextOverlay sau khi đợi');
+                    
+                    // Kiểm tra lại một lần nữa
+                    if (this.dataConverter.textOverlay && 
+                        (typeof this.dataConverter.textOverlay.getTextItems === 'function' || 
+                         this.dataConverter.textOverlay.textItems)) {
+                        console.log('TextOverlay đã sẵn sàng sau khi đợi');
+                        resolve(true);
+                    } else {
+                        console.warn('TextOverlay vẫn chưa sẵn sàng sau khi đợi, tiếp tục xuất video không có text');
+                        resolve(false);
+                    }
+                }, 500);
             });
         };
 

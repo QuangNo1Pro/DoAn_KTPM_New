@@ -4,12 +4,12 @@ const {renderAdvancedVideoPage, renderVideoEditorPage} = require('../../controll
 const advancedVideoRouter = require('./advancedVideoRouter')
 const { isAuthenticated } = require('../../middleware/authMiddleware')
 // Route trang tạo video nâng cao
-router.get('/advanced-video', isAuthenticated, renderAdvancedVideoPage)
+router.get('/advanced-video',  renderAdvancedVideoPage)
 
 // Route cho trang chỉnh sửa video
-router.get('/video-editor', isAuthenticated, renderVideoEditorPage)
+router.get('/video-editor',  renderVideoEditorPage)
 
 // Sử dụng router cho API tạo video nâng cao
-router.use('/api/advanced-video', isAuthenticated, advancedVideoRouter)
+router.use('/api/advanced-video',  advancedVideoRouter)
 
 module.exports = router

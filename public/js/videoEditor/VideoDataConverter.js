@@ -149,43 +149,131 @@ class VideoDataConverter {
             validClips: exportData.length
         });
         
-        // Thu thập dữ liệu text overlays - cần kiểm tra kỹ phần này
+        // Thu thập dữ liệu text overlays - đã được cải thiện
+        let textItems = [];
+        let textItemsFound = false;
+        
+        // Kiểm tra kỹ textOverlay
         if (this.textOverlay) {
-            console.log('TextOverlay object exists:', this.textOverlay);
+            console.log('TextOverlay object details:', {
+                hasGetTextItemsMethod: typeof this.textOverlay.getTextItems === 'function',
+                hasTextItemsProperty: !!this.textOverlay.textItems,
+                isTextItemsArray: Array.isArray(this.textOverlay.textItems),
+                textItemsLength: this.textOverlay.textItems ? this.textOverlay.textItems.length : 0
+            });
             
-            // Kiểm tra phương thức getTextItems tồn tại
+            // Thử cách 1: Sử dụng phương thức getTextItems nếu có
             if (typeof this.textOverlay.getTextItems === 'function') {
                 try {
-                    const textItems = this.textOverlay.getTextItems();
-                    console.log('TextItems retrieved:', textItems);
-                    
+                    textItems = this.textOverlay.getTextItems();
                     if (textItems && textItems.length > 0) {
-                        // Thêm textItems vào data như một phần riêng biệt
-                        exportData.push({
-                            type: 'textOverlays',
-                            items: textItems
-                        });
+                        console.log(`Đã lấy được ${textItems.length} text items qua phương thức getTextItems`);
+                        textItemsFound = true;
                     } else {
-                        console.warn('Không có text items được tìm thấy hoặc mảng rỗng');
+                        console.warn('getTextItems() trả về mảng rỗng hoặc null');
                     }
                 } catch (error) {
                     console.error('Lỗi khi gọi getTextItems:', error);
                 }
-            } else {
-                console.warn('Phương thức getTextItems không tồn tại trong textOverlay');
-                
-                // Thử lấy trực tiếp từ textItems nếu có
-                if (this.textOverlay.textItems && this.textOverlay.textItems.length > 0) {
-                    console.log('Lấy textItems trực tiếp từ thuộc tính:', this.textOverlay.textItems);
-                    exportData.push({
-                        type: 'textOverlays',
-                        items: this.textOverlay.textItems
-                    });
+            }
+            
+            // Thử cách 2: Truy cập trực tiếp thuộc tính textItems nếu cách 1 không thành công
+            if (!textItemsFound && this.textOverlay.textItems) {
+                if (Array.isArray(this.textOverlay.textItems)) {
+                    textItems = this.textOverlay.textItems;
+                    if (textItems.length > 0) {
+                        console.log(`Đã lấy được ${textItems.length} text items từ thuộc tính textItems`);
+                        textItemsFound = true;
+                    } else {
+                        console.warn('textItems là mảng rỗng');
+                    }
+                } else {
+                    console.warn('textItems không phải là mảng', this.textOverlay.textItems);
+                }
+            }
+            
+            // Thử cách 3: Tìm từ window.videoEditor hoặc window.editor nếu cả hai cách trên đều không thành công
+            if (!textItemsFound) {
+                const editorInstance = window.videoEditor || window.editor;
+                if (editorInstance && editorInstance.textOverlay) {
+                    console.log('Thử lấy text items từ editorInstance.textOverlay');
+                    
+                    if (typeof editorInstance.textOverlay.getTextItems === 'function') {
+                        try {
+                            textItems = editorInstance.textOverlay.getTextItems();
+                            if (textItems && textItems.length > 0) {
+                                console.log(`Đã lấy được ${textItems.length} text items từ editorInstance.textOverlay.getTextItems()`);
+                                textItemsFound = true;
+                            }
+                        } catch (error) {
+                            console.error('Lỗi khi gọi editorInstance.textOverlay.getTextItems:', error);
+                        }
+                    }
+                    
+                    if (!textItemsFound && editorInstance.textOverlay.textItems && Array.isArray(editorInstance.textOverlay.textItems)) {
+                        textItems = editorInstance.textOverlay.textItems;
+                        if (textItems.length > 0) {
+                            console.log(`Đã lấy được ${textItems.length} text items từ editorInstance.textOverlay.textItems`);
+                            textItemsFound = true;
+                        }
+                    }
                 }
             }
         } else {
-            console.warn('Không có đối tượng textOverlay');
+            console.warn('Không có đối tượng textOverlay trong dataConverter');
+            
+            // Thử lấy từ window.videoEditor hoặc window.editor
+            const editorInstance = window.videoEditor || window.editor;
+            if (editorInstance && editorInstance.textOverlay) {
+                console.log('Thử lấy text items từ global editorInstance.textOverlay');
+                
+                if (typeof editorInstance.textOverlay.getTextItems === 'function') {
+                    try {
+                        textItems = editorInstance.textOverlay.getTextItems();
+                        if (textItems && textItems.length > 0) {
+                            console.log(`Đã lấy được ${textItems.length} text items từ editorInstance.textOverlay.getTextItems()`);
+                            textItemsFound = true;
+                        }
+                    } catch (error) {
+                        console.error('Lỗi khi gọi editorInstance.textOverlay.getTextItems:', error);
+                    }
+                }
+                
+                if (!textItemsFound && editorInstance.textOverlay.textItems && Array.isArray(editorInstance.textOverlay.textItems)) {
+                    textItems = editorInstance.textOverlay.textItems;
+                    if (textItems.length > 0) {
+                        console.log(`Đã lấy được ${textItems.length} text items từ editorInstance.textOverlay.textItems`);
+                        textItemsFound = true;
+                    }
+                }
+            }
         }
+        
+        // Thêm text items vào dữ liệu xuất nếu tìm thấy
+        if (textItemsFound && textItems && textItems.length > 0) {
+            console.log(`Đã tìm thấy ${textItems.length} text items, thêm vào dữ liệu xuất`);
+            
+            // Xem nội dung của text items để debug
+            textItems.forEach((item, index) => {
+                console.log(`Text item #${index}:`, {
+                    id: item.id,
+                    content: item.content,
+                    startTime: item.startTime,
+                    duration: item.duration,
+                    position: item.position
+                });
+            });
+            
+            exportData.push({
+                type: 'textOverlays',
+                items: textItems
+            });
+        } else {
+            console.warn('Không tìm thấy text items nào để xuất');
+        }
+        
+        // Log kết quả cuối cùng
+        console.log(`Đã tìm thấy ${this.timeline.clips.length} clip hợp lệ và ${textItemsFound ? textItems.length : 0} text overlays`);
         
         return exportData;
     }

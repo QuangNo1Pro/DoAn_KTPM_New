@@ -4,6 +4,6 @@ const { generateImage } = require('../controllers/imageController')
 const { isAuthenticated } = require('../middleware/authMiddleware')
 
 // Route API để tạo ảnh
-router.post('/api/image/generate',isAuthenticated, generateImage)
+router.post('/api/image/generate', generateImage)
 
 module.exports = router
