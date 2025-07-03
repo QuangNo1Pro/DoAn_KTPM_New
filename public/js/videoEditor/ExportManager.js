@@ -9,6 +9,9 @@ class ExportManager {
         this.retryCount = 0;
         this.maxRetries = 3; // Số lần thử lại tối đa
         this.retryDelay = 1000; // Độ trễ giữa các lần thử (ms)
+        
+        // Thêm biến khóa xuất video
+        this.isExportingVideo = false;
     }
 
     /**
@@ -100,6 +103,19 @@ class ExportManager {
      * Xuất video
      */
     exportVideo(exportCallback) {
+        // Nếu đang xuất video, bỏ qua yêu cầu mới
+        if (this.isExportingVideo) {
+            console.log('Đang trong quá trình xuất video, vui lòng đợi...');
+            if (exportCallback) exportCallback({
+                success: false,
+                error: 'Đang trong quá trình xuất video, vui lòng đợi...'
+            });
+            return Promise.resolve();
+        }
+        
+        // Khóa để không cho gọi lại
+        this.isExportingVideo = true;
+        
         console.log('Bắt đầu quá trình xuất video...');
         
         // Đảm bảo TextOverlay đã được tải hoàn tất trước khi xuất video
@@ -151,13 +167,11 @@ class ExportManager {
             });
         };
 
-        // Lưu cấu hình hiện tại
-        this.saveChanges()
-            .catch(error => {
-                console.warn('Không thể lưu thay đổi trước khi xuất:', error);
-            });
+        // Nhớ mở khóa khi hoàn thành hoặc có lỗi
+        const unlockExport = () => {
+            this.isExportingVideo = false;
+        };
         
-        // Đảm bảo TextOverlay đã được tải trước khi tiếp tục
         return ensureTextOverlayLoaded()
             .then(() => {
                 // DEBUG: Kiểm tra dữ liệu trước khi gửi
@@ -234,28 +248,18 @@ class ExportManager {
                     return response.json();
                 })
                 .then(data => {
-                    if (data.success) {
-                        // Trả về kết quả
-                        const result = {
-                            success: true,
-                            videoUrl: data.videoUrl
-                        };
-                        
-                        if (exportCallback) exportCallback(result);
-                        return result;
-                    } else {
-                        // Hiển thị lỗi
-                        console.error('Lỗi từ server:', data.error);
-                        const result = {
-                            success: false,
-                            error: data.error || 'Không xác định'
-                        };
-                        
-                        if (exportCallback) exportCallback(result);
-                        return result;
-                    }
+                    unlockExport(); // Mở khóa khi thành công
+                    // Trả về kết quả
+                    const result = {
+                        success: true,
+                        videoUrl: data.videoUrl
+                    };
+                    
+                    if (exportCallback) exportCallback(result);
+                    return result;
                 })
                 .catch(error => {
+                    unlockExport(); // Mở khóa khi có lỗi
                     console.error('Lỗi khi gọi API tạo video:', error);
                     
                     const result = {
@@ -268,6 +272,10 @@ class ExportManager {
                     if (exportCallback) exportCallback(result);
                     return result;
                 });
+            })
+            .catch(err => {
+                unlockExport(); // Đảm bảo mở khóa ngay cả khi có lỗi ngoài ý muốn
+                throw err;
             });
     }
 }

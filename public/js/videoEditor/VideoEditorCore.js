@@ -445,8 +445,22 @@ class VideoEditorCore {
             return;
         }
 
-        // Hiển thị thông báo loading
-        alert('Đang bắt đầu xuất video, vui lòng đợi...');
+        // Hiển thị thông báo loading kiểu thân thiện hơn
+        const loadingElement = document.createElement('div');
+        loadingElement.id = 'video-export-loading';
+        loadingElement.className = 'position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center';
+        loadingElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        loadingElement.style.zIndex = '9999';
+        loadingElement.innerHTML = `
+            <div class="card p-4 text-center">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Đang xử lý...</span>
+                </div>
+                <h4>Đang xuất video...</h4>
+                <p>Vui lòng đợi trong giây lát</p>
+            </div>
+        `;
+        document.body.appendChild(loadingElement);
         
         // Đảm bảo TextOverlay được tải trước khi xuất video
         this.ensureTextOverlayLoaded()
@@ -455,9 +469,14 @@ class VideoEditorCore {
                 const exportCallback = (result) => {
                     console.log('Kết quả xuất video:', result);
                     
+                    // Xóa thông báo loading
+                    const loadingElement = document.getElementById('video-export-loading');
+                    if (loadingElement) {
+                        loadingElement.remove();
+                    }
+                    
                     if (result.success) {
-                        alert('Video đã được tạo thành công!');
-                        // Hiển thị video đã xuất
+                        // Hiển thị video đã xuất mà không cần alert
                         this.showExportedVideo(result.videoUrl);
                     } else if (result.offline) {
                         alert('Không có kết nối internet. Vui lòng kiểm tra mạng và thử lại.');
