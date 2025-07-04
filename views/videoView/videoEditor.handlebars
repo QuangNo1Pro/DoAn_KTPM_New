@@ -357,6 +357,43 @@
                                 </div>
                             </div>
 
+                            <!-- Điều chỉnh âm lượng -->
+                            <div class="mb-3">
+                                <label for="bg-music-volume" class="form-label">Âm lượng</label>
+                                <input type="range" class="form-range" id="bg-music-volume" min="0" max="1" step="0.01"
+                                    value="0.5">
+                                <div class="form-text">Chỉnh âm lượng nhạc nền khi xuất video.</div>
+                            </div>
+
+                            <!-- Chọn điểm bắt đầu nhạc -->
+                            <div class="mb-3">
+                                <div class="row">
+                                    <div class="col">
+                                        <label class="form-label">Từ</label>
+                                        <input type="number" class="form-control" id="music-start-time" value="0"
+                                            min="0" step="1">
+                                    </div>
+                                    <div class="col">
+                                        <label class="form-label">Đến</label>
+                                        <input type="number" class="form-control" id="music-end-time" value="60" min="0"
+                                            step="1">
+                                    </div>
+                                    <div class="col d-flex align-items-end">
+                                        <span class="form-text">giây</span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <button id="confirm-music-range-btn" class="btn btn-outline-primary btn-sm">
+                                            <i class="bi bi-check2-circle"></i> Xác nhận đoạn nhạc
+                                        </button>
+                                    </div>
+                                </div>
+                                <small class="form-text">Đoạn nhạc sẽ được cắt và chèn vào video khi xuất.</small>
+                            </div>
+
+                            <!-- Preview -->
+                            <div class="mb-3">
+                                <audio id="bg-music-preview" controls class="w-100" style="display: none;"></audio>
+                            </div>
                         </div> <!-- Đóng music-panel -->
 
                         <!-- Modal thêm văn bản -->
@@ -501,9 +538,13 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const selectEl = document.getElementById('bg-music-select');
-    const uploadEl = document.getElementById('bg-music-upload');
     const volumeEl = document.getElementById('bg-music-volume');
     const previewEl = document.getElementById('bg-music-preview');
+    const previewBtn = document.getElementById('preview-music-btn');
+    const stopBtn = document.getElementById('stop-music-btn');
+    const startTimeEl = document.getElementById('music-start-time');
+    const endTimeEl = document.getElementById('music-end-time');
+    const confirmRangeBtn = document.getElementById('confirm-music-range-btn');
 
     // Tự động cập nhật preview khi chọn nhạc mặc định
     if (selectEl) {
@@ -513,7 +554,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 previewEl.src = `/music/${selected}`;
                 previewEl.volume = parseFloat(volumeEl ? volumeEl.value : 0.5);
                 previewEl.style.display = 'block';
-                previewEl.play();
             } else if (previewEl) {
                 previewEl.pause();
                 previewEl.src = '';
@@ -522,20 +562,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Khi upload file riêng
-    if (uploadEl) {
-        uploadEl.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (file && previewEl) {
-                const objectUrl = URL.createObjectURL(file);
-                previewEl.src = objectUrl;
-                previewEl.volume = parseFloat(volumeEl ? volumeEl.value : 0.5);
-                previewEl.style.display = 'block';
+    // Xử lý nút nghe thử
+    if (previewBtn && previewEl) {
+        previewBtn.addEventListener('click', () => {
+            if (selectEl.value) {
                 previewEl.play();
-
-                // Ghi nhớ file cho ExportManager nếu cần gửi đi
-                window.uploadedMusicFile = file;
             }
+        });
+    }
+
+    // Xử lý nút dừng
+    if (stopBtn && previewEl) {
+        stopBtn.addEventListener('click', () => {
+            previewEl.pause();
+            previewEl.currentTime = 0;
         });
     }
 
@@ -543,6 +583,34 @@ document.addEventListener('DOMContentLoaded', () => {
     if (volumeEl && previewEl) {
         volumeEl.addEventListener('input', () => {
             previewEl.volume = parseFloat(volumeEl.value);
+        });
+    }
+
+    // Xử lý xác nhận đoạn nhạc
+    if (confirmRangeBtn) {
+        confirmRangeBtn.addEventListener('click', () => {
+            const startTime = parseFloat(startTimeEl.value) || 0;
+            const endTime = parseFloat(endTimeEl.value) || 60;
+            
+            // Lưu giá trị vào biến toàn cục để ExportManager sử dụng
+            window.musicRangeStart = startTime;
+            window.musicRangeEnd = endTime;
+            
+            // Cập nhật preview để phát từ vị trí mới
+            if (previewEl && selectEl.value) {
+                previewEl.currentTime = startTime;
+                previewEl.play();
+                
+                // Dừng lại khi đến thời điểm kết thúc
+                const stopAtEnd = () => {
+                    if (previewEl.currentTime >= endTime) {
+                        previewEl.pause();
+                        previewEl.removeEventListener('timeupdate', stopAtEnd);
+                    }
+                };
+                
+                previewEl.addEventListener('timeupdate', stopAtEnd);
+            }
         });
     }
 });
