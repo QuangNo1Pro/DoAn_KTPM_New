@@ -449,7 +449,67 @@ const createFinalVideo = async (req, res) => {
 
                 if (part.overlays && part.overlays.length > 0) {
                     // Sử dụng filter_complex khi có overlay
-                    let filterComplex = `[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2[bg];`;
+                    let filterComplex = `[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2`;
+                    
+                    // Thêm các hiệu ứng đã định nghĩa trước đó vào filter chính
+                    if (part.effect && part.effect.type !== 'none') {
+                        switch (part.effect.type) {
+                            case 'grayscale':
+                                filterComplex += ',colorchannelmixer=.3:.4:.3:0:.3:.4:.3:0:.3:.4:.3:0';
+                                break;
+                            case 'sepia':
+                                filterComplex += ',colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131:0';
+                                break;
+                            case 'brightness':
+                                const brightnessValue = (part.effect.value - 50) / 50;
+                                filterComplex += `,eq=brightness=${brightnessValue}`;
+                                break;
+                            case 'contrast':
+                                const contrastValue = part.effect.value / 50;
+                                filterComplex += `,eq=contrast=${contrastValue}`;
+                                break;
+                            case 'blur':
+                                const blurValue = part.effect.value / 20;
+                                filterComplex += `,boxblur=${blurValue}:${blurValue}`;
+                                break;
+                        }
+                    }
+                    
+                    // Thêm text overlays nếu có
+                    if (textOverlays && textOverlays.items && textOverlays.items.length > 0) {
+                        // Lọc chỉ lấy các text overlay áp dụng cho clip này
+                        const clipStartTime = part.startTime || 0;
+                        const clipEndTime = clipStartTime + (part.duration || 3);
+
+                        const applicableTextItems = textOverlays.items.filter(text => {
+                            const textStartTime = text.startTime || 0;
+                            const textEndTime = textStartTime + (text.duration || 3);
+                            return (textStartTime < clipEndTime && textEndTime > clipStartTime);
+                        });
+
+                        if (applicableTextItems.length > 0) {
+                            console.log(`Có ${applicableTextItems.length} text overlay cần áp dụng cho phần ${i + 1}`);
+
+                            // Tạo filter drawtext cho mỗi text overlay
+                            applicableTextItems.forEach(textItem => {
+                                // Xác định thời gian hiển thị trong clip này
+                                const textStart = Math.max(0, textItem.startTime - clipStartTime);
+                                const textEnd = Math.min(part.duration || 3, (textItem.startTime + textItem.duration) - clipStartTime);
+
+                                // Tính toán vị trí
+                                const xPos = Math.floor(textItem.x * 1920);
+                                const yPos = Math.floor(textItem.y * 1080);
+
+                                const textContent = textItem.content.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                                const fontColor = textItem.color || '#ffffff';
+                                const fontSize = textItem.size || 24;
+
+                                filterComplex += `,drawtext=text='${textContent}':fontcolor=${fontColor}:fontsize=${fontSize}:x=${xPos}:y=${yPos}:enable='between(t,${textStart},${textEnd})':shadowcolor=black:shadowx=2:shadowy=2`;
+                            });
+                        }
+                    }
+
+                    filterComplex += `[bg];`;
                     
                     // Thêm từng overlay vào filter complex
                     for (let j = 0; j < part.overlays.length; j++) {
