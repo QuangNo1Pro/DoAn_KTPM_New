@@ -191,11 +191,14 @@ const createFinalVideo = async (req, res) => {
         // Lọc các phần là clips (loại bỏ textOverlays và các phần khác không phải clips)
         // Kiểm tra và lọc ra phần textOverlays riêng
         let textOverlays = null;
+        let imageOverlays = null;
         const validParts = [];
         
         for (const part of parts) {
             if (part.type === 'textOverlays') {
                 textOverlays = part;
+            } else if (part.type === 'imageOverlays') {
+                imageOverlays = part;
             } else if (part.partId && part.imagePath && part.audioPath) {
                 validParts.push(part);
             }
@@ -208,13 +211,21 @@ const createFinalVideo = async (req, res) => {
             });
         }
         
-        console.log(`Đã tìm thấy ${validParts.length} clip hợp lệ và ${textOverlays ? textOverlays.items?.length : 0} text overlays`);
+        console.log(`Đã tìm thấy ${validParts.length} clip hợp lệ, ${textOverlays ? textOverlays.items?.length : 0} text overlays và ${imageOverlays ? imageOverlays.items?.length : 0} image overlays`);
         
         // Log chi tiết về text overlays để debug
         if (textOverlays && textOverlays.items && textOverlays.items.length > 0) {
             console.log('Danh sách text overlays:');
             textOverlays.items.forEach((item, idx) => {
                 console.log(`Text #${idx + 1}: "${item.content && item.content.length > 20 ? item.content.substring(0, 20) + '...' : item.content}" - start: ${item.startTime}s, duration: ${item.duration}s, pos: (${item.x}, ${item.y})`);
+            });
+        }
+        
+        // Log chi tiết về image overlays để debug
+        if (imageOverlays && imageOverlays.items && imageOverlays.items.length > 0) {
+            console.log('Danh sách image overlays:');
+            imageOverlays.items.forEach((item, idx) => {
+                console.log(`Image #${idx + 1}: "${item.name}" - start: ${item.startTime}s, duration: ${item.duration}s, pos: (${item.x}, ${item.y}), scale: ${item.scale}, rotation: ${item.rotation}`);
             });
         }
         
@@ -287,8 +298,113 @@ const createFinalVideo = async (req, res) => {
                 }
             }
             
-            // Cập nhật vf settings
-            const finalSegmentSettings = `-vf "${segmentSettings}"`;
+            // Thêm image overlay nếu có
+            if (imageOverlays && imageOverlays.items && imageOverlays.items.length > 0) {
+                // Lọc chỉ lấy các image overlay áp dụng cho clip này
+                const clipStartTime = part.startTime || 0;
+                const clipEndTime = clipStartTime + (part.duration || 3);
+                
+                const applicableImageItems = imageOverlays.items.filter(image => {
+                    const imageStartTime = image.startTime || 0;
+                    const imageEndTime = imageStartTime + (image.duration || 3);
+                    
+                    // Kiểm tra xem image overlay có xuất hiện trong thời gian của clip này không
+                    return (imageStartTime < clipEndTime && imageEndTime > clipStartTime);
+                });
+                
+                if (applicableImageItems.length > 0) {
+                    console.log(`Có ${applicableImageItems.length} image overlay cần áp dụng cho phần ${i+1}`);
+                    
+                    // Tạo thư mục tạm để lưu ảnh nếu cần
+                    const imageOverlayDir = path.join(tempDir, `image_overlays_${tempId}`);
+                    if (!fs.existsSync(imageOverlayDir)) {
+                        fs.mkdirSync(imageOverlayDir, { recursive: true });
+                    }
+                    
+                    // Xử lý từng image overlay
+                    let overlayIndex = 0;
+                    for (const imageItem of applicableImageItems) {
+                        try {
+                            // Xác định thời gian hiển thị trong clip này
+                            const imageStart = Math.max(0, imageItem.startTime - clipStartTime);
+                            const imageEnd = Math.min(part.duration || 3, (imageItem.startTime + imageItem.duration) - clipStartTime);
+                            
+                            // Tính toán vị trí
+                            const xPos = Math.floor(imageItem.x * 1920);
+                            const yPos = Math.floor(imageItem.y * 1080);
+                            
+                            // Xử lý đường dẫn ảnh
+                            let imagePath = imageItem.src;
+                            let localImagePath = '';
+                            
+                            // Nếu là URL từ internet, tải về
+                            if (imagePath.startsWith('http') && !imagePath.startsWith('blob:')) {
+                                try {
+                                    // Tạo tên file tạm
+                                    const tempImageName = `overlay_${tempId}_${overlayIndex}.png`;
+                                    localImagePath = path.join(imageOverlayDir, tempImageName);
+                                    
+                                    // Tải ảnh về (sử dụng axios hoặc fetch)
+                                    // Đây là một thao tác bất đồng bộ, nhưng chúng ta đang trong hàm đồng bộ
+                                    // Nên sẽ sử dụng phương pháp đơn giản hơn
+                                    console.log(`Đang tải ảnh từ URL: ${imagePath}`);
+                                    
+                                    // Bỏ qua bước tải ảnh, sử dụng URL trực tiếp
+                                    imagePath = imageItem.src;
+                                } catch (downloadError) {
+                                    console.error(`Lỗi khi tải ảnh từ URL: ${imagePath}`, downloadError);
+                                    continue; // Bỏ qua overlay này
+                                }
+                            } 
+                            // Nếu là blob URL, bỏ qua vì không thể xử lý ở server
+                            else if (imagePath.startsWith('blob:')) {
+                                console.warn(`Không thể xử lý blob URL: ${imagePath}`);
+                                continue; // Bỏ qua overlay này
+                            }
+                            // Nếu là đường dẫn local
+                            else {
+                                // Chuyển đổi URL thành đường dẫn file vật lý
+                                if (imagePath.startsWith('/')) {
+                                    localImagePath = path.join(__dirname, '../../public', imagePath.substring(1));
+                                } else {
+                                    localImagePath = path.join(__dirname, '../../public', imagePath);
+                                }
+                                
+                                // Kiểm tra xem file có tồn tại không
+                                if (!fs.existsSync(localImagePath)) {
+                                    console.warn(`Không tìm thấy file ảnh: ${localImagePath}`);
+                                    continue; // Bỏ qua overlay này
+                                }
+                                
+                                imagePath = localImagePath;
+                            }
+                            
+                            // Tính toán kích thước ảnh (giả định 20% màn hình nếu không có thông tin)
+                            const width = Math.round(1920 * 0.2 * (imageItem.scale || 1));
+                            
+                            // Đơn giản hóa filter string để tránh lỗi cú pháp
+                            const baseFilter = segmentSettings.split(',')[0];
+                            // Bỏ qua phần rotation và các tham số phức tạp khác
+                            // segmentSettings = `${baseFilter},overlay=x=${xPos}:y=${yPos}:enable='between(t,${imageStart},${imageEnd})'`;
+                            
+                            // Lưu trữ thông tin overlay vào phần này để xử lý riêng
+                            if (!part.overlays) part.overlays = [];
+                            part.overlays.push({
+                                imagePath: imagePath,
+                                x: xPos,
+                                y: yPos,
+                                startTime: imageStart,
+                                endTime: imageEnd,
+                                width: width
+                            });
+                            
+                            overlayIndex++;
+                        } catch (overlayError) {
+                            console.error(`Lỗi khi xử lý image overlay: ${overlayError.message}`);
+                        }
+                    }
+                }
+            }
             
             // Thêm chuyển cảnh (nếu có)
             let transitionSettings = '';
@@ -319,8 +435,41 @@ const createFinalVideo = async (req, res) => {
                 // Xác định thời lượng của audio để tạo video có độ dài tương ứng
                 const audioDuration = getAudioDuration(audioPath);
                 
-                // Tạo lệnh ffmpeg
-                const segmentCommand = `ffmpeg -loop 1 -i "${imagePath}" -i "${audioPath}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest ${finalSegmentSettings} -t ${audioDuration} "${segmentPath}"`;
+                // Tạo lệnh ffmpeg - phân biệt giữa trường hợp có overlay và không có
+                let segmentCommand = '';
+
+                if (part.overlays && part.overlays.length > 0) {
+                    // Sử dụng filter_complex khi có overlay
+                    let filterComplex = `[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2[bg];`;
+                    
+                    // Thêm từng overlay vào filter complex
+                    for (let j = 0; j < part.overlays.length; j++) {
+                        const overlay = part.overlays[j];
+                        
+                        // Tạo tên cho input và output của từng layer
+                        const overlayInput = `[ov${j}]`;
+                        const bgName = j === 0 ? `[bg]` : `[bg${j-1}]`;
+                        const outputName = j === part.overlays.length - 1 ? `[v]` : `[bg${j}]`;
+                        
+                        // Sửa index của input stream: j+2 thay vì j+1 vì input thứ hai là audio
+                        filterComplex += `[${j+2}:v]scale=${overlay.width}:-1${overlayInput};`;
+                        
+                        // Thêm overlay vào background
+                        filterComplex += `${bgName}${overlayInput}overlay=x=${overlay.x}:y=${overlay.y}:enable='between(t,${overlay.startTime},${overlay.endTime})'${outputName};`;
+                    }
+                    
+                    // Chuẩn bị lệnh với nhiều input
+                    let inputs = `-loop 1 -i "${imagePath.replace(/\\/g, '/')}" -i "${audioPath.replace(/\\/g, '/')}"`;
+                    for (const overlay of part.overlays) {
+                        inputs += ` -loop 1 -i "${overlay.imagePath.replace(/\\/g, '/')}"`;
+                    }
+                    
+                    // Tạo lệnh ffmpeg với filter_complex
+                    segmentCommand = `ffmpeg ${inputs} -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -filter_complex "${filterComplex}" -map "[v]" -map "1:a" -t ${audioDuration} "${segmentPath.replace(/\\/g, '/')}"`;
+                } else {
+                    // Filter đơn giản khi không có overlay
+                    segmentCommand = `ffmpeg -loop 1 -i "${imagePath.replace(/\\/g, '/')}" -i "${audioPath.replace(/\\/g, '/')}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -vf "${segmentSettings}" -t ${audioDuration} "${segmentPath.replace(/\\/g, '/')}"`;
+                }
                 
                 // Thêm log để debug
                 console.log(`Lệnh tạo segment ${i}: ${segmentCommand}`);

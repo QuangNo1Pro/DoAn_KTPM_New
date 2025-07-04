@@ -272,8 +272,81 @@ class VideoDataConverter {
             console.warn('Không tìm thấy text items nào để xuất');
         }
         
+        // Thu thập dữ liệu image overlays
+        let imageItems = [];
+        let imageItemsFound = false;
+        
+        // Kiểm tra imageOverlay
+        if (window.imageOverlay) {
+            console.log('ImageOverlay object details:', {
+                hasGetImageItemsMethod: typeof window.imageOverlay.getImageItems === 'function',
+                hasImageItemsProperty: !!window.imageOverlay.imageItems,
+                isImageItemsArray: Array.isArray(window.imageOverlay.imageItems),
+                imageItemsLength: window.imageOverlay.imageItems ? window.imageOverlay.imageItems.length : 0
+            });
+            
+            // Thử cách 1: Sử dụng phương thức getImageItems nếu có
+            if (typeof window.imageOverlay.getImageItems === 'function') {
+                try {
+                    imageItems = window.imageOverlay.getImageItems();
+                    if (imageItems && imageItems.length > 0) {
+                        console.log(`Đã lấy được ${imageItems.length} image items qua phương thức getImageItems`);
+                        imageItemsFound = true;
+                    } else {
+                        console.warn('getImageItems() trả về mảng rỗng hoặc null');
+                    }
+                } catch (error) {
+                    console.error('Lỗi khi gọi getImageItems:', error);
+                }
+            }
+            
+            // Thử cách 2: Truy cập trực tiếp thuộc tính imageItems
+            if (!imageItemsFound && window.imageOverlay.imageItems) {
+                if (Array.isArray(window.imageOverlay.imageItems)) {
+                    imageItems = window.imageOverlay.imageItems;
+                    if (imageItems.length > 0) {
+                        console.log(`Đã lấy được ${imageItems.length} image items từ thuộc tính imageItems`);
+                        imageItemsFound = true;
+                    } else {
+                        console.warn('imageItems là mảng rỗng');
+                    }
+                } else {
+                    console.warn('imageItems không phải là mảng', window.imageOverlay.imageItems);
+                }
+            }
+        } else {
+            console.warn('Không tìm thấy đối tượng imageOverlay trong window');
+        }
+        
+        // Thêm image items vào dữ liệu xuất nếu tìm thấy
+        if (imageItemsFound && imageItems && imageItems.length > 0) {
+            console.log(`Đã tìm thấy ${imageItems.length} image items, thêm vào dữ liệu xuất`);
+            
+            // Xem nội dung của image items để debug
+            imageItems.forEach((item, index) => {
+                console.log(`Image item #${index}:`, {
+                    id: item.id,
+                    src: item.src,
+                    startTime: item.startTime,
+                    duration: item.duration,
+                    x: item.x,
+                    y: item.y,
+                    scale: item.scale,
+                    opacity: item.opacity,
+                    rotation: item.rotation
+                });
+            });
+            
+            exportData.push({
+                type: 'imageOverlays',
+                items: imageItems
+            });
+        } else {
+            console.warn('Không tìm thấy image items nào để xuất');
+        }
+        
         // Log kết quả cuối cùng
-        console.log(`Đã tìm thấy ${this.timeline.clips.length} clip hợp lệ và ${textItemsFound ? textItems.length : 0} text overlays`);
+        console.log(`Đã tìm thấy ${this.timeline.clips.length} clip hợp lệ, ${textItemsFound ? textItems.length : 0} text overlays và ${imageItemsFound ? imageItems.length : 0} image overlays`);
         
         return exportData;
     }
