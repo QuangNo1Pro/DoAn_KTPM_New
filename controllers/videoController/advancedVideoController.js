@@ -11,8 +11,8 @@ const textToSpeech = require('@google-cloud/text-to-speech');
 const multer = require('multer');
 const os = require('os');
 const util = require('util');
-const videoModel    = require('../../models/videoModel');   // đường dẫn tuỳ dự án
-
+const videoModel = require('../../models/videoModel');   // đường dẫn tuỳ dự án
+const { addBackgroundMusic } = require('../../services/videoGeneratorService'); // đường dẫn đảm bảo đúng
 
 // Thiết lập multer cho việc tải lên file
 const storage = multer.diskStorage({
@@ -39,7 +39,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
@@ -66,32 +66,32 @@ try {
  */
 function extractScriptParts(script) {
   const parts = [];
-  
+
   // Chuẩn hóa script để đảm bảo dấu xuống dòng nhất quán
   const normalizedScript = script.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  
+
   // Regex để tìm các phần trong kịch bản (làm linh hoạt hơn) - hỗ trợ cả định dạng mới và cũ
   const partRegex = /((?:##?\s*)?PHẦN\s+(\d+|CUỐI|1:\s*HOOK)[\s\S]*?)(?:(?:\*\*)?Lời\s*thoại:?(?:\*\*)?\s*)([\s\S]*?)(?:(?:(?:\*\*)?Hình\s*ảnh:?(?:\*\*)?\s*)([\s\S]*?))?(?=\s*(?:(?:##?\s*)?PHẦN|\s*(?:##?\s*)?PHẦN CUỐI)|\s*$)/gi;
-  
+
   console.log('🔍 Đang phân tích kịch bản...');
   console.log('📝 Đoạn đầu kịch bản:', normalizedScript.substring(0, 200));
-  
+
   let match;
   while ((match = partRegex.exec(normalizedScript)) !== null) {
     const [fullMatch, sectionHeader, part, text, image] = match;
-    
+
     // Thêm log để kiểm tra từng match
     console.log(`✅ Tìm thấy PHẦN ${part}:`);
     console.log(`   Lời thoại: ${text ? text.substring(0, 30) + '...' : 'không có'}`);
     console.log(`   Hình ảnh: ${image ? 'có' : 'không có'}`);
-    
+
     parts.push({
       part: part.trim(),
       text: text ? text.trim() : '',
       image: image ? image.trim() : ''
     });
   }
-  
+
   return parts;
 }
 
@@ -129,10 +129,10 @@ async function convertTextToSpeech(text, outputPath, voiceId = VIETNAMESE_VOICES
 
     // Gọi API để chuyển văn bản thành giọng nói
     const [response] = await ttsClient.synthesizeSpeech(request);
-    
+
     // Ghi file âm thanh
     await util.promisify(fs.writeFile)(outputPath, response.audioContent, 'binary');
-    
+
     console.log(`✓ Đã tạo file giọng nói tại: ${outputPath}`);
     return outputPath;
   } catch (error) {
@@ -157,13 +157,13 @@ async function createAudioForScript(script, outputDir, voiceId = VIETNAMESE_VOIC
 
     // Tạo âm thanh cho từng phần
     const audioResults = [];
-    
+
     for (let i = 0; i < scriptParts.length; i++) {
       const part = scriptParts[i];
       const outputPath = path.join(outputDir, `part_${i + 1}.mp3`);
-      
+
       console.log(`Đang xử lý phần ${i + 1}/${scriptParts.length}: "${part.text.substring(0, 30)}..."`);
-      
+
       try {
         const audioPath = await convertTextToSpeech(part.text, outputPath, voiceId);
         audioResults.push({
@@ -189,22 +189,22 @@ async function createAudioForScript(script, outputDir, voiceId = VIETNAMESE_VOIC
  */
 function extractKeywordsFromDescription(description) {
   if (!description) return [];
-  
+
   // Danh sách từ không mang nhiều ý nghĩa tìm kiếm
   const stopWords = ['và', 'hoặc', 'của', 'với', 'trong', 'ngoài', 'trên', 'dưới', 'một', 'có', 'là', 'các', 'những',
     'được', 'sẽ', 'đang', 'đã', 'này', 'khi', 'về', 'như', 'có thể', 'tại', 'bởi', 'vì', 'từ', 'để', 'đến'];
-  
+
   // Tách từ và lọc
   const words = description
     .toLowerCase()
     .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ' ')
     .split(/\s+/)
     .filter(word => word.length > 3 && !stopWords.includes(word));
-  
+
   // Lấy các từ/cụm từ quan trọng
   const importantWords = [];
   const matches = description.match(/(?:"([^"]+)"|\(([^)]+)\)|([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+))/g) || [];
-  
+
   // Thêm từ/cụm từ quan trọng
   matches.forEach(match => {
     const cleanMatch = match.replace(/["()]/g, '').trim();
@@ -212,7 +212,7 @@ function extractKeywordsFromDescription(description) {
       importantWords.push(cleanMatch);
     }
   });
-  
+
   // Kết hợp từ quan trọng và từ dài
   const keywords = [...new Set([...importantWords, ...words.filter(w => w.length > 5).slice(0, 5)])];
   return keywords.slice(0, 3); // Giới hạn 3 từ khóa cho mỗi mô tả
@@ -226,20 +226,20 @@ async function downloadImagesForKeywords(keywords, tempDir) {
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
   }
-  
+
   const imageFiles = [];
-  
+
   // Tạo ảnh cho từng từ khóa bằng imageController API
   for (const keyword of keywords) {
     try {
       console.log(`🖼️ Đang tạo ảnh cho từ khóa: ${keyword}`);
-      
+
       // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 15 giây)
       await new Promise(resolve => setTimeout(resolve, 15000));
-      
+
       // Lấy thông tin tỉ lệ khung hình từ session nếu có
       const aspectRatio = req.session?.videoPreparation?.aspectRatio || '16:9';
-      
+
       // Gọi API imageController để tạo ảnh với tỉ lệ khung hình phù hợp
       const response = await axios.post('http://localhost:3000/api/image/generate', {
         prompt: keyword,
@@ -247,11 +247,11 @@ async function downloadImagesForKeywords(keywords, tempDir) {
         imageCount: 1,
         aspectRatio: aspectRatio
       });
-      
+
       if (response.data.success && response.data.images && response.data.images.length > 0) {
         // Lưu ảnh vào thư mục tạm
         const filePath = path.join(tempDir, `${keyword.replace(/\s+/g, '_')}_${Date.now()}.jpg`);
-        
+
         // Kiểm tra loại dữ liệu hình ảnh trả về
         if (response.data.images[0].type === 'base64') {
           // Nếu là dữ liệu base64, chuyển thành file
@@ -261,13 +261,13 @@ async function downloadImagesForKeywords(keywords, tempDir) {
           const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
           fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
         }
-        
+
         // Thêm vào danh sách ảnh đã tạo
         imageFiles.push({
           keyword,
           path: filePath
         });
-        
+
         console.log(`✅ Đã tạo thành công ảnh cho từ khóa: ${keyword}`);
       } else {
         throw new Error('Không nhận được ảnh từ imageController API');
@@ -277,7 +277,7 @@ async function downloadImagesForKeywords(keywords, tempDir) {
       // Không sử dụng phương pháp dự phòng, chỉ ghi log lỗi và tiếp tục với từ khóa tiếp theo
     }
   }
-  
+
   // Nếu không tạo được ảnh nào, sử dụng ảnh mặc định từ thư mục public/image
   if (imageFiles.length === 0) {
     console.log('⚠️ Sử dụng ảnh mặc định do không tạo được ảnh từ từ khóa');
@@ -285,7 +285,7 @@ async function downloadImagesForKeywords(keywords, tempDir) {
       path.join(__dirname, '../../public/image/image1.png'),
       path.join(__dirname, '../../public/image/image2.png')
     ];
-    
+
     for (const img of defaultImages) {
       if (fs.existsSync(img)) {
         imageFiles.push({
@@ -295,7 +295,7 @@ async function downloadImagesForKeywords(keywords, tempDir) {
       }
     }
   }
-  
+
   return imageFiles;
 }
 
@@ -304,13 +304,13 @@ async function downloadImagesForKeywords(keywords, tempDir) {
  */
 async function downloadImagesForScriptParts(scriptParts, tempDir) {
   const results = [];
-  
+
   // Tải ảnh cho từng phần dựa trên mô tả
   for (const part of scriptParts) {
     // Sử dụng mô tả hình ảnh nếu có
     if (part.image && part.image.trim() !== '') {
       const keywords = extractKeywordsFromDescription(part.image);
-      
+
       if (keywords.length > 0) {
         const images = await downloadImagesForKeywords(keywords, tempDir);
         if (images.length > 0) {
@@ -322,14 +322,14 @@ async function downloadImagesForScriptParts(scriptParts, tempDir) {
         }
       }
     }
-    
+
     // Nếu không có mô tả hoặc không tìm được ảnh, dùng văn bản để trích xuất từ khóa
     const textKeywords = part.text
       .split(/\s+/)
       .filter(word => word.length > 4)
       .filter(word => !['như', 'nhưng', 'hoặc', 'những', 'được', 'trong', 'cùng'].includes(word.toLowerCase()))
       .slice(0, 2);
-    
+
     if (textKeywords.length > 0) {
       const images = await downloadImagesForKeywords(textKeywords, tempDir);
       if (images.length > 0) {
@@ -340,25 +340,25 @@ async function downloadImagesForScriptParts(scriptParts, tempDir) {
         continue;
       }
     }
-    
+
     // Nếu vẫn không có ảnh, thêm phần không có ảnh
     results.push({
       ...part,
       imagePath: null
     });
   }
-  
+
   // Nếu không có ảnh cho bất kỳ phần nào, tải một số ảnh mặc định
   if (results.every(r => !r.imagePath)) {
     const defaultImages = await downloadImagesForKeywords(['presentation', 'background', 'minimal'], tempDir);
-    
+
     // Gán ảnh mặc định cho các phần
     for (let i = 0; i < results.length; i++) {
       const imgIndex = i % defaultImages.length;
       results[i].imagePath = defaultImages[imgIndex]?.path || null;
     }
   }
-  
+
   return results;
 }
 // Thêm hàm lấy thời lượng audio bằng ffprobe
@@ -397,7 +397,7 @@ function generateSrtFile(parts, srtPath) {
 /**
  * Tạo video từ hình ảnh và âm thanh sử dụng FFmpeg
  */
-async function createVideoWithAudio(scriptPartsWithMedia, outputPath, aspectRatio = '16:9') {
+async function createVideoWithAudio(scriptPartsWithMedia, outputPath, aspectRatio = '16:9', music = null, musicVolume = 0.3, musicStartTime = 0, musicEndTime = null) {
   try {
     console.log('🎬 Bắt đầu tạo video với FFmpeg...');
     console.log(`📂 Đường dẫn xuất: ${outputPath}`);
@@ -485,6 +485,10 @@ async function createVideoWithAudio(scriptPartsWithMedia, outputPath, aspectRati
     execSync(subtitleCommand, { stdio: 'inherit' });
 
     fs.copyFileSync(subtitledOutputTemp, outputPath);
+    //chèn nhạc nền nếu có
+    if (music) {
+      await addMusicToVideo(outputPath, outputPath, music, musicVolume || 0.5, musicStartTime || 0, musicEndTime || null, outputDir);
+    }
 
     [
       ...segments,
@@ -512,7 +516,7 @@ async function createVideoWithAudio(scriptPartsWithMedia, outputPath, aspectRati
 const generateAdvancedVideo = async (req, res) => {
   console.log('🚀 Bắt đầu tạo video nâng cao...');
   console.log('Body request:', JSON.stringify(req.body).substring(0, 200) + '...');
-  
+
   const { topic, script, voiceId } = req.body;
 
   if (!topic && !script) {
@@ -525,7 +529,7 @@ const generateAdvancedVideo = async (req, res) => {
     const outputDir = path.join(__dirname, '../../public/videos');
     const tempDir = path.join(__dirname, '../../public/temp');
     const audioDir = path.join(tempDir, 'audio');
-    
+
     [outputDir, tempDir, audioDir].forEach(dir => {
       if (!fs.existsSync(dir)) {
         console.log(`📁 Tạo thư mục: ${dir}`);
@@ -545,7 +549,7 @@ const generateAdvancedVideo = async (req, res) => {
 
     // Tạo kịch bản nếu chưa có, và chuẩn hóa kịch bản nếu có
     let finalScript = script;
-    
+
     if (!script || script.trim() === '') {
       console.log('🤖 Tạo kịch bản từ chủ đề:', topic);
       try {
@@ -559,7 +563,7 @@ const generateAdvancedVideo = async (req, res) => {
     } else {
       // Chuẩn hóa kịch bản đã có
       console.log('📝 Chuẩn hóa kịch bản đã có...');
-      
+
       // Kiểm tra nếu kịch bản không phải là kịch bản thực, mà là danh sách đề xuất
       if (finalScript.includes('Hãy nhấn vào 1 chủ đề để tạo kịch bản')) {
         console.error('❌ Nội dung không phải là kịch bản mà là danh sách đề xuất');
@@ -573,11 +577,11 @@ const generateAdvancedVideo = async (req, res) => {
     console.log('🔍 Phân tích kịch bản...');
     const scriptParts = extractScriptParts(finalScript);
     console.log(`✅ Phân tích được ${scriptParts.length} phần kịch bản`);
-    
+
     if (scriptParts.length === 0) {
       console.error('❌ Không tìm thấy phần nào trong kịch bản');
-      const errorMessage = 'Kịch bản không đúng định dạng. Hãy kiểm tra lại. ' + 
-                          'Kịch bản phải có các phần được đánh dấu bằng "## PHẦN" và có "**Lời thoại:**" và "**Hình ảnh:**".';
+      const errorMessage = 'Kịch bản không đúng định dạng. Hãy kiểm tra lại. ' +
+        'Kịch bản phải có các phần được đánh dấu bằng "## PHẦN" và có "**Lời thoại:**" và "**Hình ảnh:**".';
       throw new Error(errorMessage);
     }
 
@@ -585,7 +589,7 @@ const generateAdvancedVideo = async (req, res) => {
     console.log('🔊 Tạo âm thanh cho kịch bản...');
     const scriptPartsWithAudio = await createAudioForScript(finalScript, audioDir, voiceId);
     console.log(`✅ Đã tạo ${scriptPartsWithAudio.length} file âm thanh`);
-    
+
     if (scriptPartsWithAudio.length === 0) {
       console.error('❌ Không tạo được file âm thanh nào');
       throw new Error('Không thể tạo âm thanh. Hãy kiểm tra file credentials Google Cloud.');
@@ -595,31 +599,41 @@ const generateAdvancedVideo = async (req, res) => {
     console.log('🖼️ Tải hình ảnh cho kịch bản...');
     const scriptPartsWithMedia = await downloadImagesForScriptParts(scriptPartsWithAudio, tempDir);
     console.log(`✅ Đã tải ${scriptPartsWithMedia.filter(p => p.imagePath).length} hình ảnh`);
-    
+
     if (scriptPartsWithMedia.filter(p => p.imagePath).length === 0) {
       console.error('❌ Không tải được hình ảnh nào');
       throw new Error('Không thể tải hình ảnh. Hãy kiểm tra kết nối mạng.');
     }
-    
+
     // Tạo tên file video
     const videoFileName = `advanced_video_${Date.now()}.mp4`;
     const outputPath = path.join(outputDir, videoFileName);
-    
+
     // Tạo video
     console.log('🎬 Bắt đầu tạo video...');
-    await createVideoWithAudio(scriptPartsWithMedia, outputPath);
+    const finalVideoPath = await createVideoWithAudio(
+      scriptPartsWithMedia,
+      outputPath,
+      '16:9',              // aspectRatio mặc định
+      music,
+      musicVolume,
+      musicStartTime,
+      musicEndTime
+    );
+
+
     console.log('✅ Đã tạo video thành công:', outputPath);
-    
+
     // Trả về kết quả
     return res.json({
       success: true,
-      videoUrl: `/videos/${videoFileName}`,
-      script: finalScript
+      videoUrl: `/outputs/${path.basename(finalVideoPath)}`
     });
+
   } catch (error) {
     console.error('❌ LỖI NGHIÊM TRỌNG:', error);
     console.error('Chi tiết lỗi:', error.stack);
-    
+
     return res.status(500).json({
       success: false,
       error: error.message || 'Lỗi không xác định khi tạo video',
@@ -637,16 +651,16 @@ const getAvailableVoices = async (req, res) => {
       gender: key.includes('FEMALE') ? 'Nữ' : 'Nam',
       quality: key.includes('NEURAL') ? 'Cao nhất' : (key.includes('WAVENET') ? 'Cao' : 'Tiêu chuẩn')
     }));
-    
-    return res.json({ 
-      success: true, 
-      voices 
+
+    return res.json({
+      success: true,
+      voices
     });
   } catch (error) {
     console.error('Lỗi khi lấy danh sách giọng đọc:', error);
-    return res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Lỗi khi lấy danh sách giọng đọc' 
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Lỗi khi lấy danh sách giọng đọc'
     });
   }
 };
@@ -657,7 +671,7 @@ const getAvailableVoices = async (req, res) => {
 const prepareVideoScript = async (req, res) => {
   console.log('🚀 Bắt đầu chuẩn bị kịch bản...');
   console.log('Body request:', JSON.stringify(req.body).substring(0, 200) + '...');
-  
+
   const { topic, script, voiceId, aspectRatio = '16:9' } = req.body;
 
   if (!topic && !script) {
@@ -669,7 +683,7 @@ const prepareVideoScript = async (req, res) => {
     // Tạo thư mục đầu ra nếu chưa tồn tại
     const tempDir = path.join(__dirname, '../../public/temp');
     const audioDir = path.join(tempDir, 'audio');
-    
+
     [tempDir, audioDir].forEach(dir => {
       if (!fs.existsSync(dir)) {
         console.log(`📁 Tạo thư mục: ${dir}`);
@@ -689,7 +703,7 @@ const prepareVideoScript = async (req, res) => {
 
     // Tạo kịch bản nếu chưa có, và chuẩn hóa kịch bản nếu có
     let finalScript = script;
-    
+
     if (!script || script.trim() === '') {
       console.log('🤖 Tạo kịch bản từ chủ đề:', topic);
       try {
@@ -703,7 +717,7 @@ const prepareVideoScript = async (req, res) => {
     } else {
       // Chuẩn hóa kịch bản đã có
       console.log('📝 Chuẩn hóa kịch bản đã có...');
-      
+
       // Kiểm tra nếu kịch bản không phải là kịch bản thực, mà là danh sách đề xuất
       if (finalScript.includes('Hãy nhấn vào 1 chủ đề để tạo kịch bản')) {
         console.error('❌ Nội dung không phải là kịch bản mà là danh sách đề xuất');
@@ -717,26 +731,26 @@ const prepareVideoScript = async (req, res) => {
     console.log('🔍 Phân tích kịch bản...');
     const scriptParts = extractScriptParts(finalScript);
     console.log(`✅ Phân tích được ${scriptParts.length} phần kịch bản`);
-    
+
     if (scriptParts.length === 0) {
       console.error('❌ Không tìm thấy phần nào trong kịch bản');
-      const errorMessage = 'Kịch bản không đúng định dạng. Hãy kiểm tra lại. ' + 
-                          'Kịch bản phải có các phần được đánh dấu bằng "## PHẦN" và có "**Lời thoại:**" và "**Hình ảnh:**".';
+      const errorMessage = 'Kịch bản không đúng định dạng. Hãy kiểm tra lại. ' +
+        'Kịch bản phải có các phần được đánh dấu bằng "## PHẦN" và có "**Lời thoại:**" và "**Hình ảnh:**".';
       throw new Error(errorMessage);
     }
 
     // Tạo ID phiên làm việc để theo dõi
     const sessionId = Date.now().toString();
-    
+
     // Lưu kịch bản và các phần vào session để sử dụng sau
     if (!req.session) {
       req.session = {};
     }
-    
+
     req.session.videoPreparation = {
       sessionId,
       script: finalScript,
-      topic       : topic || null,  
+      topic: topic || null,
       scriptParts: scriptParts.map((part, index) => ({
         id: `part_${index}`,
         index: index,
@@ -763,7 +777,7 @@ const prepareVideoScript = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ LỖI:', error);
-    
+
     return res.status(500).json({
       success: false,
       error: error.message || 'Lỗi không xác định khi chuẩn bị kịch bản',
@@ -771,41 +785,62 @@ const prepareVideoScript = async (req, res) => {
     });
   }
 };
+async function addMusicToVideo(inputVideoPath, outputVideoPath, music, musicVolume, musicStartTime, musicEndTime, outputDir) {
+  try {
+    const musicPath = path.join(__dirname, '../../public/music', music);
+    if (!fs.existsSync(musicPath)) {
+      throw new Error(`File nhạc không tồn tại: ${musicPath}`);
+    }
+    const clippedMusicPath = path.join(outputDir, `clip_${Date.now()}.mp3`);
+    const finalOutputWithMusic = path.join(outputDir, `output_final_${Date.now()}.mp4`);
+    const trimCmd = `ffmpeg -y -i "${musicPath}" -ss ${musicStartTime} ${musicEndTime ? `-to ${musicEndTime}` : ''} -c copy "${clippedMusicPath}"`;
+    execSync(trimCmd, { stdio: 'inherit' });
+    const mixCmd = `ffmpeg -y -i "${inputVideoPath}" -i "${clippedMusicPath}" -filter_complex "[1:a]volume=${musicVolume}[a1];[0:a][a1]amix=inputs=2:duration=first[aout]" -map 0:v -map "[aout]" -c:v copy -shortest "${finalOutputWithMusic}"`;
+    execSync(mixCmd, { stdio: 'inherit' });
+    fs.copyFileSync(finalOutputWithMusic, outputVideoPath);
+    [clippedMusicPath, finalOutputWithMusic].forEach(file => {
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    });
+  } catch (error) {
+    console.error('❌ Lỗi khi thêm nhạc nền:', error.message);
+    throw error;
+  }
+}
 
 /**
  * API tạo/tạo lại hình ảnh cho một phần cụ thể
  */
 const generateImageForPart = async (req, res) => {
   console.log('🖼️ Bắt đầu tạo hình ảnh cho phần...');
-  
+
   const { sessionId, partId, customPrompt } = req.body;
-  
+
   if (!sessionId || !partId) {
     return res.status(400).json({
       success: false,
       error: 'Thiếu thông tin phiên làm việc hoặc ID phần'
     });
   }
-  
+
   try {
     // Kiểm tra phiên làm việc
     if (!req.session || !req.session.videoPreparation || req.session.videoPreparation.sessionId !== sessionId) {
       throw new Error('Phiên làm việc không hợp lệ hoặc đã hết hạn');
     }
-    
+
     // Lấy thông tin tỉ lệ khung hình từ session
     const aspectRatio = req.session.videoPreparation.aspectRatio || '16:9';
-    
+
     // Tìm phần cần tạo hình ảnh
     const part = req.session.videoPreparation.scriptParts.find(p => p.id === partId);
-    
+
     if (!part) {
       throw new Error(`Không tìm thấy phần với ID: ${partId}`);
     }
-    
+
     // Xác định prompt cho hình ảnh
     let imagePrompt = customPrompt;
-    
+
     // Nếu không có prompt tùy chỉnh, sử dụng mô tả hình ảnh hoặc trích xuất từ văn bản
     if (!imagePrompt) {
       if (part.image && part.image.trim() !== '') {
@@ -818,23 +853,23 @@ const generateImageForPart = async (req, res) => {
           .filter(word => word.length > 4)
           .filter(word => !['như', 'nhưng', 'hoặc', 'những', 'được', 'trong', 'cùng'].includes(word.toLowerCase()))
           .slice(0, 3);
-        
+
         imagePrompt = textKeywords.join(', ');
       }
     }
-    
+
     // Sử dụng prompt gốc và thêm một số hướng dẫn cơ bản
     const enhancedPrompt = `${imagePrompt}, chất lượng cao, chi tiết rõ nét, không có chữ hay watermark`;
-    
+
     console.log(`🖼️ Tạo hình ảnh với prompt: ${enhancedPrompt}`);
     console.log(`📐 Tỉ lệ khung hình: ${aspectRatio}`);
-    
+
     // Tạo thư mục tạm nếu chưa có
     const tempDir = path.join(__dirname, '../../public/temp');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
-    
+
     // Tạo hình ảnh bằng API
     const response = await axios.post('http://localhost:3000/api/image/generate', {
       prompt: enhancedPrompt,
@@ -842,22 +877,22 @@ const generateImageForPart = async (req, res) => {
       imageCount: 1,
       aspectRatio: aspectRatio
     });
-    
+
     if (response.data.success && response.data.images && response.data.images.length > 0) {
       // Lưu ảnh vào thư mục tạm
       const imageFilename = `part_${part.index}_${Date.now()}.jpg`;
       const filePath = path.join(tempDir, imageFilename);
-      
+
       if (response.data.images[0].type === 'base64') {
         fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
       } else if (response.data.images[0].type === 'url') {
         const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
         fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
       }
-      
+
       // Cập nhật đường dẫn hình ảnh trong session
       part.imagePath = filePath;
-      
+
       return res.json({
         success: true,
         imagePath: `/temp/${imageFilename}`,
@@ -880,54 +915,54 @@ const generateImageForPart = async (req, res) => {
  */
 const generateAudioForPart = async (req, res) => {
   console.log('🔊 Bắt đầu tạo giọng đọc cho phần...');
-  
+
   const { sessionId, partId, voiceId, customText } = req.body;
-  
+
   if (!sessionId || !partId) {
     return res.status(400).json({
       success: false,
       error: 'Thiếu thông tin phiên làm việc hoặc ID phần'
     });
   }
-  
+
   try {
     // Kiểm tra phiên làm việc
     if (!req.session || !req.session.videoPreparation || req.session.videoPreparation.sessionId !== sessionId) {
       throw new Error('Phiên làm việc không hợp lệ hoặc đã hết hạn');
     }
-    
+
     // Tìm phần cần tạo giọng đọc
     const part = req.session.videoPreparation.scriptParts.find(p => p.id === partId);
-    
+
     if (!part) {
       throw new Error(`Không tìm thấy phần với ID: ${partId}`);
     }
-    
+
     // Xác định văn bản và giọng đọc
     const text = customText || part.text;
     const selectedVoiceId = voiceId || req.session.videoPreparation.voiceId || VIETNAMESE_VOICES.FEMALE_NEURAL_A;
-    
+
     // Tạo thư mục lưu trữ
     const audioDir = path.join(__dirname, '../../public/temp/audio');
     if (!fs.existsSync(audioDir)) {
       fs.mkdirSync(audioDir, { recursive: true });
     }
-    
+
     // Đường dẫn file đầu ra
     const audioFilename = `part_${part.index}_${Date.now()}.mp3`;
     const outputPath = path.join(audioDir, audioFilename);
-    
+
     // Tạo giọng đọc
     await convertTextToSpeech(text, outputPath, selectedVoiceId);
-    
+
     // Cập nhật đường dẫn âm thanh trong session
     part.audioPath = outputPath;
-    
+
     // Nếu văn bản được tùy chỉnh, cập nhật nội dung text trong part
     if (customText) {
       part.text = customText;
     }
-    
+
     return res.json({
       success: true,
       audioPath: `/temp/audio/${audioFilename}`,
@@ -951,7 +986,15 @@ const generateAudioForPart = async (req, res) => {
 const finalizeAdvancedVideo = async (req, res) => {
   console.log('🎬 Bắt đầu hoàn thiện video...');
 
-  const { sessionId, aspectRatio = '16:9' } = req.body;
+  const {
+    sessionId,
+    aspectRatio = '16:9',
+    music = null,
+    musicVolume = 0.3,
+    musicStartTime = 0,
+    musicEndTime = null
+  } = req.body;
+
   if (!sessionId) {
     return res.status(400).json({ success: false, error: 'Thiếu thông tin phiên làm việc' });
   }
@@ -979,18 +1022,27 @@ const finalizeAdvancedVideo = async (req, res) => {
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
     const videoFileName = `advanced_video_${sessionId}.mp4`;
-    const outputPath    = path.join(outputDir, videoFileName);
+    const outputPath = path.join(outputDir, videoFileName);
 
     /* ------------------------------------------------
        3. Render video (tận dụng hàm đã viết)
     -------------------------------------------------*/
-    await createVideoWithAudio(validParts, outputPath, aspectRatio);
+    await createVideoWithAudio(
+      validParts,
+      outputPath,
+      aspectRatio,
+      music,
+      musicVolume,
+      musicStartTime,
+      musicEndTime
+    );
+
 
     /* ------------------------------------------------
        4. Upload Firebase & ghi DB
     -------------------------------------------------*/
-    const firebaseKey  = `videos/${videoFileName}`;
-    const publicUrl    = await uploadFile(
+    const firebaseKey = `videos/${videoFileName}`;
+    const publicUrl = await uploadFile(
       outputPath,
       firebaseKey,
       { contentType: 'video/mp4' }   // giúp trình duyệt stream ngay
@@ -998,20 +1050,20 @@ const finalizeAdvancedVideo = async (req, res) => {
     console.log('🚀 Đã upload Firebase:', publicUrl);
 
     // (tuỳ chọn) ghi vào bảng videos
-    const stats  = fs.statSync(outputPath);
+    const stats = fs.statSync(outputPath);
     const sizeMb = (stats.size / 1024 / 1024).toFixed(2);
-    console.log("ID nguoi dung: ",req.session.user)
-const userId =
-        req.session?.user_id           // <-- loginController đã gán
-     || req.user?.id_nguoidung
-     || null;
+    console.log("ID nguoi dung: ", req.session.user)
+    const userId =
+      req.session?.user_id           // <-- loginController đã gán
+      || req.user?.id_nguoidung
+      || null;
     await videoModel.insertVideo({
-      filename   : videoFileName,
+      filename: videoFileName,
       firebaseKey: firebaseKey,
-      publicUrl  : publicUrl,
-      sizeMb     : sizeMb,
-      title      : topic || 'Video hoàn thiện',
-      script     : script || null,
+      publicUrl: publicUrl,
+      sizeMb: sizeMb,
+      title: topic || 'Video hoàn thiện',
+      script: script || null,
       userId
     });
 
@@ -1019,10 +1071,10 @@ const userId =
        5. Trả kết quả
     -------------------------------------------------*/
     return res.json({
-      success  : true,
-      videoUrl : publicUrl,                 // URL Firebase
+      success: true,
+      videoUrl: publicUrl,                 // URL Firebase
       localPath: `/videos/${videoFileName}`, // nếu bạn muốn tham chiếu tạm
-      script   : script
+      script: script
     });
 
   } catch (err) {
@@ -1039,45 +1091,45 @@ const userId =
 const uploadImageForPart = async (req, res) => {
   // req.file được thiết lập bởi multer sau khi tải lên thành công
   if (!req.file) {
-    return res.status(400).json({ 
-      success: false, 
-      error: 'Không tìm thấy file ảnh trong request' 
+    return res.status(400).json({
+      success: false,
+      error: 'Không tìm thấy file ảnh trong request'
     });
   }
 
   const { sessionId, partId } = req.body;
-  
+
   if (!sessionId || !partId) {
     // Xóa file đã tải lên nếu thông tin không hợp lệ
     if (req.file.path && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    
+
     return res.status(400).json({
       success: false,
       error: 'Thiếu thông tin phiên làm việc hoặc ID phần'
     });
   }
-  
+
   try {
     // Kiểm tra phiên làm việc
     if (!req.session || !req.session.videoPreparation || req.session.videoPreparation.sessionId !== sessionId) {
       throw new Error('Phiên làm việc không hợp lệ hoặc đã hết hạn');
     }
-    
+
     // Tìm phần cần cập nhật hình ảnh
     const part = req.session.videoPreparation.scriptParts.find(p => p.id === partId);
-    
+
     if (!part) {
       throw new Error(`Không tìm thấy phần với ID: ${partId}`);
     }
-    
+
     // Cập nhật đường dẫn hình ảnh trong session
     part.imagePath = req.file.path;
-    
+
     // Trả về đường dẫn tương đối để hiển thị trong frontend
     const relativePath = `/temp/${path.basename(req.file.path)}`;
-    
+
     return res.json({
       success: true,
       imagePath: relativePath,
@@ -1085,12 +1137,12 @@ const uploadImageForPart = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Lỗi khi tải lên hình ảnh:', error);
-    
+
     // Xóa file đã tải lên nếu xử lý thất bại
     if (req.file.path && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }
-    
+
     return res.status(500).json({
       success: false,
       error: error.message || 'Lỗi không xác định khi tải lên hình ảnh'
@@ -1103,30 +1155,30 @@ const uploadImageForPart = async (req, res) => {
  */
 const generateSampleAudio = async (req, res) => {
   console.log('🔊 Bắt đầu tạo mẫu âm thanh giọng đọc...');
-  
+
   const { text, voiceId } = req.body;
-  
+
   if (!text || !voiceId) {
     return res.status(400).json({
       success: false,
       error: 'Thiếu nội dung văn bản hoặc ID giọng đọc'
     });
   }
-  
+
   try {
     // Tạo thư mục lưu trữ
     const audioDir = path.join(__dirname, '../../public/temp/audio');
     if (!fs.existsSync(audioDir)) {
       fs.mkdirSync(audioDir, { recursive: true });
     }
-    
+
     // Đường dẫn file đầu ra
     const audioFilename = `sample_${voiceId}_${Date.now()}.mp3`;
     const outputPath = path.join(audioDir, audioFilename);
-    
+
     // Tạo giọng đọc mẫu
     await convertTextToSpeech(text, outputPath, voiceId);
-    
+
     return res.json({
       success: true,
       audioUrl: `/temp/audio/${audioFilename}`,
@@ -1142,7 +1194,7 @@ const generateSampleAudio = async (req, res) => {
 };
 
 const renderEditPartsPage = (req, res) => {
-  res.render('videoView/editVideoParts', { 
+  res.render('videoView/editVideoParts', {
     title: 'Chỉnh sửa phần video',
     layout: 'main'
   });
@@ -1157,10 +1209,12 @@ const createFinalVideo = async (req, res) => {
     const {
       sessionId,
       parts,
-      aspectRatio = '16:9',   // có thể frontend gửi lên
-      title       = 'Video hoàn thiện',
-      script      = null
+      music,
+      musicVolume = 0.5,
+      musicStartTime = 0,
+      musicEndTime = null
     } = req.body;
+
 
     if (!sessionId || !Array.isArray(parts) || parts.length === 0) {
       return res.status(400).json({ success: false, error: 'Dữ liệu không hợp lệ' });
@@ -1173,7 +1227,7 @@ const createFinalVideo = async (req, res) => {
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
     const videoFileName = `advanced_video_${Date.now()}.mp4`;
-    const outputPath    = path.join(outputDir, videoFileName);
+    const outputPath = path.join(outputDir, videoFileName);
 
     /* ------------------------------------------------
        2. LỌC & TẠO SEGMENTS
@@ -1183,20 +1237,20 @@ const createFinalVideo = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Không có phần nào đủ media' });
     }
 
-    const segTxt      = path.join(outputDir, `segments_${Date.now()}.txt`);
-    const segments    = [];
-    let   segContent  = '';
+    const segTxt = path.join(outputDir, `segments_${Date.now()}.txt`);
+    const segments = [];
+    let segContent = '';
 
     for (let i = 0; i < validParts.length; i++) {
-      const p        = validParts[i];
-      const segPath  = path.join(outputDir, `segment_${i}_${Date.now()}.mp4`);
+      const p = validParts[i];
+      const segPath = path.join(outputDir, `segment_${i}_${Date.now()}.mp4`);
       segments.push(segPath);
 
       /* scale/pad tuỳ tỉ lệ */
       const scaleMap = {
         '9:16': '-vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"',
-        '1:1' : '-vf "scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2"',
-        '4:3' : '-vf "scale=1440:1080:force_original_aspect_ratio=decrease,pad=1440:1080:(ow-iw)/2:(oh-ih)/2"',
+        '1:1': '-vf "scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2"',
+        '4:3': '-vf "scale=1440:1080:force_original_aspect_ratio=decrease,pad=1440:1080:(ow-iw)/2:(oh-ih)/2"',
         '16:9': '-vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2"'
       };
       const segSetting = scaleMap[aspectRatio] || scaleMap['16:9'];
@@ -1206,15 +1260,15 @@ const createFinalVideo = async (req, res) => {
       if (p.caption) {
         const safeTxt = p.caption.replace(/'/g, '\\\'');
         const yPos =
-          p.captionPosition === 'top'    ? 'text_h'      :
-          p.captionPosition === 'bottom' ? 'h-text_h*2'  :
-          '(h-text_h)/2';
+          p.captionPosition === 'top' ? 'text_h' :
+            p.captionPosition === 'bottom' ? 'h-text_h*2' :
+              '(h-text_h)/2';
         caption = `,drawtext=text='${safeTxt}':fontcolor=white:fontsize=36:x=(w-text_w)/2:y=${yPos}:shadowcolor=black:shadowx=2:shadowy=2`;
       }
 
       const cmd = `ffmpeg -y -loop 1 -i "${p.imagePath}" -i "${p.audioPath}" `
-              +  `-c:v libx264 -tune stillimage -c:a aac -b:a 192k -af "volume=1.0" `
-              +  `${segSetting}${caption} -pix_fmt yuv420p -shortest "${segPath}"`;
+        + `-c:v libx264 -tune stillimage -c:a aac -b:a 192k -af "volume=1.0" `
+        + `${segSetting}${caption} -pix_fmt yuv420p -shortest "${segPath}"`;
       execSync(cmd, { stdio: 'inherit' });
       segContent += `file '${segPath.replace(/\\/g, '/')}'\n`;
     }
@@ -1226,7 +1280,7 @@ const createFinalVideo = async (req, res) => {
     const sizeMap = { '9:16': '1080x1920', '1:1': '1080x1080', '4:3': '1440x1080', '16:9': '1920x1080' };
     const concatCmd =
       `ffmpeg -y -f concat -safe 0 -i "${segTxt}" -c:v libx264 -c:a aac `
-    + `-pix_fmt yuv420p -movflags +faststart -s ${sizeMap[aspectRatio] || sizeMap['16:9']} "${outputPath}"`;
+      + `-pix_fmt yuv420p -movflags +faststart -s ${sizeMap[aspectRatio] || sizeMap['16:9']} "${outputPath}"`;
     execSync(concatCmd, { stdio: 'inherit' });
 
     /* ------------------------------------------------
@@ -1235,11 +1289,11 @@ const createFinalVideo = async (req, res) => {
     const srtPath = path.join(outputDir, 'subs.srt');
     generateSrtFile(validParts, srtPath);
 
-    const srtTmp   = path.join(outputDir, `subs_${Date.now()}.srt`);
+    const srtTmp = path.join(outputDir, `subs_${Date.now()}.srt`);
     fs.copyFileSync(srtPath, srtTmp);
-    const escSrt   = srtTmp.replace(/\\/g, '/').replace(/:/g, '\\:');
-    const tempOut  = path.join(outputDir, `render_${Date.now()}.mp4`);
-    const subCmd   = `ffmpeg -y -i "${outputPath}" -vf "subtitles='${escSrt}'" -c:a copy "${tempOut}"`;
+    const escSrt = srtTmp.replace(/\\/g, '/').replace(/:/g, '\\:');
+    const tempOut = path.join(outputDir, `render_${Date.now()}.mp4`);
+    const subCmd = `ffmpeg -y -i "${outputPath}" -vf "subtitles='${escSrt}'" -c:a copy "${tempOut}"`;
     execSync(subCmd, { stdio: 'inherit' });
     fs.renameSync(tempOut, outputPath);
 
@@ -1247,7 +1301,7 @@ const createFinalVideo = async (req, res) => {
        5. UPLOAD FIREBASE
     -------------------------------------------------*/
     const firebaseKey = `videos/${videoFileName}`;
-    const publicUrl   = await uploadFile(
+    const publicUrl = await uploadFile(
       outputPath,
       firebaseKey,
       { contentType: 'video/mp4' }          // để trình duyệt stream OK
@@ -1255,28 +1309,34 @@ const createFinalVideo = async (req, res) => {
     console.log('🚀 Upload Firebase thành công:', publicUrl);
 
     /* (tùy chọn) ghi DB --------------------------------*/
-    const stats   = fs.statSync(outputPath);
-    const sizeMb  = (stats.size / 1024 / 1024).toFixed(2);
-   const userId =
-        req.session?.user_id
-     || req.user?.id_nguoidung
-     || null;
- await videoModel.insertVideo({
-  filename, firebaseKey, publicUrl, sizeMb,
-   title, script, userId
- });
+    const stats = fs.statSync(outputPath);
+    const sizeMb = (stats.size / 1024 / 1024).toFixed(2);
+    const userId =
+      req.session?.user_id
+      || req.user?.id_nguoidung
+      || null;
+    await videoModel.insertVideo({
+      filename, firebaseKey, publicUrl, sizeMb,
+      title, script, userId
+    });
+
+    //fs.copyFileSync(subtitledOutputTemp, outputPath);
+    // === Thêm nhạc nền nếu có chọn ===
+    if (music) {
+      await addMusicToVideo(outputPath, outputPath, music, musicVolume, musicStartTime, musicEndTime, outputDir);
+    }
 
 
     /* ------------------------------------------------
        6. DỌN FILE TẠM & TRẢ KẾT QUẢ
     -------------------------------------------------*/
     [...segments, segTxt, srtPath, srtTmp].forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
-    
+
     // fs.unlinkSync(outputPath); // nếu muốn xoá file local
 
     return res.json({
-      success  : true,
-      videoUrl : publicUrl,            // URL Firebase có thể embed ngay
+      success: true,
+      videoUrl: publicUrl,            // URL Firebase có thể embed ngay
       localPath: `/videos/${videoFileName}`
     });
 
@@ -1314,7 +1374,7 @@ const checkSetup = async (req, res) => {
     }
 
     // Kiểm tra Google credentials
-    const ttsCredentialsPath = path.join(__dirname, '../../text zto speed.json');
+    const ttsCredentialsPath = path.join(__dirname, '../../text to speed.json');
     if (fs.existsSync(ttsCredentialsPath)) {
       checks.googleCredentials = true;
     }
@@ -1366,9 +1426,9 @@ const debugVideo = async (req, res) => {
     // Kiểm tra thư mục
     const baseDir = path.join(__dirname, '../../');
     const dirsToCheck = [
-      'public', 
-      'public/videos', 
-      'public/temp', 
+      'public',
+      'public/videos',
+      'public/temp',
       'public/temp/audio'
     ];
 
@@ -1479,7 +1539,7 @@ const debugVideo = async (req, res) => {
   }
 };
 
-module.exports = { 
+module.exports = {
   generateAdvancedVideo,
   getAvailableVoices,
   prepareVideoScript,
