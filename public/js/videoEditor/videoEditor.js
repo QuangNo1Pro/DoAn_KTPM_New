@@ -170,3 +170,70 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// Music Preview Handler (gộp hoàn chỉnh)
+document.addEventListener('DOMContentLoaded', () => {
+    const select = document.getElementById('bg-music-select');
+    const previewBtn = document.getElementById('preview-music-btn');
+    const stopBtn = document.getElementById('stop-music-btn');
+    const volumeSlider = document.getElementById('bg-music-volume');
+    const previewAudio = document.getElementById('bg-music-preview');
+    const startInput = document.getElementById('music-start-time');
+    const endInput = document.getElementById('music-end-time');
+    const confirmBtn = document.getElementById('confirm-music-range-btn');
+
+    if (!select || !previewBtn || !stopBtn || !volumeSlider || !previewAudio) return;
+
+    // Khi nhấn "Nghe Thử"
+    previewBtn.addEventListener('click', () => {
+        const file = select.value;
+        if (!file) return;
+
+        const start = parseFloat(startInput?.value || '0');
+        const end = parseFloat(endInput?.value || '99999');
+
+        previewAudio.src = `/music/${file}`;
+        previewAudio.volume = parseFloat(volumeSlider.value || '0.5');
+        previewAudio.currentTime = start;
+        previewAudio.style.display = 'block';
+        previewAudio.play().catch(err => console.error('Không thể phát nhạc:', err));
+
+        // Tự động dừng khi đến thời điểm kết thúc đã chọn
+        const checkEnd = () => {
+            if (previewAudio.currentTime >= end) {
+                previewAudio.pause();
+                previewAudio.currentTime = start;
+            }
+        };
+        previewAudio.removeEventListener('timeupdate', checkEnd); // tránh chồng hàm
+        previewAudio.addEventListener('timeupdate', checkEnd);
+    });
+
+    // Khi nhấn "Dừng"
+    stopBtn.addEventListener('click', () => {
+        const start = parseFloat(startInput?.value || '0');
+        previewAudio.pause();
+        previewAudio.currentTime = start;
+    });
+
+    // Khi thay đổi âm lượng
+    volumeSlider.addEventListener('input', () => {
+        previewAudio.volume = parseFloat(volumeSlider.value || '0.5');
+    });
+
+    // Khi xác nhận đoạn nhạc
+    if (confirmBtn && startInput && endInput) {
+        confirmBtn.addEventListener('click', () => {
+            const start = parseFloat(startInput.value);
+            const end = parseFloat(endInput.value);
+
+            if (isNaN(start) || isNaN(end) || start >= end) {
+                alert('Vui lòng nhập khoảng thời gian hợp lệ');
+                return;
+            }
+
+            alert(`✅ Đã chọn đoạn nhạc từ ${start} đến ${end} giây.`);
+        });
+    }
+});
+
