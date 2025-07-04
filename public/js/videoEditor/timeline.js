@@ -197,6 +197,23 @@ if (window.Timeline) {
         videoLabel.className = 'track-label';
         videoTrack.appendChild(videoLabel);
         
+        // Track cho ảnh/GIF
+        const imageTrack = document.createElement('div');
+        imageTrack.className = 'timeline-track image-track';
+        imageTrack.id = 'image-track';
+        imageTrack.style.height = '50px';
+        imageTrack.style.width = `${totalWidth}px`;
+        imageTrack.style.position = 'relative';
+        imageTrack.style.backgroundColor = '#333333';
+        imageTrack.style.borderBottom = '1px solid #444';
+        imageTrack.dataset.trackType = 'image';
+        
+        // Thêm label cho track
+        const imageLabel = document.createElement('div');
+        imageLabel.textContent = 'Ảnh/GIF';
+        imageLabel.className = 'track-label';
+        imageTrack.appendChild(imageLabel);
+        
         // Track cho audio
         const audioTrack = document.createElement('div');
         audioTrack.className = 'timeline-track audio-track';
@@ -213,6 +230,23 @@ if (window.Timeline) {
         audioLabel.textContent = 'Audio';
         audioLabel.className = 'track-label';
         audioTrack.appendChild(audioLabel);
+        
+        // Track cho nhạc nền
+        const backgroundMusicTrack = document.createElement('div');
+        backgroundMusicTrack.className = 'timeline-track bgmusic-track';
+        backgroundMusicTrack.id = 'bgmusic-track';
+        backgroundMusicTrack.style.height = '40px';
+        backgroundMusicTrack.style.width = `${totalWidth}px`;
+        backgroundMusicTrack.style.position = 'relative';
+        backgroundMusicTrack.style.backgroundColor = '#1e3a1e'; // Màu xanh đậm hơn so với audio track
+        backgroundMusicTrack.style.borderBottom = '1px solid #444';
+        backgroundMusicTrack.dataset.trackType = 'bgmusic';
+        
+        // Thêm label cho track
+        const bgmusicLabel = document.createElement('div');
+        bgmusicLabel.textContent = 'Nhạc nền';
+        bgmusicLabel.className = 'track-label';
+        backgroundMusicTrack.appendChild(bgmusicLabel);
         
         // Track cho text
         const textTrack = document.createElement('div');
@@ -232,10 +266,12 @@ if (window.Timeline) {
         
         // Thêm vào container
         this.tracksContainer.appendChild(videoTrack);
+        this.tracksContainer.appendChild(imageTrack);
         this.tracksContainer.appendChild(audioTrack);
+        this.tracksContainer.appendChild(backgroundMusicTrack);
         this.tracksContainer.appendChild(textTrack);
         
-        console.log("Đã thêm tracks: video, audio, text");
+        console.log("Đã thêm tracks: video, image, audio, bgmusic, text");
         
         // Thêm đường kẻ dọc cho mỗi mốc thời gian chính
         for (let i = 0; i <= this.duration; i += 5) {
@@ -253,7 +289,9 @@ if (window.Timeline) {
             
             // Thêm vào từng track
             videoTrack.appendChild(timeLine.cloneNode(true));
+            imageTrack.appendChild(timeLine.cloneNode(true));
             audioTrack.appendChild(timeLine.cloneNode(true));
+            backgroundMusicTrack.appendChild(timeLine.cloneNode(true));
             textTrack.appendChild(timeLine.cloneNode(true));
         }
         
@@ -262,7 +300,9 @@ if (window.Timeline) {
             
             // Thêm sự kiện kéo thả cho các track
             this.addDropEventsToTrack(videoTrack, 'video');
+            this.addDropEventsToTrack(imageTrack, 'image');
             this.addDropEventsToTrack(audioTrack, 'audio');
+            this.addDropEventsToTrack(backgroundMusicTrack, 'bgmusic');
             this.addDropEventsToTrack(textTrack, 'text');
         }
 
@@ -537,10 +577,12 @@ if (window.Timeline) {
             
             // Lấy các track container
             const videoTrack = document.getElementById('video-track');
+            const imageTrack = document.getElementById('image-track');
             const audioTrack = document.getElementById('audio-track');
+            const backgroundMusicTrack = document.getElementById('bgmusic-track');
             const textTrack = document.getElementById('text-track');
             
-            if (!videoTrack || !audioTrack || !textTrack) {
+            if (!videoTrack || !imageTrack || !audioTrack || !backgroundMusicTrack || !textTrack) {
                 console.error("Không tìm thấy các track container");
                 return;
             }
@@ -556,9 +598,17 @@ if (window.Timeline) {
                         trackElement = videoTrack;
                         clipClass += ' video-clip';
                         break;
+                    case 'image':
+                        trackElement = imageTrack;
+                        clipClass += ' image-clip';
+                        break;
                     case 'audio':
                         trackElement = audioTrack;
                         clipClass += ' audio-clip';
+                        break;
+                    case 'bgmusic':
+                        trackElement = backgroundMusicTrack;
+                        clipClass += ' bgmusic-clip';
                         break;
                     case 'text':
                         trackElement = textTrack;
@@ -596,6 +646,34 @@ if (window.Timeline) {
                     }
                 } else if (clip.type === 'audio') {
                     clipElement.style.backgroundColor = '#34a853'; // Xanh lá cho audio
+                } else if (clip.type === 'bgmusic') {
+                    clipElement.style.backgroundColor = '#1e7536'; // Màu xanh đậm hơn cho nhạc nền
+                    
+                    // Tạo hiệu ứng sóng nhạc
+                    const waveContainer = document.createElement('div');
+                    waveContainer.className = 'music-waveform';
+                    waveContainer.style.position = 'absolute';
+                    waveContainer.style.left = '0';
+                    waveContainer.style.top = '0';
+                    waveContainer.style.width = '100%';
+                    waveContainer.style.height = '60%';
+                    waveContainer.style.display = 'flex';
+                    waveContainer.style.justifyContent = 'space-evenly';
+                    waveContainer.style.alignItems = 'center';
+                    
+                    // Tạo các thanh biểu diễn sóng âm
+                    const barCount = Math.max(8, Math.floor(width / 10));
+                    for (let i = 0; i < barCount; i++) {
+                        const bar = document.createElement('div');
+                        const height = 20 + Math.sin(i * 0.5) * 15;
+                        bar.style.height = `${height}%`;
+                        bar.style.width = '2px';
+                        bar.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
+                        bar.style.marginLeft = '2px';
+                        waveContainer.appendChild(bar);
+                    }
+                    
+                    clipElement.appendChild(waveContainer);
                 } else {
                     clipElement.style.backgroundColor = '#fbbc05'; // Vàng cho text
                 }
@@ -699,8 +777,58 @@ if (window.Timeline) {
             const clipsList = document.getElementById('clips-list');
             if (!clipsList) return;
             
-            // Giả lập cập nhật danh sách tạm thời để phục vụ videoEditor.js
-            console.log('Updating clips list (simplified)');
+            // Xóa nội dung cũ
+            clipsList.innerHTML = '';
+            
+            // Thêm từng clip vào danh sách
+            this.clips.forEach(clip => {
+                const item = document.createElement('button');
+                item.className = `list-group-item list-group-item-action ${this.selectedClipId === clip.id ? 'active' : ''}`;
+                item.dataset.clipId = clip.id;
+                item.setAttribute('draggable', 'true');
+                item.style.cursor = 'move';
+                
+                // Tạo nội dung cho item
+                const duration = this.formatTime(clip.duration);
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>${clip.name || `Clip ${clip.id.split('-')[1] || clip.id}`}</span>
+                        <span class="badge bg-secondary">${duration}</span>
+                    </div>
+                `;
+                
+                // Sự kiện click để chọn clip
+                item.addEventListener('click', () => {
+                    // Bỏ chọn clip khác
+                    document.querySelectorAll('#clips-list .list-group-item.active').forEach(el => {
+                        el.classList.remove('active');
+                    });
+                    
+                    // Chọn clip này
+                    item.classList.add('active');
+                    this.selectedClipId = clip.id;
+                    
+                    // Cập nhật hiển thị trên timeline
+                    document.querySelectorAll('.timeline-clip').forEach(el => {
+                        if (el.dataset.clipId === clip.id) {
+                            el.classList.add('selected');
+                        } else {
+                            el.classList.remove('selected');
+                        }
+                    });
+                    
+                    // Hiển thị editor cho clip nếu có
+                    if (typeof showClipEditor === 'function') {
+                        showClipEditor(this);
+                    } else {
+                        console.log('Hiển thị thông tin clip:', clip);
+                    }
+                });
+                
+                clipsList.appendChild(item);
+            });
+            
+            console.log(`Đã cập nhật danh sách clips: ${this.clips.length} clips`);
         }
 
         /**

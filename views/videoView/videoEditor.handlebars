@@ -52,7 +52,7 @@
                     </div>
                 </div>
                 <!-- Thanh điều khiển phát được di chuyển lên đây -->
-                <div class="bg-dark d-flex justify-content-between align-items-center py-1 px-2">
+                <div class="bg-dark d-flex justify-content-between align-items-center py-1 px-2" style="display: none !important;">
                     <span class="text-light" id="timeline-current-time">00:00.000</span>
                     <div>
                         <input type="range" id="timeline-seek" class="form-range mx-2 d-inline-block" style="width: 200px;" min="0" max="100" value="0">
@@ -68,7 +68,7 @@
                 </div>
                 <div class="card-body p-0">
                     <div id="timeline-container" class="p-2">
-                        <div class="d-flex align-items-center mb-2">
+                        <div style="display: none !important;" class="d-flex align-items-center mb-2">
                             <button id="timeline-zoom-out" class="btn btn-sm btn-outline-secondary me-2">
                                 <i class="bi bi-zoom-out"></i>
                             </button>
@@ -101,6 +101,9 @@
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="text-tab" data-bs-toggle="tab" data-bs-target="#text-panel" type="button" role="tab" aria-controls="text-panel" aria-selected="false">Chữ</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="bgmusic-tab" data-bs-toggle="tab" data-bs-target="#bgmusic-panel" type="button" role="tab" aria-controls="bgmusic-panel" aria-selected="false">Nhạc nền</button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="effects-tab" data-bs-toggle="tab" data-bs-target="#effects-panel" type="button" role="tab" aria-controls="effects-panel" aria-selected="false">Hiệu Ứng</button>
@@ -210,6 +213,32 @@
                             </div>
                         </div>
                         
+                        <!-- Tab BG Music -->
+                        <div class="tab-pane fade" id="bgmusic-panel" role="tabpanel" aria-labelledby="bgmusic-tab">
+                            <h4>Nhạc nền</h4>
+                            <div class="list-group">
+                                <button class="list-group-item list-group-item-action" data-bgmusic="none">Không có nhạc nền</button>
+                                <button class="list-group-item list-group-item-action" data-bgmusic="bgmusic1">Nhạc nền 1</button>
+                                <button class="list-group-item list-group-item-action" data-bgmusic="bgmusic2">Nhạc nền 2</button>
+                            </div>
+                            
+                            <div class="mt-3" id="bgmusic-settings" style="display: none;">
+                                <h5>Thiết Lập Nhạc nền</h5>
+                                <div class="mb-2">
+                                    <label id="bgmusic-volume-label" class="form-label">Âm lượng</label>
+                                    <input type="range" id="bgmusic-volume" class="form-range" min="0" max="100" value="50">
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label">Áp Dụng Cho</label>
+                                    <select id="bgmusic-target" class="form-select">
+                                        <option value="selected">Clip Đang Chọn</option>
+                                        <option value="all">Toàn Bộ Video</option>
+                                    </select>
+                                </div>
+                                <button id="apply-bgmusic" class="btn btn-primary mt-2">Áp Dụng Nhạc nền</button>
+                            </div>
+                        </div>
+                        
                         <!-- Tab Effects -->
                         <div class="tab-pane fade" id="effects-panel" role="tabpanel" aria-labelledby="effects-tab">
                             <h4>Hiệu Ứng</h4>
@@ -314,5 +343,20 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.style.paddingRight = '';
         });
     }
+    
+    // Xử lý ẩn/hiện phần vị trí tùy chỉnh khi chuyển tab
+    const tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
+    tabEls.forEach(tabEl => {
+        tabEl.addEventListener('shown.bs.tab', function (e) {
+            const customPositionEl = document.getElementById('text-position-custom');
+            if (customPositionEl) {
+                if (e.target.id === 'text-tab') {
+                    customPositionEl.style.display = 'block';
+                } else {
+                    customPositionEl.style.display = 'none';
+                }
+            }
+        });
+    });
 });
 </script>

@@ -84,7 +84,8 @@ function showTextEditor() {
             const positionGroup = document.getElementById('text-position').closest('.mb-3');
             
             const xyPositionGroup = document.createElement('div');
-            xyPositionGroup.className = 'mb-3';
+            xyPositionGroup.className = 'mb-3 text-position-custom';
+            xyPositionGroup.id = 'text-position-custom';
             xyPositionGroup.innerHTML = `
                 <label class="form-label">Vị trí tùy chỉnh (%):</label>
                 <div class="input-group">
@@ -97,9 +98,40 @@ function showTextEditor() {
             `;
             
             positionGroup.after(xyPositionGroup);
+            
+            // Đảm bảo chỉ hiển thị trong tab chữ
+            document.addEventListener('shown.bs.tab', function(event) {
+                const activeTabId = event.target.getAttribute('id');
+                const customPositionElement = document.getElementById('text-position-custom');
+                
+                if (customPositionElement) {
+                    if (activeTabId === 'text-tab') {
+                        customPositionElement.style.display = 'block';
+                    } else {
+                        customPositionElement.style.display = 'none';
+                    }
+                }
+            });
+            
+            // Kiểm tra tab hiện tại ngay khi tạo phần tử
+            const activeTab = document.querySelector('.nav-link.active');
+            if (activeTab && activeTab.getAttribute('id') !== 'text-tab') {
+                xyPositionGroup.style.display = 'none';
+            }
         } else {
             document.getElementById('text-x-position').value = Math.round(selectedText.x * 100);
             document.getElementById('text-y-position').value = Math.round(selectedText.y * 100);
+            
+            // Kiểm tra tab hiện tại
+            const activeTab = document.querySelector('.nav-link.active');
+            const customPositionElement = document.getElementById('text-position-custom');
+            if (customPositionElement && activeTab) {
+                if (activeTab.getAttribute('id') !== 'text-tab') {
+                    customPositionElement.style.display = 'none';
+                } else {
+                    customPositionElement.style.display = 'block';
+                }
+            }
         }
         
         textEditor.classList.remove('d-none');

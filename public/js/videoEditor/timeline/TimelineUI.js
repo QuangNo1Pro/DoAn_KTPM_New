@@ -18,73 +18,12 @@ export function initializeUI(timeline) {
 export function updateRuler(timeline) {
     if (!timeline.ruler) return;
     
-    // Xóa các đánh dấu cũ
-    timeline.ruler.innerHTML = '';
+    // Ẩn thước đo thời gian hoàn toàn
+    timeline.ruler.style.display = 'none';
     
-    // Tính toán số lượng mốc thời gian
+    // Tính toán tổng chiều rộng
     const totalWidth = timeline.duration * timeline.pixelsPerSecond;
     timeline.ruler.style.width = `${totalWidth}px`;
-    
-    // Xác định khoảng thời gian giữa các mốc
-    let interval = timeline.options.rulerInterval;
-    
-    // Điều chỉnh khoảng thời gian dựa trên tổng thời lượng
-    if (timeline.duration > 60) {
-        interval = 5; // 5 giây nếu dài hơn 1 phút
-    } else if (timeline.duration > 20) {
-        interval = 2; // 2 giây nếu dài hơn 20 giây
-    }
-    
-    // Thêm các mốc thời gian mới
-    for (let i = 0; i <= timeline.duration; i += interval) {
-        const marker = document.createElement('div');
-        marker.className = 'ruler-marker';
-        marker.style.position = 'absolute';
-        marker.style.left = `${i * timeline.pixelsPerSecond}px`;
-        marker.style.height = i % (interval * 2) === 0 ? '15px' : '10px';
-        marker.style.width = i % (interval * 2) === 0 ? '2px' : '1px';
-        marker.style.backgroundColor = i % (interval * 2) === 0 ? '#aaa' : '#666';
-        marker.style.top = '15px';
-        
-        // Thêm số thời gian cho các mốc chính
-        if (i % (interval * 2) === 0) {
-            const label = document.createElement('div');
-            label.textContent = formatTime(i);
-            label.style.position = 'absolute';
-            label.style.left = '50%';
-            label.style.transform = 'translateX(-50%)';
-            label.style.top = '-15px';
-            label.style.fontSize = '11px';
-            label.style.color = '#ccc';
-            marker.appendChild(label);
-        }
-        
-        timeline.ruler.appendChild(marker);
-    }
-    
-    // Thêm một đánh dấu ở cuối cùng nếu chưa có
-    if (timeline.duration % interval !== 0) {
-        const endMarker = document.createElement('div');
-        endMarker.className = 'ruler-marker';
-        endMarker.style.position = 'absolute';
-        endMarker.style.left = `${timeline.duration * timeline.pixelsPerSecond}px`;
-        endMarker.style.height = '15px';
-        endMarker.style.width = '2px';
-        endMarker.style.backgroundColor = '#f00';
-        endMarker.style.top = '15px';
-        
-        const label = document.createElement('div');
-        label.textContent = formatTime(timeline.duration);
-        label.style.position = 'absolute';
-        label.style.left = '50%';
-        label.style.transform = 'translateX(-50%)';
-        label.style.top = '-15px';
-        label.style.fontSize = '11px';
-        label.style.color = '#f88';
-        endMarker.appendChild(label);
-        
-        timeline.ruler.appendChild(endMarker);
-    }
 }
 
 /**
