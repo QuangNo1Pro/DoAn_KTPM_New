@@ -415,9 +415,6 @@ const createFinalVideo = async (req, res) => {
             }
             
 
-            // Cập nhật vf settings
-            const finalSegmentSettings = `-vf "${segmentSettings}"`;
-
             // Thêm chuyển cảnh (nếu có)
             let transitionSettings = '';
             if (part.transition && part.transition !== 'none' && i > 0) {
@@ -483,10 +480,6 @@ const createFinalVideo = async (req, res) => {
                     segmentCommand = `ffmpeg -loop 1 -i "${imagePath.replace(/\\/g, '/')}" -i "${audioPath.replace(/\\/g, '/')}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -vf "${segmentSettings}" -t ${audioDuration} "${segmentPath.replace(/\\/g, '/')}"`;
                 }
                 
-
-                // Tạo lệnh ffmpeg
-                const segmentCommand = `ffmpeg -loop 1 -i "${imagePath}" -i "${audioPath}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest ${finalSegmentSettings} -t ${audioDuration} "${segmentPath}"`;
-
                 // Thêm log để debug
                 console.log(`Lệnh tạo segment ${i}: ${segmentCommand}`);
 
