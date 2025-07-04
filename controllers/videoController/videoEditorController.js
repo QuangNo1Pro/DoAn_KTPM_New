@@ -569,6 +569,46 @@ const createFinalVideo = async (req, res) => {
             // Thực thi lệnh ghép video
             execSync(concatCommand);
 
+            // Kiểm tra xem có nhạc nền không
+            if (music && music !== 'none') {
+                console.log(`🎵 Đang thêm nhạc nền: ${music}`);
+                
+                // Đường dẫn đến file nhạc nền
+                const musicPath = path.join(__dirname, '../../public/music', music);
+                
+                // Kiểm tra file nhạc có tồn tại không
+                if (!fs.existsSync(musicPath)) {
+                    console.error(`❌ Không tìm thấy file nhạc: ${musicPath}`);
+                } else {
+                    const tempOutputPath = path.join(outputDir, `temp_${videoFileName}`);
+                    
+                    // Import hàm addBackgroundMusic từ service
+                    const { addBackgroundMusic } = require('../../services/videoGeneratorService');
+                    
+                    try {
+                        console.log('🎼 Đang thêm nhạc nền vào video...');
+                        await addBackgroundMusic(
+                            outputPath,
+                            musicPath,
+                            tempOutputPath,
+                            musicVolume,
+                            musicStartTime,
+                            musicEndTime
+                        );
+                        
+                        // Thay thế file video gốc bằng file có nhạc nền
+                        fs.unlinkSync(outputPath);
+                        fs.renameSync(tempOutputPath, outputPath);
+                        console.log('✅ Đã thêm nhạc nền vào video thành công');
+                    } catch (musicError) {
+                        console.error('❌ Lỗi khi thêm nhạc nền:', musicError);
+                        // Tiếp tục mà không có nhạc nền
+                    }
+                }
+            } else {
+                console.log('ℹ️ Không có nhạc nền được chọn');
+            }
+
             // Tạo file phụ đề
             const subtitleDir = path.join(outputDir, 'subtitles');
             if (!fs.existsSync(subtitleDir)) {

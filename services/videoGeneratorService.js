@@ -339,6 +339,19 @@ async function generateVideoFromScript(script, outputPath, voiceId = null) {
 // Hàm chèn nhạc nền vào video đã có sẵn (có hỗ trợ điều chỉnh âm lượng)
 async function addBackgroundMusic(inputVideoPath, musicPath, outputVideoPath, volume = 0.5, startTime = 0, endTime = null) {
   try {
+    console.log(`🎵 Đang thêm nhạc nền: ${musicPath}`);
+    console.log(`🔊 Âm lượng: ${volume}, Bắt đầu: ${startTime}s, Kết thúc: ${endTime || 'đến hết'}`);
+    
+    // Kiểm tra file nhạc có tồn tại không
+    if (!fs.existsSync(musicPath)) {
+      console.error(`❌ File nhạc không tồn tại: ${musicPath}`);
+      throw new Error(`File nhạc không tồn tại: ${musicPath}`);
+    }
+    
+    // Tạo file tạm cho nhạc đã cắt
+    const tempDir = path.dirname(outputVideoPath);
+    const tempMusicPath = path.join(tempDir, `temp_music_${Date.now()}.mp3`);
+    
     let cutCommand = '';
     if (endTime !== null && !isNaN(endTime)) {
       const duration = parseFloat(endTime) - parseFloat(startTime);
@@ -347,12 +360,38 @@ async function addBackgroundMusic(inputVideoPath, musicPath, outputVideoPath, vo
       cutCommand = `-ss ${startTime}`;
     }
 
-    const command = `ffmpeg -y -i "${inputVideoPath}" ${cutCommand} -i "${musicPath}" -filter_complex "[1:a]volume=${volume}[a1];"[0:a][a1]amix=inputs=2:duration=first:dropout_transition=3:weights=1 0.3[aout]" -map 0:v -map "[aout]" -c:v copy -shortest "${outputVideoPath}"`;
-    execSync(command, { stdio: 'inherit' });
+    // Bước 1: Cắt nhạc theo thời gian chỉ định
+    console.log('🔪 Cắt nhạc theo thời gian...');
+    const cutMusicCmd = `ffmpeg -y -i "${musicPath}" ${cutCommand} "${tempMusicPath}"`;
+    execSync(cutMusicCmd, { stdio: 'inherit' });
+    
+    // Bước 2: Kết hợp video với nhạc nền đã cắt
+    console.log('🔄 Kết hợp video với nhạc nền...');
+    const mixCommand = `ffmpeg -y -i "${inputVideoPath}" -i "${tempMusicPath}" -filter_complex "[1:a]volume=${volume}[a1];[0:a][a1]amix=inputs=2:duration=first[aout]" -map 0:v -map "[aout]" -c:v copy -shortest "${outputVideoPath}"`;
+    execSync(mixCommand, { stdio: 'inherit' });
+    
+    // Xóa file tạm
+    try {
+      fs.unlinkSync(tempMusicPath);
+    } catch (err) {
+      console.warn('⚠️ Không thể xóa file nhạc tạm:', err.message);
+    }
+    
+    console.log(`✅ Đã thêm nhạc nền thành công vào: ${outputVideoPath}`);
     return outputVideoPath;
   } catch (err) {
     console.error('❌ Lỗi khi chèn nhạc nền:', err);
-    throw err;
+    // Trả về video gốc nếu thất bại
+    console.log('⚠️ Trả về video gốc do không thêm được nhạc nền');
+    if (inputVideoPath !== outputVideoPath) {
+      try {
+        fs.copyFileSync(inputVideoPath, outputVideoPath);
+        console.log('✅ Đã sao chép video gốc thành đầu ra');
+      } catch (copyErr) {
+        console.error('❌ Không thể sao chép video gốc:', copyErr);
+      }
+    }
+    return inputVideoPath;
   }
 }
 
