@@ -53,15 +53,34 @@ function cleanText(text) {
   return text.trim();
 }
 
+// Hàm helper để lấy mô tả phong cách từ giá trị scriptStyle
+function getStyleDescription(style) {
+  switch(style) {
+    case 'humor':
+      return 'hài hước, vui nhộn, kể chuyện có đoạn kết thú vị';
+    case 'professional':
+      return 'chuyên nghiệp, trang trọng, uy tín, sử dụng từ ngữ lịch sự và chính xác';
+    case 'educational':
+      return 'giáo dục, mang tính học thuật, giảng dạy, giải thích chi tiết và dễ hiểu';
+    case 'emotional':
+      return 'cảm xúc, xúc động, tình cảm, đánh vào cảm xúc người xem';
+    case 'marketing':
+      return 'marketing, thu hút, thuyết phục, tạo cảm giác độc đáo và có giá trị';
+    default:
+      return 'tự nhiên, thông thường, như một cuộc trò chuyện bình thường';
+  }
+}
+
 // Hàm tạo kịch bản bằng Vertex AI với Gemini Pro
-const generateScriptByVertexAI = async (keyword, modelType = 'pro') => {
-  console.log(`🔍 Gọi Vertex AI (${modelType}) để tạo kịch bản với từ khóa: ${keyword}`);
+const generateScriptByVertexAI = async (keyword, modelType = 'pro', scriptStyle = 'natural') => {
+  console.log(`🔍 Gọi Vertex AI (${modelType}) để tạo kịch bản với từ khóa: ${keyword}, phong cách: ${scriptStyle}`);
   
   // Chọn model dựa trên modelType
   const model = getModelId(modelType);
   console.log(`📌 Sử dụng model: ${model}`);
   
   const cleanKeyword = cleanText(keyword);
+  const styleDescription = getStyleDescription(scriptStyle);
   
   try {
     // Đảm bảo keyword là chuỗi và không rỗng
@@ -79,14 +98,15 @@ Yêu cầu:
 - Hãy chia thành 7-10 phân cảnh khác nhau
 - Mỗi phân cảnh là một đoạn nội dung độc lập
 - QUAN TRỌNG: Mô tả hình ảnh phải khớp chính xác với nội dung lời thoại trong cùng phân cảnh
+- Phong cách viết phải là phong cách ${styleDescription}
 - Định dạng kịch bản phải tuân thủ nghiêm ngặt theo cấu trúc sau:
 
 PHẦN 1
-Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích]
+Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích, phong cách ${scriptStyle}]
 Hình ảnh: [Mô tả chi tiết hình ảnh minh họa trực quan cho chính xác nội dung lời thoại phần này]
 
 PHẦN 2
-Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích]
+Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích, phong cách ${scriptStyle}]
 Hình ảnh: [Mô tả chi tiết hình ảnh minh họa trực quan cho chính xác nội dung lời thoại phần này]
 
 [Và tương tự cho các phần còn lại]
@@ -98,9 +118,10 @@ Lưu ý:
 - Mỗi phân cảnh nên có nội dung ngắn gọn
 - Phải có phần mở đầu hấp dẫn và kết thúc kêu gọi hành động
 - Mỗi mô tả hình ảnh phải liên quan trực tiếp và khớp hoàn toàn với nội dung lời thoại tương ứng
+- Phong cách viết phải theo đúng phong cách: ${styleDescription}
 `;
 
-    console.log(`🤖 Đang gọi Vertex AI (${modelType}) để tạo kịch bản...`);
+    console.log(`🤖 Đang gọi Vertex AI (${modelType}) để tạo kịch bản với phong cách ${scriptStyle}...`);
     
     // Chuẩn bị auth
     if (!credentials) {

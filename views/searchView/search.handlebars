@@ -220,6 +220,18 @@
                 </div>
                 <div class="suggestions-container"></div>
               </div>
+              <div class="mb-3">
+                <label for="userScriptStyle" class="form-label">Phong cách kịch bản:</label>
+                <select class="form-select script-style-select" id="userScriptStyle" name="script_style_user">
+                  <option value="natural" selected>Tự nhiên</option>
+                  <option value="humor">Hài hước</option>
+                  <option value="professional">Chuyên nghiệp</option>
+                  <option value="educational">Giáo dục</option>
+                  <option value="emotional">Cảm xúc</option>
+                  <option value="marketing">Marketing</option>
+                </select>
+                <small class="text-muted">Chọn phong cách viết kịch bản phù hợp với nội dung của bạn</small>
+              </div>
               <div class="text-end">
                 <button type="button" class="btn btn-primary px-4" id="userSubmitBtn">
                   <i class="bi bi-magic me-2"></i>Sinh kịch bản
@@ -280,6 +292,18 @@
                     style="cursor: pointer; display: none;"><i class="bi bi-x"></i></span>
                 </div>
                 <div class="suggestions-container"></div>
+              </div>
+              <div class="mb-3">
+                <label for="webScriptStyle" class="form-label">Phong cách kịch bản:</label>
+                <select class="form-select script-style-select" id="webScriptStyle" name="script_style_web">
+                  <option value="natural" selected>Tự nhiên</option>
+                  <option value="humor">Hài hước</option>
+                  <option value="professional">Chuyên nghiệp</option>
+                  <option value="educational">Giáo dục</option>
+                  <option value="emotional">Cảm xúc</option>
+                  <option value="marketing">Marketing</option>
+                </select>
+                <small class="text-muted">Chọn phong cách viết kịch bản phù hợp với nội dung của bạn</small>
               </div>
               <div class="text-end">
                 <button type="button" class="btn btn-success px-4" id="webSubmitBtn">
@@ -385,6 +409,18 @@
                     style="cursor: pointer; display: none;"><i class="bi bi-x"></i></span>
                 </div>
                 <div class="suggestions-container"></div>
+              </div>
+              <div class="mb-3">
+                <label for="aiScriptStyle" class="form-label">Phong cách kịch bản:</label>
+                <select class="form-select script-style-select" id="aiScriptStyle" name="script_style_ai">
+                  <option value="natural" selected>Tự nhiên</option>
+                  <option value="humor">Hài hước</option>
+                  <option value="professional">Chuyên nghiệp</option>
+                  <option value="educational">Giáo dục</option>
+                  <option value="emotional">Cảm xúc</option>
+                  <option value="marketing">Marketing</option>
+                </select>
+                <small class="text-muted">Chọn phong cách viết kịch bản phù hợp với nội dung của bạn</small>
               </div>
               <div class="text-end">
                 <button type="submit" class="btn btn-danger px-4" id="aiSubmitBtn">
@@ -537,14 +573,19 @@
       const keyword = buttonElement.querySelector('span').innerText;
       const aiModelInput = document.getElementById('aiModelInput');
       const modelType = aiModelInput?.value || modelDefault || 'pro';
+      
+      // Lấy phong cách kịch bản đã chọn
+      const scriptStyleSelect = document.querySelector('.script-style-select:visible') || 
+                               document.getElementById('aiScriptStyle');
+      const scriptStyle = scriptStyleSelect?.value || 'natural';
 
-      console.log('Sinh kịch bản với từ khóa:', keyword, 'và model:', modelType);
+      console.log('Sinh kịch bản với từ khóa:', keyword, 'model:', modelType, 'phong cách:', scriptStyle);
 
       // Hiển thị spinner
       const loadingSpinner = document.getElementById('loadingSpinner');
       if (loadingSpinner) loadingSpinner.classList.remove('d-none');
 
-      // Gửi fetch request với model type
+      // Gửi fetch request với model type và phong cách
       fetch('/generate-script', {
         method: 'POST',
         headers: {
@@ -552,14 +593,15 @@
         },
         body: JSON.stringify({
           keyword: keyword,
-          ai_model: modelType
+          ai_model: modelType,
+          script_style: scriptStyle
         }),
       })
         .then(response => response.json())
         .then(data => {
           // Ẩn spinner
           if (loadingSpinner) loadingSpinner.classList.add('d-none');
-
+          
           const scriptContainer = document.getElementById('aiScriptContainer');
           const scriptContent = document.getElementById('aiScriptContent');
           const generateVideoWrapper = document.getElementById('generate-video-wrapper');
@@ -584,9 +626,9 @@
             alert('Lỗi: ' + (data.error || 'Không thể tạo kịch bản'));
           }
         })
-        .catch(error => {
+        .catch(err => {
           if (loadingSpinner) loadingSpinner.classList.add('d-none');
-          alert('Lỗi: ' + error.message);
+          alert('Lỗi: ' + err.message);
         });
     }
 
@@ -627,7 +669,10 @@
           // Lấy model AI từ input
           const aiModelValue = aiModelInput?.value || 'pro';
 
-          console.log('Đang gửi yêu cầu AI với từ khóa:', aiKeywordValue, 'và model:', aiModelValue);
+          // Lấy phong cách kịch bản
+          const scriptStyle = document.getElementById('aiScriptStyle')?.value || 'natural';
+
+          console.log('Đang gửi yêu cầu AI với từ khóa:', aiKeywordValue, 'và model:', aiModelValue, 'phong cách:', scriptStyle);
 
           // Tạo form mới và submit trực tiếp
           const tempForm = document.createElement('form');
@@ -660,6 +705,13 @@
           modelInput.name = 'ai_model';
           modelInput.value = aiModelValue;
           tempForm.appendChild(modelInput);
+
+          // Thêm input cho phong cách kịch bản
+          const scriptStyleInput = document.createElement('input');
+          scriptStyleInput.type = 'hidden';
+          scriptStyleInput.name = 'script_style';
+          scriptStyleInput.value = scriptStyle;
+          tempForm.appendChild(scriptStyleInput);
 
           // Thêm form vào body và submit
           document.body.appendChild(tempForm);
@@ -1027,6 +1079,9 @@
             return;
           }
 
+          // Lấy phong cách kịch bản
+          const scriptStyle = document.getElementById('userScriptStyle')?.value || 'natural';
+
           // Hiển thị loading
           loadingSpinner.classList.remove('d-none');
           scriptContainer.classList.add('d-none');
@@ -1036,7 +1091,10 @@
             const res = await fetch('/generate-script', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ keyword })
+              body: JSON.stringify({ 
+                keyword,
+                script_style: scriptStyle
+              })
             });
 
             const data = await res.json();
@@ -1067,6 +1125,9 @@
             return;
           }
 
+          // Lấy phong cách kịch bản
+          const scriptStyle = document.getElementById('webScriptStyle')?.value || 'natural';
+
           // Hiển thị loading
           loadingSpinner.classList.remove('d-none');
           scriptContainer.classList.add('d-none');
@@ -1076,7 +1137,10 @@
             const res = await fetch('/generate-script', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ keyword })
+              body: JSON.stringify({ 
+                keyword,
+                script_style: scriptStyle
+              })
             });
 
             const data = await res.json();
@@ -1150,6 +1214,10 @@
         btn.addEventListener('click', function () {
           const keyword = this.querySelector('span').innerText;
           const modelValue = aiModelInput?.value || 'pro';
+          
+          // Lấy phong cách kịch bản từ select box hiện tại
+          const visibleStyleSelect = document.querySelector('.search-options.active .script-style-select');
+          const scriptStyle = visibleStyleSelect?.value || 'natural';
 
           // Hiển thị spinner
           const loadingSpinner = document.getElementById('loadingSpinner');
@@ -1163,7 +1231,8 @@
             },
             body: JSON.stringify({
               keyword: keyword,
-              ai_model: modelValue
+              ai_model: modelValue,
+              script_style: scriptStyle
             }),
           })
             .then(response => response.json())

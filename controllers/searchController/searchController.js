@@ -219,9 +219,9 @@ const handleSearch = async (req, res) => {
 };
 
 const generateScript = async (req, res) => {
-  const { keyword, ai_model } = req.body;
+  const { keyword, ai_model, script_style } = req.body;
   
-  console.log('Generate script request:', { keyword, ai_model });
+  console.log('Generate script request:', { keyword, ai_model, script_style });
   
   // Đảm bảo keyword là chuỗi
   const processedKeyword = Array.isArray(keyword) ? keyword[0] : keyword;
@@ -231,22 +231,28 @@ const generateScript = async (req, res) => {
   if (['pro', 'flash', 'flash-lite', 'flash-2'].includes(ai_model)) {
     modelType = ai_model;
   }
+
+  // Xác định phong cách kịch bản
+  let scriptStyle = 'natural'; // Mặc định là tự nhiên
+  if (['natural', 'humor', 'professional', 'educational', 'emotional', 'marketing'].includes(script_style)) {
+    scriptStyle = script_style;
+  }
   
-  console.log(`Đã xử lý request, sẽ dùng model: ${modelType}`);
+  console.log(`Đã xử lý request, sẽ dùng model: ${modelType}, phong cách: ${scriptStyle}`);
   
   try {
     if (!processedKeyword || typeof processedKeyword !== 'string' || processedKeyword.trim() === '') {
       return res.json({ success: false, error: 'Từ khóa không được để trống.' });
     }
     
-    // Sử dụng Vertex AI để sinh kịch bản với model được chọn
+    // Sử dụng Vertex AI để sinh kịch bản với model được chọn và phong cách
     let script = '';
     let success = false;
     let errorMessage = '';
     
     try {
-      console.log(`🤖 Đang gọi Vertex AI (${modelType}) để tạo kịch bản...`);
-      script = await generateScriptByVertexAI(processedKeyword, modelType);
+      console.log(`🤖 Đang gọi Vertex AI (${modelType}) để tạo kịch bản với phong cách ${scriptStyle}...`);
+      script = await generateScriptByVertexAI(processedKeyword, modelType, scriptStyle);
       success = true;
       console.log(`✅ Đã sử dụng Vertex AI (${modelType}) thành công`);
     } catch (vertexError) {
@@ -256,7 +262,7 @@ const generateScript = async (req, res) => {
       // Phương pháp cuối cùng: Tạo kịch bản mẫu nếu Vertex AI thất bại
       console.log('⚠️ Vertex AI thất bại, tạo kịch bản mẫu');
       script = `
-# Kịch bản video về "${processedKeyword}"
+# Kịch bản video về "${processedKeyword}" (Phong cách: ${scriptStyle})
 
 ## Mở đầu (Hook)
 "Bạn đã bao giờ tự hỏi về ${processedKeyword}? Hôm nay mình sẽ chia sẻ những điều thú vị nhất về chủ đề này!"
@@ -279,7 +285,8 @@ const generateScript = async (req, res) => {
       res.json({
         success: true,
         script: script,
-        model: modelType
+        model: modelType,
+        style: scriptStyle
       });
     } else {
       res.json({
