@@ -98,6 +98,12 @@ Yêu cầu:
 - Hãy chia thành 7-10 phân cảnh khác nhau
 - Mỗi phân cảnh là một đoạn nội dung độc lập
 - QUAN TRỌNG: Mô tả hình ảnh phải khớp chính xác với nội dung lời thoại trong cùng phân cảnh
+- QUAN TRỌNG: Mô tả hình ảnh phải phù hợp với Imagen 4 của Google:
+  + Mô tả chi tiết, cụ thể và rõ ràng
+  + Tập trung vào các đối tượng chính trong ảnh
+  + Mô tả bố cục, màu sắc, và không gian
+  + Tránh các cấu trúc phức tạp và hướng dẫn quá chi tiết
+  + Không sử dụng ký hiệu đặc biệt, hashtag hay emoticon
 - Phong cách viết phải là phong cách ${styleDescription}
 - Định dạng kịch bản phải tuân thủ nghiêm ngặt theo cấu trúc sau:
 
@@ -118,6 +124,12 @@ Lưu ý:
 - Mỗi phân cảnh nên có nội dung ngắn gọn
 - Phải có phần mở đầu hấp dẫn và kết thúc kêu gọi hành động
 - Mỗi mô tả hình ảnh phải liên quan trực tiếp và khớp hoàn toàn với nội dung lời thoại tương ứng
+- Mô tả hình ảnh phải phù hợp với Imagen 4 của Google:
+  + Mô tả chi tiết, cụ thể và rõ ràng
+  + Tập trung vào các đối tượng chính trong ảnh
+  + Mô tả bố cục, màu sắc, và không gian
+  + Tránh các cấu trúc phức tạp và hướng dẫn quá chi tiết
+  + Không sử dụng ký hiệu đặc biệt, hashtag hay emoticon
 - Phong cách viết phải theo đúng phong cách: ${styleDescription}
 `;
 
@@ -186,6 +198,7 @@ Lưu ý:
       const shorterPrompt = `
 Viết kịch bản video ngắn dưới 60 giây cho chủ đề: "${cleanKeyword}".
 Gồm: Hook hấp dẫn, nội dung ngắn gọn và call-to-action.
+QUAN TRỌNG: Mô tả hình ảnh phải phù hợp với Imagen 4 của Google - chi tiết, rõ ràng và không dùng ký hiệu đặc biệt.
 `;
       
       // Chuẩn bị request body với prompt ngắn hơn
@@ -252,35 +265,35 @@ Kịch bản video về "${cleanKeyword}"
 
 PHẦN 1
 Lời thoại: Xin chào mọi người, hôm nay chúng ta sẽ cùng khám phá về ${cleanKeyword}!
-Hình ảnh: Hình ảnh người dẫn chương trình mỉm cười chào đón khán giả với biểu tượng ${cleanKeyword} hiển thị nổi bật phía sau
+Hình ảnh: Người dẫn chương trình trẻ trung, chuyên nghiệp, mặc trang phục hiện đại, đứng trước nền gradient sáng, mỉm cười tự tin nhìn vào camera, logo ${cleanKeyword} hiển thị rõ nét phía sau với hiệu ứng ánh sáng nhẹ xung quanh
 
 PHẦN 2
 Lời thoại: ${cleanKeyword} đang trở thành xu hướng hot nhất hiện nay và thu hút sự quan tâm của rất nhiều người.
-Hình ảnh: Biểu đồ tăng trưởng với đường cong đi lên, thể hiện sự phát triển của ${cleanKeyword}, kèm theo các biểu tượng thịnh hành và con số ấn tượng
+Hình ảnh: Biểu đồ 3D đẹp mắt với đường cong tăng trưởng màu xanh dương rõ nét đi lên, nền trắng sạch sẽ, các con số thống kê rõ ràng, biểu tượng ${cleanKeyword} nổi bật ở giữa, các icon xu hướng hiện đại xung quanh
 
 PHẦN 3
 Lời thoại: Điểm nổi bật đầu tiên của ${cleanKeyword} là khả năng giúp bạn cải thiện cuộc sống hàng ngày.
-Hình ảnh: Hình ảnh người dùng đang thực hiện các hoạt động hàng ngày với ${cleanKeyword}, vẻ mặt thoải mái và hài lòng
+Hình ảnh: Người dùng đa dạng về tuổi tác và sắc tộc, tươi cười hài lòng, đang sử dụng hoặc tương tác với ${cleanKeyword} trong môi trường sinh hoạt hàng ngày sáng sủa, ánh sáng tự nhiên, bố cục cân đối và rõ ràng
 
 PHẦN 4
 Lời thoại: Thứ hai, các chuyên gia khuyên dùng ${cleanKeyword} để tăng hiệu quả công việc lên đến 40%.
-Hình ảnh: Chuyên gia trong trang phục công sở đang giới thiệu và chỉ vào biểu đồ hiệu suất có ${cleanKeyword} được nhấn mạnh
+Hình ảnh: Chuyên gia nam hoặc nữ trong trang phục công sở chuyên nghiệp đứng cạnh màn hình trình chiếu hoặc bảng thông tin hiện đại, đang chỉ vào biểu đồ hiệu suất có con số 40% và biểu tượng ${cleanKeyword} được làm nổi bật bằng màu sắc tương phản
 
 PHẦN 5
 Lời thoại: Khảo sát gần đây cho thấy 80% người dùng ${cleanKeyword} đã cảm thấy hài lòng ngay từ lần đầu tiên.
-Hình ảnh: Biểu đồ tròn thể hiện tỷ lệ hài lòng 80%, với hình ảnh người dùng mỉm cười bên cạnh sản phẩm hoặc dịch vụ ${cleanKeyword}
+Hình ảnh: Biểu đồ tròn 3D chuyên nghiệp hiển thị 80% phân khúc màu xanh lá cây và 20% màu xám nhạt, bên cạnh là hình ảnh nhóm người dùng đa dạng đang mỉm cười, ngón tay cái giơ lên, ánh sáng tốt và bố cục cân đối
 
 PHẦN 6
 Lời thoại: Một điểm thú vị nữa là ${cleanKeyword} có thể kết hợp hoàn hảo với nhiều hoạt động khác nhau trong ngày.
-Hình ảnh: Chuỗi hình ảnh hiển thị ${cleanKeyword} được sử dụng trong nhiều tình huống khác nhau: tại nhà, nơi làm việc, khi đi du lịch
+Hình ảnh: Bố cục chia đôi hoặc lưới hình ảnh chất lượng cao hiển thị ${cleanKeyword} được sử dụng trong nhiều môi trường: văn phòng hiện đại với ánh sáng tự nhiên, ngôi nhà ấm cúng với chi tiết nội thất tinh tế, không gian ngoài trời đẹp mắt với màu sắc sống động
 
 PHẦN 7
 Lời thoại: Và đừng quên, ${cleanKeyword} đang được giảm giá đặc biệt trong tháng này!
-Hình ảnh: Hình ảnh khuyến mãi hấp dẫn với giá giảm và các nhãn "Giảm giá" hoặc "Ưu đãi đặc biệt" nổi bật bên cạnh ${cleanKeyword}
+Hình ảnh: Thiết kế khuyến mãi chuyên nghiệp với ${cleanKeyword} được trưng bày nổi bật, nhãn giảm giá màu đỏ tươi rực rỡ, hiệu ứng ánh sáng tinh tế làm nổi bật sản phẩm, bố cục rõ ràng với giá mới và giá cũ được hiển thị chuyên nghiệp
 
 PHẦN CUỐI
 Lời thoại: Nếu bạn thấy video này hữu ích, hãy like và follow để xem thêm nhiều nội dung thú vị về ${cleanKeyword} và các chủ đề khác nhé!
-Hình ảnh: Hình ảnh màn hình cuối video với nút like, subscribe nổi bật, cùng hình ảnh người dẫn chương trình mỉm cười vẫy tay chào tạm biệt
+Hình ảnh: Màn hình kết thúc video chuyên nghiệp với nút like, subscribe được thiết kế nổi bật bằng màu đỏ hoặc xanh, người dẫn chương trình mặc trang phục đẹp mắt đang mỉm cười thân thiện và vẫy tay chào tạm biệt, ánh sáng studio hoàn hảo
 `;
       } else {
         // Không tìm thấy nội dung, trả về một kịch bản mẫu
@@ -290,35 +303,35 @@ Kịch bản video về "${cleanKeyword}"
 
 PHẦN 1
 Lời thoại: Xin chào mọi người, hôm nay chúng ta sẽ cùng khám phá về ${cleanKeyword}!
-Hình ảnh: Hình ảnh người dẫn chương trình mỉm cười chào đón khán giả với biểu tượng ${cleanKeyword} hiển thị nổi bật phía sau
+Hình ảnh: Người dẫn chương trình trẻ trung, chuyên nghiệp, mặc trang phục hiện đại, đứng trước nền gradient sáng, mỉm cười tự tin nhìn vào camera, logo ${cleanKeyword} hiển thị rõ nét phía sau với hiệu ứng ánh sáng nhẹ xung quanh
 
 PHẦN 2
 Lời thoại: ${cleanKeyword} đang trở thành xu hướng hot nhất hiện nay và thu hút sự quan tâm của rất nhiều người.
-Hình ảnh: Biểu đồ tăng trưởng với đường cong đi lên, thể hiện sự phát triển của ${cleanKeyword}, kèm theo các biểu tượng thịnh hành và con số ấn tượng
+Hình ảnh: Biểu đồ 3D đẹp mắt với đường cong tăng trưởng màu xanh dương rõ nét đi lên, nền trắng sạch sẽ, các con số thống kê rõ ràng, biểu tượng ${cleanKeyword} nổi bật ở giữa, các icon xu hướng hiện đại xung quanh
 
 PHẦN 3
 Lời thoại: Điểm nổi bật đầu tiên của ${cleanKeyword} là khả năng giúp bạn cải thiện cuộc sống hàng ngày.
-Hình ảnh: Hình ảnh người dùng đang thực hiện các hoạt động hàng ngày với ${cleanKeyword}, vẻ mặt thoải mái và hài lòng
+Hình ảnh: Người dùng đa dạng về tuổi tác và sắc tộc, tươi cười hài lòng, đang sử dụng hoặc tương tác với ${cleanKeyword} trong môi trường sinh hoạt hàng ngày sáng sủa, ánh sáng tự nhiên, bố cục cân đối và rõ ràng
 
 PHẦN 4
 Lời thoại: Thứ hai, các chuyên gia khuyên dùng ${cleanKeyword} để tăng hiệu quả công việc lên đến 40%.
-Hình ảnh: Chuyên gia trong trang phục công sở đang giới thiệu và chỉ vào biểu đồ hiệu suất có ${cleanKeyword} được nhấn mạnh
+Hình ảnh: Chuyên gia nam hoặc nữ trong trang phục công sở chuyên nghiệp đứng cạnh màn hình trình chiếu hoặc bảng thông tin hiện đại, đang chỉ vào biểu đồ hiệu suất có con số 40% và biểu tượng ${cleanKeyword} được làm nổi bật bằng màu sắc tương phản
 
 PHẦN 5
 Lời thoại: Khảo sát gần đây cho thấy 80% người dùng ${cleanKeyword} đã cảm thấy hài lòng ngay từ lần đầu tiên.
-Hình ảnh: Biểu đồ tròn thể hiện tỷ lệ hài lòng 80%, với hình ảnh người dùng mỉm cười bên cạnh sản phẩm hoặc dịch vụ ${cleanKeyword}
+Hình ảnh: Biểu đồ tròn 3D chuyên nghiệp hiển thị 80% phân khúc màu xanh lá cây và 20% màu xám nhạt, bên cạnh là hình ảnh nhóm người dùng đa dạng đang mỉm cười, ngón tay cái giơ lên, ánh sáng tốt và bố cục cân đối
 
 PHẦN 6
 Lời thoại: Một điểm thú vị nữa là ${cleanKeyword} có thể kết hợp hoàn hảo với nhiều hoạt động khác nhau trong ngày.
-Hình ảnh: Chuỗi hình ảnh hiển thị ${cleanKeyword} được sử dụng trong nhiều tình huống khác nhau: tại nhà, nơi làm việc, khi đi du lịch
+Hình ảnh: Bố cục chia đôi hoặc lưới hình ảnh chất lượng cao hiển thị ${cleanKeyword} được sử dụng trong nhiều môi trường: văn phòng hiện đại với ánh sáng tự nhiên, ngôi nhà ấm cúng với chi tiết nội thất tinh tế, không gian ngoài trời đẹp mắt với màu sắc sống động
 
 PHẦN 7
 Lời thoại: Và đừng quên, ${cleanKeyword} đang được giảm giá đặc biệt trong tháng này!
-Hình ảnh: Hình ảnh khuyến mãi hấp dẫn với giá giảm và các nhãn "Giảm giá" hoặc "Ưu đãi đặc biệt" nổi bật bên cạnh ${cleanKeyword}
+Hình ảnh: Thiết kế khuyến mãi chuyên nghiệp với ${cleanKeyword} được trưng bày nổi bật, nhãn giảm giá màu đỏ tươi rực rỡ, hiệu ứng ánh sáng tinh tế làm nổi bật sản phẩm, bố cục rõ ràng với giá mới và giá cũ được hiển thị chuyên nghiệp
 
 PHẦN CUỐI
 Lời thoại: Nếu bạn thấy video này hữu ích, hãy like và follow để xem thêm nhiều nội dung thú vị về ${cleanKeyword} và các chủ đề khác nhé!
-Hình ảnh: Hình ảnh màn hình cuối video với nút like, subscribe nổi bật, cùng hình ảnh người dẫn chương trình mỉm cười vẫy tay chào tạm biệt
+Hình ảnh: Màn hình kết thúc video chuyên nghiệp với nút like, subscribe được thiết kế nổi bật bằng màu đỏ hoặc xanh, người dẫn chương trình mặc trang phục đẹp mắt đang mỉm cười thân thiện và vẫy tay chào tạm biệt, ánh sáng studio hoàn hảo
 `;
       }
     } else {

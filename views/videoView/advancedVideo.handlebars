@@ -7,10 +7,6 @@
         </div>
         <div class="card-body">
             <form id="video-form">
-                <div class="form-group mb-3">
-                    <label for="topic">Chủ đề:</label>
-                    <input type="text" class="form-control" id="topic" placeholder="Nhập chủ đề cho video">
-                </div>
                 
                 <div class="row">
                     <div class="col-md-8 mb-3">
@@ -60,13 +56,10 @@ Hình ảnh: ...
 
 (Để trống nếu muốn AI tạo kịch bản tự động từ chủ đề)"></textarea>
                     <div class="form-text">
-                        <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="check-script-btn">Kiểm tra định dạng kịch bản</button>
-                        <span id="script-validation-result" class="ms-2"></span>
                     </div>
                 </div>
                 
                 <button type="submit" class="btn btn-primary" id="generate-btn">Phân tích kịch bản</button>
-                <button type="button" class="btn btn-outline-info ms-2" id="check-setup-btn">Kiểm tra cài đặt</button>
             </form>
         </div>
     </div>
@@ -223,12 +216,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('video-form').addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        const topic = document.getElementById('topic').value;
         const script = document.getElementById('script').value;
         const voiceId = document.getElementById('voice').value;
         
-        if (!topic && !script) {
-            alert('Vui lòng nhập chủ đề hoặc kịch bản!');
+        if (!script) {
+            alert('Vui lòng nhập kịch bản!');
             return;
         }
         
@@ -245,7 +237,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    topic,
                     script,
                     voiceId,
                     aspectRatio: document.getElementById('aspect-ratio').value
@@ -281,91 +272,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Xử lý nút kiểm tra cài đặt
-    document.getElementById('check-setup-btn').addEventListener('click', async function() {
-        try {
-            const checkContainer = document.getElementById('setup-check-container');
-            const checkResults = document.getElementById('check-results');
-            
-            checkContainer.style.display = 'block';
-            checkResults.innerHTML = '<li class="list-group-item">Đang kiểm tra...</li>';
-            
-            const response = await fetch('/api/advanced-video/check-setup');
-            const data = await response.json();
-            
-            if (data.success) {
-                let resultsHtml = '';
-                
-                // Tạo danh sách kết quả kiểm tra
-                for (const [key, value] of Object.entries(data.checks)) {
-                    let itemClass = value ? 'list-group-item-success' : 'list-group-item-danger';
-                    let icon = value ? '✅' : '❌';
-                    let label = '';
-                    
-                    switch(key) {
-                        case 'ffmpeg':
-                            label = 'FFmpeg';
-                            break;
-                        case 'ffprobe':
-                            label = 'FFprobe';
-                            break;
-                        case 'googleCredentials':
-                            label = 'Google Text-to-Speech Credentials';
-                            break;
-                        case 'tempDir':
-                            label = 'Thư mục tạm thời';
-                            break;
-                        case 'videoDir':
-                            label = 'Thư mục lưu video';
-                            break;
-                    }
-                    
-                    resultsHtml += `<li class="list-group-item ${itemClass}">${icon} ${label}: ${value ? 'Đã cài đặt' : 'Chưa cài đặt'}</li>`;
-                }
-                
-                // Thêm kết luận tổng quát
-                if (data.allChecksPass) {
-                    resultsHtml += '<li class="list-group-item list-group-item-success">✅ Tất cả các yêu cầu đã được đáp ứng. Bạn có thể tạo video!</li>';
-                } else {
-                    resultsHtml += '<li class="list-group-item list-group-item-danger">❌ Một số yêu cầu chưa được đáp ứng. Xem chi tiết ở trên.</li>';
-                }
-                
-                checkResults.innerHTML = resultsHtml;
-                
-                // Cuộn đến kết quả
-                checkContainer.scrollIntoView({ behavior: 'smooth' });
-            } else {
-                checkResults.innerHTML = `<li class="list-group-item list-group-item-danger">❌ Lỗi khi kiểm tra: ${data.error}</li>`;
-            }
-        } catch (error) {
-            console.error('Lỗi khi kiểm tra cài đặt:', error);
-            document.getElementById('check-results').innerHTML = `<li class="list-group-item list-group-item-danger">❌ Lỗi khi kiểm tra: ${error.message}</li>`;
-        }
-    });
-    
-    // Kiểm tra định dạng kịch bản
-    document.getElementById('check-script-btn').addEventListener('click', function() {
-        const script = document.getElementById('script').value.trim();
-        const resultElement = document.getElementById('script-validation-result');
-        
-        if (!script) {
-            resultElement.innerHTML = '<span class="text-warning">⚠️ Kịch bản trống</span>';
-            return;
-        }
-        
-        // Sử dụng regex để tìm các phần trong kịch bản (hỗ trợ cả định dạng mới và cũ)
-        const partRegex = /((?:##?\s*)?PHẦN\s+(\d+|CUỐI|1:\s*HOOK)[\s\S]*?)(?:(?:\*\*)?Lời\s*thoại:?(?:\*\*)?\s*)([\s\S]*?)(?:(?:(?:\*\*)?Hình\s*ảnh:?(?:\*\*)?\s*)([\s\S]*?))?(?=\s*(?:(?:##?\s*)?PHẦN|\s*(?:##?\s*)?PHẦN CUỐI)|\s*$)/gi;
-        
-        const matches = [...script.matchAll(partRegex)];
-        
-        if (matches.length > 0) {
-            resultElement.innerHTML = `<span class="text-success">✅ Định dạng hợp lệ! Tìm thấy ${matches.length} phần trong kịch bản</span>`;
-        } else {
-            resultElement.innerHTML = '<span class="text-danger">❌ Định dạng không hợp lệ! Kịch bản phải có dạng:<br/>' +
-                '<code>PHẦN 1<br/>Lời thoại: Nội dung giọng đọc ngắn gọn<br/>Hình ảnh: Mô tả chi tiết hình ảnh minh họa</code></span>';
-        }
-    });
-
     // Xử lý nút Debug Chi Tiết
     document.getElementById('debug-btn').addEventListener('click', async function() {
         try {

@@ -229,58 +229,58 @@ async function downloadImagesForKeywords(keywords, tempDir) {
 
   const imageFiles = [];
 
-  // Tạo ảnh cho từng từ khóa bằng imageController API
-  for (const keyword of keywords) {
-    try {
-      console.log(`🖼️ Đang tạo ảnh cho từ khóa: ${keyword}`);
+  try {
+    // Kết hợp các từ khóa thành một prompt duy nhất
+    const prompt = keywords.join(', ');
+    console.log(`🖼️ Đang tạo ảnh với prompt: ${prompt}`);
 
-      // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 15 giây)
-      await new Promise(resolve => setTimeout(resolve, 15000));
+    // Thêm độ trễ trước khi gọi API để tránh rate limit
+    console.log('⏳ Đang chờ 3 giây trước khi gọi API Imagen...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
-      // Lấy thông tin tỉ lệ khung hình từ session nếu có
-      const aspectRatio = req.session?.videoPreparation?.aspectRatio || '16:9';
+    // Lấy thông tin tỉ lệ khung hình phù hợp
+    const aspectRatio = '16:9'; // Mặc định
 
-      // Gọi API imageController để tạo ảnh với tỉ lệ khung hình phù hợp
-      const response = await axios.post('http://localhost:3000/api/image/generate', {
-        prompt: keyword,
-        modelType: 'standard', // Có thể chọn 'ultra', 'standard', hoặc 'fast' tùy nhu cầu
-        imageCount: 1,
-        aspectRatio: aspectRatio
+    // Gọi API imageController để tạo ảnh
+    const response = await axios.post('http://localhost:3000/api/image/generate', {
+      prompt: prompt,
+      modelType: 'standard',
+      imageCount: 1,
+      aspectRatio: aspectRatio
+    });
+
+    if (response.data.success && response.data.images && response.data.images.length > 0) {
+      // Lưu ảnh vào thư mục tạm
+      const filePath = path.join(tempDir, `image_${Date.now()}.jpg`);
+
+      // Kiểm tra loại dữ liệu hình ảnh trả về
+      if (response.data.images[0].type === 'base64') {
+        // Nếu là dữ liệu base64, chuyển thành file
+        fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
+      } else if (response.data.images[0].type === 'url') {
+        // Nếu là URL, tải file về
+        const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
+        fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
+      }
+
+      // Thêm vào danh sách ảnh đã tạo
+      imageFiles.push({
+        keyword: prompt,
+        path: filePath
       });
 
-      if (response.data.success && response.data.images && response.data.images.length > 0) {
-        // Lưu ảnh vào thư mục tạm
-        const filePath = path.join(tempDir, `${keyword.replace(/\s+/g, '_')}_${Date.now()}.jpg`);
-
-        // Kiểm tra loại dữ liệu hình ảnh trả về
-        if (response.data.images[0].type === 'base64') {
-          // Nếu là dữ liệu base64, chuyển thành file
-          fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
-        } else if (response.data.images[0].type === 'url') {
-          // Nếu là URL, tải file về
-          const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
-          fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
-        }
-
-        // Thêm vào danh sách ảnh đã tạo
-        imageFiles.push({
-          keyword,
-          path: filePath
-        });
-
-        console.log(`✅ Đã tạo thành công ảnh cho từ khóa: ${keyword}`);
-      } else {
-        throw new Error('Không nhận được ảnh từ imageController API');
-      }
-    } catch (error) {
-      console.error(`❌ Lỗi khi tạo ảnh cho từ khóa ${keyword}:`, error.message);
-      // Không sử dụng phương pháp dự phòng, chỉ ghi log lỗi và tiếp tục với từ khóa tiếp theo
+      console.log(`✅ Đã tạo thành công ảnh với prompt: ${prompt}`);
+    } else {
+      throw new Error('Không nhận được ảnh từ imageController API');
     }
+  } catch (error) {
+    console.error(`❌ Lỗi khi tạo ảnh:`, error.message);
+    // Không sử dụng phương pháp dự phòng, chỉ ghi log lỗi
   }
 
   // Nếu không tạo được ảnh nào, sử dụng ảnh mặc định từ thư mục public/image
   if (imageFiles.length === 0) {
-    console.log('⚠️ Sử dụng ảnh mặc định do không tạo được ảnh từ từ khóa');
+    console.log('⚠️ Sử dụng ảnh mặc định do không tạo được ảnh từ prompt');
     const defaultImages = [
       path.join(__dirname, '../../public/image/image1.png'),
       path.join(__dirname, '../../public/image/image2.png')
@@ -309,35 +309,90 @@ async function downloadImagesForScriptParts(scriptParts, tempDir) {
   for (const part of scriptParts) {
     // Sử dụng mô tả hình ảnh nếu có
     if (part.image && part.image.trim() !== '') {
-      const keywords = extractKeywordsFromDescription(part.image);
-
-      if (keywords.length > 0) {
-        const images = await downloadImagesForKeywords(keywords, tempDir);
-        if (images.length > 0) {
+      // Sử dụng toàn bộ mô tả hình ảnh thay vì chỉ trích xuất từ khóa
+      const imagePrompt = part.image.trim();
+      console.log(`📝 Sử dụng mô tả hình ảnh đầy đủ: "${imagePrompt}"`);
+      
+      // Thêm độ trễ trước khi gọi API để tránh rate limit
+      console.log('⏳ Đang chờ 3 giây trước khi gọi API Imagen...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Lấy thông tin tỉ lệ khung hình
+      const aspectRatio = '16:9'; // Mặc định
+      
+      try {
+        // Gọi API imageController để tạo ảnh
+        const response = await axios.post('http://localhost:3000/api/image/generate', {
+          prompt: imagePrompt,
+          modelType: 'standard',
+          imageCount: 1,
+          aspectRatio: aspectRatio
+        });
+        
+        if (response.data.success && response.data.images && response.data.images.length > 0) {
+          // Lưu ảnh vào thư mục tạm
+          const filePath = path.join(tempDir, `part_${part.index}_${Date.now()}.jpg`);
+          
+          // Kiểm tra loại dữ liệu hình ảnh trả về
+          if (response.data.images[0].type === 'base64') {
+            fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
+          } else if (response.data.images[0].type === 'url') {
+            const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
+            fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
+          }
+          
           results.push({
             ...part,
-            imagePath: images[0].path
+            imagePath: filePath
           });
+          console.log(`✅ Đã tạo thành công ảnh cho phần ${part.index}`);
           continue;
         }
+      } catch (error) {
+        console.error(`❌ Lỗi khi tạo ảnh cho phần ${part.index}:`, error.message);
+        // Tiếp tục với phương pháp dự phòng
       }
     }
 
-    // Nếu không có mô tả hoặc không tìm được ảnh, dùng văn bản để trích xuất từ khóa
-    const textKeywords = part.text
-      .split(/\s+/)
-      .filter(word => word.length > 4)
-      .filter(word => !['như', 'nhưng', 'hoặc', 'những', 'được', 'trong', 'cùng'].includes(word.toLowerCase()))
-      .slice(0, 2);
-
-    if (textKeywords.length > 0) {
-      const images = await downloadImagesForKeywords(textKeywords, tempDir);
-      if (images.length > 0) {
-        results.push({
-          ...part,
-          imagePath: images[0].path
+    // Nếu không có mô tả hoặc không tạo được ảnh, dùng văn bản để tạo prompt
+    const textPrompt = part.text
+      .split('.')
+      .filter(sentence => sentence.trim().length > 10)[0]; // Lấy câu đầu tiên có độ dài hợp lý
+      
+    if (textPrompt) {
+      console.log(`📝 Tạo ảnh từ văn bản: "${textPrompt}"`);
+      
+      // Thêm độ trễ trước khi gọi API
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      try {
+        // Gọi API tạo ảnh
+        const response = await axios.post('http://localhost:3000/api/image/generate', {
+          prompt: textPrompt,
+          modelType: 'standard',
+          imageCount: 1,
+          aspectRatio: '16:9'
         });
-        continue;
+        
+        if (response.data.success && response.data.images && response.data.images.length > 0) {
+          const filePath = path.join(tempDir, `part_${part.index}_text_${Date.now()}.jpg`);
+          
+          if (response.data.images[0].type === 'base64') {
+            fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
+          } else if (response.data.images[0].type === 'url') {
+            const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
+            fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
+          }
+          
+          results.push({
+            ...part,
+            imagePath: filePath
+          });
+          console.log(`✅ Đã tạo thành công ảnh từ văn bản cho phần ${part.index}`);
+          continue;
+        }
+      } catch (error) {
+        console.error(`❌ Lỗi khi tạo ảnh từ văn bản cho phần ${part.index}:`, error.message);
       }
     }
 
@@ -350,17 +405,25 @@ async function downloadImagesForScriptParts(scriptParts, tempDir) {
 
   // Nếu không có ảnh cho bất kỳ phần nào, tải một số ảnh mặc định
   if (results.every(r => !r.imagePath)) {
-    const defaultImages = await downloadImagesForKeywords(['presentation', 'background', 'minimal'], tempDir);
+    console.log('⚠️ Sử dụng ảnh mặc định cho tất cả các phần');
+    const defaultImages = [
+      path.join(__dirname, '../../public/image/image1.png'),
+      path.join(__dirname, '../../public/image/image2.png'),
+      path.join(__dirname, '../../public/image/image3.png')
+    ];
 
     // Gán ảnh mặc định cho các phần
     for (let i = 0; i < results.length; i++) {
       const imgIndex = i % defaultImages.length;
-      results[i].imagePath = defaultImages[imgIndex]?.path || null;
+      if (defaultImages[imgIndex] && fs.existsSync(defaultImages[imgIndex])) {
+        results[i].imagePath = defaultImages[imgIndex];
+      }
     }
   }
 
   return results;
 }
+
 // Thêm hàm lấy thời lượng audio bằng ffprobe
 function getAudioDuration(audioPath) {
   try {
@@ -597,7 +660,7 @@ const generateAdvancedVideo = async (req, res) => {
 
     // Tải hình ảnh cho từng phần
     console.log('🖼️ Tải hình ảnh cho kịch bản...');
-    const scriptPartsWithMedia = await downloadImagesForScriptParts(scriptPartsWithAudio, tempDir);
+    const scriptPartsWithMedia = await downloadImagesForScriptParts(scriptParts, tempDir);
     console.log(`✅ Đã tải ${scriptPartsWithMedia.filter(p => p.imagePath).length} hình ảnh`);
 
     if (scriptPartsWithMedia.filter(p => p.imagePath).length === 0) {
@@ -785,6 +848,7 @@ const prepareVideoScript = async (req, res) => {
     });
   }
 };
+
 async function addMusicToVideo(inputVideoPath, outputVideoPath, music, musicVolume, musicStartTime, musicEndTime, outputDir) {
   try {
     const musicPath = path.join(__dirname, '../../public/music', music);
@@ -844,10 +908,10 @@ const generateImageForPart = async (req, res) => {
     // Nếu không có prompt tùy chỉnh, sử dụng mô tả hình ảnh hoặc trích xuất từ văn bản
     if (!imagePrompt) {
       if (part.image && part.image.trim() !== '') {
-        const keywords = extractKeywordsFromDescription(part.image);
-        imagePrompt = keywords.join(', ');
+        // Sử dụng toàn bộ lời mô tả hình ảnh thay vì chỉ trích xuất từ khóa
+        imagePrompt = part.image.trim();
       } else {
-        // Trích xuất từ khóa từ văn bản
+        // Trích xuất từ khóa từ văn bản nếu không có mô tả hình ảnh
         const textKeywords = part.text
           .split(/\s+/)
           .filter(word => word.length > 4)
@@ -870,6 +934,10 @@ const generateImageForPart = async (req, res) => {
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
+    // Thêm độ trễ trước khi gọi API để tránh rate limit
+    console.log('⏳ Đang chờ 3 giây trước khi gọi API Imagen...');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
     // Tạo hình ảnh bằng API
     const response = await axios.post('http://localhost:3000/api/image/generate', {
       prompt: enhancedPrompt,
@@ -1316,16 +1384,14 @@ const createFinalVideo = async (req, res) => {
       || req.user?.id_nguoidung
       || null;
     await videoModel.insertVideo({
-      filename, firebaseKey, publicUrl, sizeMb,
-      title, script, userId
+      filename: videoFileName,
+      firebaseKey: firebaseKey,
+      publicUrl: publicUrl,
+      sizeMb: sizeMb,
+      title: topic || 'Video hoàn thiện',
+      script: script || null,
+      userId
     });
-
-    //fs.copyFileSync(subtitledOutputTemp, outputPath);
-    // === Thêm nhạc nền nếu có chọn ===
-    if (music) {
-      await addMusicToVideo(outputPath, outputPath, music, musicVolume, musicStartTime, musicEndTime, outputDir);
-    }
-
 
     /* ------------------------------------------------
        6. DỌN FILE TẠM & TRẢ KẾT QUẢ
