@@ -229,58 +229,58 @@ async function downloadImagesForKeywords(keywords, tempDir) {
 
   const imageFiles = [];
 
-  try {
-    // Kết hợp các từ khóa thành một prompt duy nhất
-    const prompt = keywords.join(', ');
-    console.log(`🖼️ Đang tạo ảnh với prompt: ${prompt}`);
+  // Tạo ảnh cho từng từ khóa bằng imageController API
+  for (const keyword of keywords) {
+    try {
+      console.log(`🖼️ Đang tạo ảnh cho từ khóa: ${keyword}`);
 
-    // Thêm độ trễ trước khi gọi API để tránh rate limit
-    console.log('⏳ Đang chờ 3 giây trước khi gọi API Imagen...');
-    await new Promise(resolve => setTimeout(resolve, 3000));
+      // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 15 giây)
+      await new Promise(resolve => setTimeout(resolve, 15000));
 
-    // Lấy thông tin tỉ lệ khung hình phù hợp
-    const aspectRatio = '16:9'; // Mặc định
+      // Lấy thông tin tỉ lệ khung hình từ session nếu có
+      const aspectRatio = req.session?.videoPreparation?.aspectRatio || '16:9';
 
-    // Gọi API imageController để tạo ảnh
-    const response = await axios.post('http://localhost:3000/api/image/generate', {
-      prompt: prompt,
-      modelType: 'standard',
-      imageCount: 1,
-      aspectRatio: aspectRatio
-    });
-
-    if (response.data.success && response.data.images && response.data.images.length > 0) {
-      // Lưu ảnh vào thư mục tạm
-      const filePath = path.join(tempDir, `image_${Date.now()}.jpg`);
-
-      // Kiểm tra loại dữ liệu hình ảnh trả về
-      if (response.data.images[0].type === 'base64') {
-        // Nếu là dữ liệu base64, chuyển thành file
-        fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
-      } else if (response.data.images[0].type === 'url') {
-        // Nếu là URL, tải file về
-        const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
-        fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
-      }
-
-      // Thêm vào danh sách ảnh đã tạo
-      imageFiles.push({
-        keyword: prompt,
-        path: filePath
+      // Gọi API imageController để tạo ảnh với tỉ lệ khung hình phù hợp
+      const response = await axios.post('http://localhost:3000/api/image/generate', {
+        prompt: keyword,
+        modelType: 'standard', // Có thể chọn 'ultra', 'standard', hoặc 'fast' tùy nhu cầu
+        imageCount: 1,
+        aspectRatio: aspectRatio
       });
 
-      console.log(`✅ Đã tạo thành công ảnh với prompt: ${prompt}`);
-    } else {
-      throw new Error('Không nhận được ảnh từ imageController API');
+      if (response.data.success && response.data.images && response.data.images.length > 0) {
+        // Lưu ảnh vào thư mục tạm
+        const filePath = path.join(tempDir, `${keyword.replace(/\s+/g, '_')}_${Date.now()}.jpg`);
+
+        // Kiểm tra loại dữ liệu hình ảnh trả về
+        if (response.data.images[0].type === 'base64') {
+          // Nếu là dữ liệu base64, chuyển thành file
+          fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
+        } else if (response.data.images[0].type === 'url') {
+          // Nếu là URL, tải file về
+          const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
+          fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
+        }
+
+        // Thêm vào danh sách ảnh đã tạo
+        imageFiles.push({
+          keyword,
+          path: filePath
+        });
+
+        console.log(`✅ Đã tạo thành công ảnh cho từ khóa: ${keyword}`);
+      } else {
+        throw new Error('Không nhận được ảnh từ imageController API');
+      }
+    } catch (error) {
+      console.error(`❌ Lỗi khi tạo ảnh cho từ khóa ${keyword}:`, error.message);
+      // Không sử dụng phương pháp dự phòng, chỉ ghi log lỗi và tiếp tục với từ khóa tiếp theo
     }
-  } catch (error) {
-    console.error(`❌ Lỗi khi tạo ảnh:`, error.message);
-    // Không sử dụng phương pháp dự phòng, chỉ ghi log lỗi
   }
 
   // Nếu không tạo được ảnh nào, sử dụng ảnh mặc định từ thư mục public/image
   if (imageFiles.length === 0) {
-    console.log('⚠️ Sử dụng ảnh mặc định do không tạo được ảnh từ prompt');
+    console.log('⚠️ Sử dụng ảnh mặc định do không tạo được ảnh từ từ khóa');
     const defaultImages = [
       path.join(__dirname, '../../public/image/image1.png'),
       path.join(__dirname, '../../public/image/image2.png')
@@ -309,90 +309,35 @@ async function downloadImagesForScriptParts(scriptParts, tempDir) {
   for (const part of scriptParts) {
     // Sử dụng mô tả hình ảnh nếu có
     if (part.image && part.image.trim() !== '') {
-      // Sử dụng toàn bộ mô tả hình ảnh thay vì chỉ trích xuất từ khóa
-      const imagePrompt = part.image.trim();
-      console.log(`📝 Sử dụng mô tả hình ảnh đầy đủ: "${imagePrompt}"`);
-      
-      // Thêm độ trễ trước khi gọi API để tránh rate limit
-      console.log('⏳ Đang chờ 3 giây trước khi gọi API Imagen...');
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Lấy thông tin tỉ lệ khung hình
-      const aspectRatio = '16:9'; // Mặc định
-      
-      try {
-        // Gọi API imageController để tạo ảnh
-        const response = await axios.post('http://localhost:3000/api/image/generate', {
-          prompt: imagePrompt,
-          modelType: 'standard',
-          imageCount: 1,
-          aspectRatio: aspectRatio
-        });
-        
-        if (response.data.success && response.data.images && response.data.images.length > 0) {
-          // Lưu ảnh vào thư mục tạm
-          const filePath = path.join(tempDir, `part_${part.index}_${Date.now()}.jpg`);
-          
-          // Kiểm tra loại dữ liệu hình ảnh trả về
-          if (response.data.images[0].type === 'base64') {
-            fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
-          } else if (response.data.images[0].type === 'url') {
-            const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
-            fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
-          }
-          
+      const keywords = extractKeywordsFromDescription(part.image);
+
+      if (keywords.length > 0) {
+        const images = await downloadImagesForKeywords(keywords, tempDir);
+        if (images.length > 0) {
           results.push({
             ...part,
-            imagePath: filePath
+            imagePath: images[0].path
           });
-          console.log(`✅ Đã tạo thành công ảnh cho phần ${part.index}`);
           continue;
         }
-      } catch (error) {
-        console.error(`❌ Lỗi khi tạo ảnh cho phần ${part.index}:`, error.message);
-        // Tiếp tục với phương pháp dự phòng
       }
     }
 
-    // Nếu không có mô tả hoặc không tạo được ảnh, dùng văn bản để tạo prompt
-    const textPrompt = part.text
-      .split('.')
-      .filter(sentence => sentence.trim().length > 10)[0]; // Lấy câu đầu tiên có độ dài hợp lý
-      
-    if (textPrompt) {
-      console.log(`📝 Tạo ảnh từ văn bản: "${textPrompt}"`);
-      
-      // Thêm độ trễ trước khi gọi API
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      try {
-        // Gọi API tạo ảnh
-        const response = await axios.post('http://localhost:3000/api/image/generate', {
-          prompt: textPrompt,
-          modelType: 'standard',
-          imageCount: 1,
-          aspectRatio: '16:9'
+    // Nếu không có mô tả hoặc không tìm được ảnh, dùng văn bản để trích xuất từ khóa
+    const textKeywords = part.text
+      .split(/\s+/)
+      .filter(word => word.length > 4)
+      .filter(word => !['như', 'nhưng', 'hoặc', 'những', 'được', 'trong', 'cùng'].includes(word.toLowerCase()))
+      .slice(0, 2);
+
+    if (textKeywords.length > 0) {
+      const images = await downloadImagesForKeywords(textKeywords, tempDir);
+      if (images.length > 0) {
+        results.push({
+          ...part,
+          imagePath: images[0].path
         });
-        
-        if (response.data.success && response.data.images && response.data.images.length > 0) {
-          const filePath = path.join(tempDir, `part_${part.index}_text_${Date.now()}.jpg`);
-          
-          if (response.data.images[0].type === 'base64') {
-            fs.writeFileSync(filePath, Buffer.from(response.data.images[0].imageData, 'base64'));
-          } else if (response.data.images[0].type === 'url') {
-            const imgResponse = await axios.get(response.data.images[0].imageData, { responseType: 'arraybuffer' });
-            fs.writeFileSync(filePath, Buffer.from(imgResponse.data));
-          }
-          
-          results.push({
-            ...part,
-            imagePath: filePath
-          });
-          console.log(`✅ Đã tạo thành công ảnh từ văn bản cho phần ${part.index}`);
-          continue;
-        }
-      } catch (error) {
-        console.error(`❌ Lỗi khi tạo ảnh từ văn bản cho phần ${part.index}:`, error.message);
+        continue;
       }
     }
 
@@ -405,25 +350,17 @@ async function downloadImagesForScriptParts(scriptParts, tempDir) {
 
   // Nếu không có ảnh cho bất kỳ phần nào, tải một số ảnh mặc định
   if (results.every(r => !r.imagePath)) {
-    console.log('⚠️ Sử dụng ảnh mặc định cho tất cả các phần');
-    const defaultImages = [
-      path.join(__dirname, '../../public/image/image1.png'),
-      path.join(__dirname, '../../public/image/image2.png'),
-      path.join(__dirname, '../../public/image/image3.png')
-    ];
+    const defaultImages = await downloadImagesForKeywords(['presentation', 'background', 'minimal'], tempDir);
 
     // Gán ảnh mặc định cho các phần
     for (let i = 0; i < results.length; i++) {
       const imgIndex = i % defaultImages.length;
-      if (defaultImages[imgIndex] && fs.existsSync(defaultImages[imgIndex])) {
-        results[i].imagePath = defaultImages[imgIndex];
-      }
+      results[i].imagePath = defaultImages[imgIndex]?.path || null;
     }
   }
 
   return results;
 }
-
 // Thêm hàm lấy thời lượng audio bằng ffprobe
 function getAudioDuration(audioPath) {
   try {
@@ -457,119 +394,183 @@ function generateSrtFile(parts, srtPath) {
   fs.writeFileSync(srtPath, srtContent, 'utf8');
 }
 
-/**
- * Tạo video từ hình ảnh và âm thanh sử dụng FFmpeg
- */
-async function createVideoWithAudio(scriptPartsWithMedia, outputPath, aspectRatio = '16:9', music = null, musicVolume = 0.3, musicStartTime = 0, musicEndTime = null) {
-  try {
-    console.log('🎬 Bắt đầu tạo video với FFmpeg...');
-    console.log(`📂 Đường dẫn xuất: ${outputPath}`);
-    console.log(`🧩 Số phần media: ${scriptPartsWithMedia.length}`);
-    console.log(`🧩 Số phần có đủ media: ${scriptPartsWithMedia.filter(p => p.imagePath && p.audioPath).length}`);
+//Tạo video từ hình ảnh và âm thanh sử dụng FFmpeg
 
-    const outputDir = path.dirname(outputPath);
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
+const ffprobe = require('fluent-ffmpeg');
+async function renderZoomFrames(
+  imagePath,
+  outDir,
+  zoomStart,
+  zoomEnd,
+  duration,
+  fps = 30,
+  targetWidth = 1920,
+  targetHeight = 1080
+) {
+  const totalFrames = Math.floor(duration * fps);
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-    scriptPartsWithMedia.forEach((part, index) => {
-      if (part.audioPath && !part.imagePath) {
-        part.imagePath = path.join(__dirname, '../../public/image/image1.png');
-        console.log(`⚠️ Sử dụng ảnh mặc định cho phần ${index + 1} do không có ảnh`);
-      }
-    });
+  // Đảm bảo ảnh gốc có size đủ lớn trước khi zoom bằng cách scale về tỉ lệ phù hợp
+  const getInitialScaleFactor = (imageWidth, imageHeight) => {
+    const scaleW = targetWidth / imageWidth;
+    const scaleH = targetHeight / imageHeight;
+    return Math.max(scaleW, scaleH);
+  };
 
-    const validParts = scriptPartsWithMedia.filter(part => part.imagePath && part.audioPath);
-    if (validParts.length === 0) throw new Error('Không có đủ media để tạo video');
+  // Lấy kích thước ảnh gốc
+  const probeImageSize = () => {
+    const output = execSync(`ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "${imagePath}"`).toString();
+    const [w, h] = output.trim().split('x').map(Number);
+    return { w, h };
+  };
 
-    const segmentListPath = path.join(outputDir, 'segment_list.txt');
-    let segmentsList = '';
-    const segments = [];
+  const { w: imageWidth, h: imageHeight } = probeImageSize();
+  const baseScale = getInitialScaleFactor(imageWidth, imageHeight);
 
-    for (let i = 0; i < validParts.length; i++) {
-      const part = validParts[i];
-      const segmentPath = path.join(outputDir, `segment_${i}.mp4`);
-      segments.push(segmentPath);
+  for (let i = 0; i < totalFrames; i++) {
+    const t = i / totalFrames;
+    const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // easeInOutQuad
+    const zoom = zoomStart + (zoomEnd - zoomStart) * eased;
 
-      let segmentSettings = '';
-      switch (aspectRatio) {
-        case '9:16':
-          segmentSettings = '-vf "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2"';
-          break;
-        case '1:1':
-          segmentSettings = '-vf "scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2"';
-          break;
-        case '4:3':
-          segmentSettings = '-vf "scale=1440:1080:force_original_aspect_ratio=decrease,pad=1440:1080:(ow-iw)/2:(oh-ih)/2"';
-          break;
-        default:
-          segmentSettings = '-vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2"';
-      }
+    // scale tổng: đảm bảo ảnh đủ lớn rồi mới zoom
+    const scaleFactor = baseScale * zoom;
 
-      const cmd = `ffmpeg -y -loop 1 -i "${part.imagePath}" -i "${part.audioPath}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -af "volume=1.0" ${segmentSettings} -pix_fmt yuv420p -shortest "${segmentPath}"`;
-      execSync(cmd, { stdio: 'inherit' });
-      segmentsList += `file '${segmentPath.replace(/\\/g, '/')}'\n`;
-    }
+    const vf = `scale=iw*${scaleFactor}:ih*${scaleFactor},` +
+               `crop=${targetWidth}:${targetHeight}:(iw-${targetWidth})/2:(ih-${targetHeight})/2`;
 
-    fs.writeFileSync(segmentListPath, segmentsList);
-
-    let videoSettings = '';
-    switch (aspectRatio) {
-      case '9:16':
-        videoSettings = '-s 1080x1920';
-        break;
-      case '1:1':
-        videoSettings = '-s 1080x1080';
-        break;
-      case '4:3':
-        videoSettings = '-s 1440x1080';
-        break;
-      default:
-        videoSettings = '-s 1920x1080';
-    }
-
-    const concatCommand = `ffmpeg -y -f concat -safe 0 -i "${segmentListPath}" -c:a copy ${videoSettings} "${outputPath}"`;
-    execSync(concatCommand, { stdio: 'inherit' });
-
-    const srtPath = path.join(outputDir, 'subtitles.srt');
-    generateSrtFile(validParts, srtPath);
-
-    const subtitleDir = path.join(outputDir, 'subtitles');
-    if (!fs.existsSync(subtitleDir)) fs.mkdirSync(subtitleDir, { recursive: true });
-
-    const srtTempPath = path.join(subtitleDir, `subtitles_${Date.now()}.srt`);
-    const srtContent = fs.readFileSync(srtPath, 'utf8').trim();
-    if (!srtContent) throw new Error('❌ File SRT rỗng');
-    fs.writeFileSync(srtTempPath, srtContent, { encoding: 'utf8' });
-
-    const subtitledOutputTemp = path.join(outputDir, `output_${Date.now()}.mp4`);
-    const srtEscapedPath = srtTempPath.replace(/\\/g, '/').replace(/:/g, '\\:');
-    const subtitleCommand = `ffmpeg -y -i "${outputPath}" -vf "subtitles='${srtEscapedPath}'" -c:a copy "${subtitledOutputTemp}"`;
-    execSync(subtitleCommand, { stdio: 'inherit' });
-
-    fs.copyFileSync(subtitledOutputTemp, outputPath);
-    //chèn nhạc nền nếu có
-    if (music) {
-      await addMusicToVideo(outputPath, outputPath, music, musicVolume || 0.5, musicStartTime || 0, musicEndTime || null, outputDir);
-    }
-
-    [
-      ...segments,
-      segmentListPath,
-      srtPath,
-      srtTempPath,
-      subtitledOutputTemp
-    ].forEach(file => {
-      if (fs.existsSync(file)) fs.unlinkSync(file);
-    });
-
-    const stats = fs.statSync(outputPath);
-    console.log(`🎉 Video tạo xong: ${outputPath} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
-    return outputPath;
-  } catch (error) {
-    console.error('❌ Lỗi trong quá trình tạo video:', error);
-    throw error;
+    const framePath = path.join(outDir, `frame_${i.toString().padStart(4, '0')}.jpg`);
+    const cmd = `ffmpeg -y -i "${imagePath}" -vf "${vf}" "${framePath}"`;
+    execSync(cmd);
   }
+}
+async function createVideoSegment(
+  imagePath,
+  audioPath,
+  outputPath,
+  zoomStart = 1.0,
+  zoomEnd = 1.5,
+  aspectRatio = '16:9'
+) {
+  const sizeMap = {
+    '16:9': [1920, 1080],
+    '9:16': [1080, 1920],
+    '1:1': [1080, 1080],
+    '4:3': [1440, 1080]
+  };
+  const [targetWidth, targetHeight] = sizeMap[aspectRatio] || sizeMap['16:9'];
+  const fps = 30;
+
+  const duration = await new Promise((resolve, reject) => {
+    ffprobe.ffprobe(audioPath, (err, metadata) => {
+      if (err) reject(err);
+      else resolve(metadata.format.duration || 5);
+    });
+  });
+
+  const tempDir = path.dirname(outputPath);
+  const frameDir = path.join(tempDir, `frames_${Date.now()}`);
+  await renderZoomFrames(imagePath, frameDir, zoomStart, zoomEnd, duration, fps, targetWidth, targetHeight);
+
+  const tempVideo = path.join(tempDir, `temp_video_${Date.now()}.mp4`);
+  execSync(`ffmpeg -y -framerate ${fps} -i "${frameDir}/frame_%04d.jpg" -c:v libx264 -pix_fmt yuv420p "${tempVideo}"`);
+  execSync(`ffmpeg -y -i "${tempVideo}" -i "${audioPath}" -c:v copy -c:a aac -shortest "${outputPath}"`);
+
+  fs.rmSync(frameDir, { recursive: true, force: true });
+  fs.unlinkSync(tempVideo);
+}
+async function createVideoWithAudio(
+  scriptPartsWithMedia,
+  outputPath,
+  aspectRatio = '16:9',
+  music = null,
+  musicVolume = 0.3,
+  musicStartTime = 0,
+  musicEndTime = null
+) {
+  const outputDir = path.dirname(outputPath);
+  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+  const segments = [];
+  let currentTime = 0;
+  const srtLines = [];
+
+  for (let i = 0; i < scriptPartsWithMedia.length; i++) {
+    const part = scriptPartsWithMedia[i];
+    if (!part.imagePath || !part.audioPath) continue;
+
+    const segPath = path.join(outputDir, `segment_${i}_${Date.now()}.mp4`);
+    segments.push(segPath);
+
+    const zoomIn = i % 2 === 0;
+    await createVideoSegment(
+      part.imagePath,
+      part.audioPath,
+      segPath,
+      zoomIn ? 1.0 : 1.5,
+      zoomIn ? 1.5 : 1.0,
+      aspectRatio
+    );
+
+    // Lấy thời lượng để làm phụ đề
+    const audioDuration = await new Promise((resolve, reject) => {
+      ffprobe.ffprobe(part.audioPath, (err, metadata) => {
+        if (err) reject(err);
+        else resolve(metadata.format.duration || 5);
+      });
+    });
+
+    const formatTime = (seconds) => {
+      const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+      const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+      const s = String(Math.floor(seconds % 60)).padStart(2, '0');
+      const ms = String(Math.floor((seconds % 1) * 1000)).padStart(3, '0');
+      return `${h}:${m}:${s},${ms}`;
+    };
+
+    if (part.text) {
+      srtLines.push(`${srtLines.length + 1}`);
+      srtLines.push(`${formatTime(currentTime)} --> ${formatTime(currentTime + audioDuration)}`);
+      srtLines.push(part.text.trim());
+      srtLines.push('');
+    }
+
+    currentTime += audioDuration;
+  }
+
+  // Ghép các segment lại
+  const concatList = path.join(outputDir, 'concat_list.txt');
+  fs.writeFileSync(concatList, segments.map(f => `file '${f.replace(/\\/g, '/')}'`).join('\n'));
+  const tempConcat = path.join(outputDir, `concat_${Date.now()}.mp4`);
+  execSync(`ffmpeg -y -f concat -safe 0 -i "${concatList}" -c copy "${tempConcat}"`);
+  fs.renameSync(tempConcat, outputPath);
+
+  // Dọn các file segment
+  segments.forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
+  fs.unlinkSync(concatList);
+
+  // Ghi phụ đề nếu có
+  if (srtLines.length > 0) {
+    const srtPath = path.join(outputDir, `sub_${Date.now()}.srt`);
+    fs.writeFileSync(srtPath, srtLines.join('\n'), 'utf-8');
+
+    const subtitledOutput = path.join(outputDir, `with_subs_${Date.now()}.mp4`);
+    const escSrt = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    execSync(`ffmpeg -y -i "${outputPath}" -vf "subtitles='${escSrt}'" -c:a copy "${subtitledOutput}"`);
+    fs.renameSync(subtitledOutput, outputPath);
+    fs.unlinkSync(srtPath);
+  }
+
+  // Nhạc nền nếu có
+  if (music) {
+    const finalOut = path.join(outputDir, `with_music_${Date.now()}.mp4`);
+    const musicFilter = `volume=${musicVolume}`;
+    const musicCmd = `ffmpeg -y -i "${outputPath}" -i "${music}" -filter_complex "[1:a]${musicFilter}[bg];[0:a][bg]amix=inputs=2:duration=first:dropout_transition=2" -c:v copy -c:a aac -shortest "${finalOut}"`;
+    execSync(musicCmd);
+    fs.renameSync(finalOut, outputPath);
+  }
+
+  console.log(`✅ Video đã tạo: ${outputPath}`);
+  return outputPath;
 }
 
 
@@ -660,7 +661,7 @@ const generateAdvancedVideo = async (req, res) => {
 
     // Tải hình ảnh cho từng phần
     console.log('🖼️ Tải hình ảnh cho kịch bản...');
-    const scriptPartsWithMedia = await downloadImagesForScriptParts(scriptParts, tempDir);
+    const scriptPartsWithMedia = await downloadImagesForScriptParts(scriptPartsWithAudio, tempDir);
     console.log(`✅ Đã tải ${scriptPartsWithMedia.filter(p => p.imagePath).length} hình ảnh`);
 
     if (scriptPartsWithMedia.filter(p => p.imagePath).length === 0) {
@@ -848,7 +849,6 @@ const prepareVideoScript = async (req, res) => {
     });
   }
 };
-
 async function addMusicToVideo(inputVideoPath, outputVideoPath, music, musicVolume, musicStartTime, musicEndTime, outputDir) {
   try {
     const musicPath = path.join(__dirname, '../../public/music', music);
@@ -908,10 +908,10 @@ const generateImageForPart = async (req, res) => {
     // Nếu không có prompt tùy chỉnh, sử dụng mô tả hình ảnh hoặc trích xuất từ văn bản
     if (!imagePrompt) {
       if (part.image && part.image.trim() !== '') {
-        // Sử dụng toàn bộ lời mô tả hình ảnh thay vì chỉ trích xuất từ khóa
-        imagePrompt = part.image.trim();
+        const keywords = extractKeywordsFromDescription(part.image);
+        imagePrompt = keywords.join(', ');
       } else {
-        // Trích xuất từ khóa từ văn bản nếu không có mô tả hình ảnh
+        // Trích xuất từ khóa từ văn bản
         const textKeywords = part.text
           .split(/\s+/)
           .filter(word => word.length > 4)
@@ -934,10 +934,6 @@ const generateImageForPart = async (req, res) => {
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    // Thêm độ trễ trước khi gọi API để tránh rate limit
-    console.log('⏳ Đang chờ 3 giây trước khi gọi API Imagen...');
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
     // Tạo hình ảnh bằng API
     const response = await axios.post('http://localhost:3000/api/image/generate', {
       prompt: enhancedPrompt,
@@ -1384,14 +1380,16 @@ const createFinalVideo = async (req, res) => {
       || req.user?.id_nguoidung
       || null;
     await videoModel.insertVideo({
-      filename: videoFileName,
-      firebaseKey: firebaseKey,
-      publicUrl: publicUrl,
-      sizeMb: sizeMb,
-      title: topic || 'Video hoàn thiện',
-      script: script || null,
-      userId
+      filename, firebaseKey, publicUrl, sizeMb,
+      title, script, userId
     });
+
+    //fs.copyFileSync(subtitledOutputTemp, outputPath);
+    // === Thêm nhạc nền nếu có chọn ===
+    if (music) {
+      await addMusicToVideo(outputPath, outputPath, music, musicVolume, musicStartTime, musicEndTime, outputDir);
+    }
+
 
     /* ------------------------------------------------
        6. DỌN FILE TẠM & TRẢ KẾT QUẢ
