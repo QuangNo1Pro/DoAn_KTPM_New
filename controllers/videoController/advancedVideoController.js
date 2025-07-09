@@ -14,6 +14,9 @@ const util = require('util');
 const videoModel = require('../../models/videoModel');   // đường dẫn tuỳ dự án
 const { addBackgroundMusic } = require('../../services/videoGeneratorService'); // đường dẫn đảm bảo đúng
 
+// ngay đầu file (đã có multer) thêm cấu hình chấp nhận audio
+
+
 // Thiết lập multer cho việc tải lên file
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -38,6 +41,44 @@ const fileFilter = (req, file, cb) => {
     cb(new Error('Chỉ chấp nhận file hình ảnh!'), false);
   }
 };
+const audioUpload = multer({
+  storage,
+  limits:{fileSize: 20*1024*1024},           // 20 MB đủ rộng
+  fileFilter:(req,file,cb)=>{
+    if(file.mimetype.startsWith('audio/')) cb(null,true);
+    else cb(new Error('Chỉ chấp nhận file âm thanh'),false);
+  }
+});
+
+/* --- API UPLOAD AUDIO --- */
+const uploadAudioForPart = async (req,res)=>{
+  try{
+      const {sessionId,partId} = req.body;
+      if(!sessionId||!partId) throw new Error('Thiếu sessionId / partId');
+
+      // kiểm tra session
+      if(!req.session?.videoPreparation
+          || req.session.videoPreparation.sessionId !== sessionId){
+          throw new Error('Phiên làm việc không hợp lệ hoặc đã hết hạn');
+      }
+
+      // đường dẫn đã được multer lưu vào req.file.path
+      const part = req.session.videoPreparation.scriptParts
+                    .find(p=>p.id===partId);
+      if(!part)   throw new Error('Không tìm thấy part');
+
+      part.audioPath = req.file.path;               // cập nhật
+
+      return res.json({
+          success:true,
+          audioPath:`/temp/${path.basename(req.file.path)}`
+      });
+  }catch(err){
+      console.error('uploadAudioForPart',err);
+      res.status(500).json({success:false, error: err.message});
+  }
+};
+
 
 const upload = multer({
   storage: storage,
@@ -60,6 +101,7 @@ try {
 } catch (error) {
   console.error('❌ Lỗi khởi tạo Text-to-Speech client:', error.message);
 }
+
 
 /**
  * Trích xuất các phần từ kịch bản
@@ -364,34 +406,55 @@ async function downloadImagesForScriptParts(scriptParts, tempDir) {
 // Thêm hàm lấy thời lượng audio bằng ffprobe
 function getAudioDuration(audioPath) {
   try {
-    const result = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`);
-    return parseFloat(result.toString().trim());
+    // ffprobe trả về 1 dòng duy nhất là số giây
+    const out = execSync(
+      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${audioPath}"`
+    )
+      .toString()
+      .trim();
+
+    const seconds = parseFloat(out);
+    return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
   } catch (err) {
-    console.error('Lỗi lấy thời lượng audio:', err.message);
-    return 0;
+    console.error('⚠️  ffprobe error:', err.message);
+    return 0; // Để code phía dưới tự bỏ qua phần audio lỗi
   }
 }
 
 // Chuyển đổi giây sang định dạng SRT
-function secondsToSrtTime(seconds) {
-  const date = new Date(null);
-  date.setSeconds(Math.floor(seconds));
-  const ms = String(Math.floor((seconds % 1) * 1000)).padStart(3, '0');
-  return date.toISOString().substr(11, 8) + ',' + ms;
+function secondsToSrtTime(sec) {
+  if (!Number.isFinite(sec) || sec < 0) sec = 0;
+  const whole = Math.floor(sec);
+  const ms = Math.round((sec - whole) * 1000).toString().padStart(3, '0');
+
+  const h = String(Math.floor(whole / 3600)).padStart(2, '0');
+  const m = String(Math.floor((whole % 3600) / 60)).padStart(2, '0');
+  const s = String(whole % 60).padStart(2, '0');
+
+  return `${h}:${m}:${s},${ms}`;
 }
+
 
 // Sinh file phụ đề SRT cho các phần script
 function generateSrtFile(parts, srtPath) {
-  let srtContent = '';
-  let currentTime = 0;
-  parts.forEach((part, idx) => {
-    const duration = getAudioDuration(part.audioPath);
-    const start = secondsToSrtTime(currentTime);
-    const end = secondsToSrtTime(currentTime + duration);
-    srtContent += `${idx + 1}\n${start} --> ${end}\n${part.text}\n\n`;
-    currentTime += duration;
+  let srt = '';
+  let current = 0;
+  let idx = 1;
+
+  parts.forEach((part) => {
+    const dur = part.audioPath ? getAudioDuration(part.audioPath) : 0;
+    if (dur === 0) return;        // bỏ đoạn lỗi
+
+    const start = secondsToSrtTime(current);
+    const end   = secondsToSrtTime(current + dur);
+
+    srt += `${idx}\n${start} --> ${end}\n${part.text}\n\n`;
+    current += dur;
+    idx++;
   });
-  fs.writeFileSync(srtPath, srtContent, 'utf8');
+
+  fs.writeFileSync(srtPath, srt.trim() + '\n', 'utf8');
+  return idx - 1;                 // số caption đã ghi
 }
 
 //Tạo video từ hình ảnh và âm thanh sử dụng FFmpeg
@@ -448,131 +511,197 @@ async function createVideoSegment(
   audioPath,
   outputPath,
   zoomStart = 1.0,
-  zoomEnd = 1.5,
+  zoomEnd   = 1.15,         // zoom nhẹ để tránh vỡ hình
   aspectRatio = '16:9'
 ) {
+  /* xác định kích thước đích */
   const sizeMap = {
     '16:9': [1920, 1080],
     '9:16': [1080, 1920],
-    '1:1': [1080, 1080],
-    '4:3': [1440, 1080]
+    '1:1' : [1080, 1080],
+    '4:3' : [1440, 1080]
   };
-  const [targetWidth, targetHeight] = sizeMap[aspectRatio] || sizeMap['16:9'];
+  const [W, H] = sizeMap[aspectRatio] || sizeMap['16:9'];
   const fps = 30;
 
-  const duration = await new Promise((resolve, reject) => {
-    ffprobe.ffprobe(audioPath, (err, metadata) => {
-      if (err) reject(err);
-      else resolve(metadata.format.duration || 5);
-    });
-  });
+  /* lấy thời lượng audio */
+  let duration = await new Promise((resolve) => {
+  ffprobe.ffprobe(audioPath, (e, m) =>
+    resolve(
+      m?.format?.duration && Number.isFinite(m.format.duration)
+        ? m.format.duration
+        : NaN
+    )
+  );
+});
 
-  const tempDir = path.dirname(outputPath);
-  const frameDir = path.join(tempDir, `frames_${Date.now()}`);
-  await renderZoomFrames(imagePath, frameDir, zoomStart, zoomEnd, duration, fps, targetWidth, targetHeight);
-
-  const tempVideo = path.join(tempDir, `temp_video_${Date.now()}.mp4`);
-  execSync(`ffmpeg -y -framerate ${fps} -i "${frameDir}/frame_%04d.jpg" -c:v libx264 -pix_fmt yuv420p "${tempVideo}"`);
-  execSync(`ffmpeg -y -i "${tempVideo}" -i "${audioPath}" -c:v copy -c:a aac -shortest "${outputPath}"`);
-
-  fs.rmSync(frameDir, { recursive: true, force: true });
-  fs.unlinkSync(tempVideo);
+  if (!Number.isFinite(duration) || duration <= 0) {
+  console.warn('⚠️  Không đọc được duration, dùng mặc định 10s');
+  duration = 10;                       // fallback an toàn
 }
-async function createVideoWithAudio(
-  scriptPartsWithMedia,
-  outputPath,
-  aspectRatio = '16:9',
-  music = null,
-  musicVolume = 0.3,
-  musicStartTime = 0,
-  musicEndTime = null
-) {
-  const outputDir = path.dirname(outputPath);
-  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+else {
+  duration = Math.min(duration, 600);   //  hạn chế ≤10 phút
+}
+const totalFrames = fps * duration;
+const zoomInc =
+  totalFrames > 0 ? (zoomEnd - zoomStart) / totalFrames : 0.001; // luôn hữu hạn
 
+/* ---------- 2. filter & câu lệnh ffmpeg ---------- */
+const scalePad =
+  `scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
+  `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2`;
+const zoompan =
+  `zoompan=z='zoom+${zoomInc}':d=1:` +
+  `x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':fps=${fps}`;
+const vf = `${scalePad},${zoompan}`;
+
+/* thêm -t CHỈ khi ta có duration hợp lệ (>0)                     */
+const tFlag = Number.isFinite(duration) && duration > 0 ? `-t ${duration}` : '';
+
+const cmd =
+  `ffmpeg -y -loop 1 -i "${imagePath}" -i "${audioPath}" ` +
+  `-vf "${vf}" ${tFlag} -c:v libx264 -pix_fmt yuv420p ` +
+  `-c:a aac -shortest "${outputPath}"`;
+execSync(cmd, { stdio: 'inherit' });
+}
+/**
+ * Từ mảng scriptParts (đã có imagePath, audioPath, text)
+ * → render từng segment zoom-pan, ghép chúng, chèn phụ đề,
+ *   thêm nhạc nền (nếu có)  rồi trả về đường dẫn video cuối.
+ */
+async function createVideoWithAudio(
+  scriptParts,             // [{imagePath,audioPath,text}, …]
+  outputPath,              // …/public/videos/advanced_video_xxx.mp4
+  aspectRatio = '16:9',    // 16:9 | 9:16 | …
+  bgMusic     = null,      // đường dẫn tới nhạc nền (tuỳ chọn)
+  bgVolume    = 0.25,      // 0 – 1
+  musicStart  = 0,
+  musicEnd    = null
+) {
+  /* -------------------------------------------------- */
+  /* 0. Chuẩn bị                                       */
+  /* -------------------------------------------------- */
+  const outDir = path.dirname(outputPath);
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+
+  const size = { '16:9':[1920,1080],'9:16':[1080,1920],'1:1':[1080,1080],'4:3':[1440,1080] }[aspectRatio] || [1920,1080];
+  const [vw, vh] = size;
+  const fps = 30;
+
+  /* -------------------------------------------------- */
+  /* 1. Render SEGMENT                                  */
+  /* -------------------------------------------------- */
   const segments = [];
-  let currentTime = 0;
+  let timeline   = 0;            // tính thời gian để ghi phụ đề
   const srtLines = [];
 
-  for (let i = 0; i < scriptPartsWithMedia.length; i++) {
-    const part = scriptPartsWithMedia[i];
-    if (!part.imagePath || !part.audioPath) continue;
+  for (let i = 0; i < scriptParts.length; i++) {
+    const p = scriptParts[i];
+    if (!p.imagePath || !p.audioPath) continue;        // bỏ qua part thiếu media
 
-    const segPath = path.join(outputDir, `segment_${i}_${Date.now()}.mp4`);
-    segments.push(segPath);
-
-    const zoomIn = i % 2 === 0;
-    await createVideoSegment(
-      part.imagePath,
-      part.audioPath,
-      segPath,
-      zoomIn ? 1.0 : 1.5,
-      zoomIn ? 1.5 : 1.0,
-      aspectRatio
-    );
-
-    // Lấy thời lượng để làm phụ đề
-    const audioDuration = await new Promise((resolve, reject) => {
-      ffprobe.ffprobe(part.audioPath, (err, metadata) => {
-        if (err) reject(err);
-        else resolve(metadata.format.duration || 5);
-      });
+    /* 1.1  Xác định thời lượng audio  ----------------- */
+    let duration = await new Promise(r => {
+      ffprobe.ffprobe(p.audioPath, (e,md)=> r(!e && md?.format?.duration || 0));
     });
-
-    const formatTime = (seconds) => {
-      const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
-      const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
-      const s = String(Math.floor(seconds % 60)).padStart(2, '0');
-      const ms = String(Math.floor((seconds % 1) * 1000)).padStart(3, '0');
-      return `${h}:${m}:${s},${ms}`;
-    };
-
-    if (part.text) {
-      srtLines.push(`${srtLines.length + 1}`);
-      srtLines.push(`${formatTime(currentTime)} --> ${formatTime(currentTime + audioDuration)}`);
-      srtLines.push(part.text.trim());
-      srtLines.push('');
+    if (!Number.isFinite(duration) || duration <= 0) {
+      console.warn('⚠️  Không đọc được duration, dùng mặc định 10s');
+      duration = 10;
     }
 
-    currentTime += audioDuration;
+    /* 1.2  Render frame zoom-pan ---------------------- */
+    const frameDir = path.join(outDir, `frames_${Date.now()}_${i}`);
+    fs.mkdirSync(frameDir, { recursive:true });
+
+    const zoomStart = i % 2 ? 1.5 : 1.0;
+    const zoomEnd   = i % 2 ? 1.0 : 1.5;
+    await renderZoomFrames(
+      p.imagePath, frameDir, zoomStart, zoomEnd,
+      duration, fps, vw, vh
+    );
+
+    /* 1.3  Gộp frame + audio thành segment ------------ */
+    const segPath = path.join(outDir, `segment_${i}_${Date.now()}.mp4`);
+    execSync(
+      `ffmpeg -y -framerate ${fps} -i "${frameDir}/frame_%04d.jpg" ` +
+      `-i "${p.audioPath}" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "${segPath}"`,
+      { stdio:'inherit' }
+    );
+    segments.push(segPath);
+
+    /* 1.4  Phụ đề dòng hiện tại ----------------------- */
+    const ts = s => {
+      const h=String(Math.floor(s/3600)).padStart(2,'0');
+      const m=String(Math.floor(s%3600/60)).padStart(2,'0');
+      const ss=String(Math.floor(s%60)).padStart(2,'0');
+      const ms=String(Math.round((s%1)*1000)).padStart(3,'0');
+      return `${h}:${m}:${ss},${ms}`;
+    };
+    srtLines.push(
+      `${srtLines.length+1}`,
+      `${ts(timeline)} --> ${ts(timeline+duration)}`,
+      (p.text||'').trim(), ''
+    );
+    timeline += duration;
+
+    fs.rmSync(frameDir,{recursive:true,force:true});
   }
 
-  // Ghép các segment lại
-  const concatList = path.join(outputDir, 'concat_list.txt');
-  fs.writeFileSync(concatList, segments.map(f => `file '${f.replace(/\\/g, '/')}'`).join('\n'));
-  const tempConcat = path.join(outputDir, `concat_${Date.now()}.mp4`);
-  execSync(`ffmpeg -y -f concat -safe 0 -i "${concatList}" -c copy "${tempConcat}"`);
-  fs.renameSync(tempConcat, outputPath);
+  if (!segments.length) throw new Error('Không còn segment hợp lệ');
 
-  // Dọn các file segment
-  segments.forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
-  fs.unlinkSync(concatList);
+  /* -------------------------------------------------- */
+  /* 2. CONCAT tất cả segment ------------------------- */
+  const concatTxt = path.join(outDir,'concat.txt');
+  fs.writeFileSync(concatTxt, segments.map(f=>`file '${path.basename(f)}'`).join('\n'));
 
-  // Ghi phụ đề nếu có
-  if (srtLines.length > 0) {
-    const srtPath = path.join(outputDir, `sub_${Date.now()}.srt`);
-    fs.writeFileSync(srtPath, srtLines.join('\n'), 'utf-8');
+  const concatMp4 = path.join(outDir,`concat_${Date.now()}.mp4`);
+  execSync(
+    `ffmpeg -y -f concat -safe 0 -i "${path.basename(concatTxt)}" -c copy "${path.basename(concatMp4)}"`,
+    { cwd: outDir, stdio:'inherit' }
+  );
 
-    const subtitledOutput = path.join(outputDir, `with_subs_${Date.now()}.mp4`);
-    const escSrt = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
-    execSync(`ffmpeg -y -i "${outputPath}" -vf "subtitles='${escSrt}'" -c:a copy "${subtitledOutput}"`);
-    fs.renameSync(subtitledOutput, outputPath);
-    fs.unlinkSync(srtPath);
+  /* dọn file segment tạm */
+  segments.forEach(f=>fs.unlinkSync(f));
+  fs.unlinkSync(concatTxt);
+
+  /* -------------------------------------------------- */
+  /* 3. Chèn phụ đề với đường dẫn TƯƠNG ĐỐI ----------- */
+  const srtFile = path.join(outDir,`sub_${Date.now()}.srt`);
+  fs.writeFileSync(srtFile, srtLines.join('\n'),'utf8');
+
+  const withSubs = path.join(outDir,`with_subs_${Date.now()}.mp4`);
+  execSync(
+    `ffmpeg -y -i "${path.basename(concatMp4)}" ` +
+    `-vf "subtitles=${path.basename(srtFile)}" -c:a copy "${path.basename(withSubs)}"`,
+    { cwd: outDir, stdio:'inherit' }
+  );
+
+  fs.unlinkSync(srtFile);
+  fs.unlinkSync(concatMp4);
+
+  /* -------------------------------------------------- */
+  /* 4. Nhạc nền (nếu có) ------------------------------ */
+  let finalOut = withSubs;
+  if (bgMusic) {
+    const mixed = path.join(outDir,`with_music_${Date.now()}.mp4`);
+    const vol   = Number(bgVolume) || 0.25;
+    const trim  = musicEnd !== null ? `-to ${musicEnd}` : '';
+    execSync(
+      `ffmpeg -y -i "${finalOut}" ` +
+      `-ss ${musicStart} ${trim} -i "${bgMusic}" ` +
+      `-filter_complex "[1:a]volume=${vol}[bg];[0:a][bg]amix=inputs=2:duration=first[a]" ` +
+      `-map 0:v -map "[a]" -c:v copy -shortest "${mixed}"`,
+      { stdio:'inherit' }
+    );
+    fs.unlinkSync(finalOut);
+    finalOut = mixed;
   }
 
-  // Nhạc nền nếu có
-  if (music) {
-    const finalOut = path.join(outputDir, `with_music_${Date.now()}.mp4`);
-    const musicFilter = `volume=${musicVolume}`;
-    const musicCmd = `ffmpeg -y -i "${outputPath}" -i "${music}" -filter_complex "[1:a]${musicFilter}[bg];[0:a][bg]amix=inputs=2:duration=first:dropout_transition=2" -c:v copy -c:a aac -shortest "${finalOut}"`;
-    execSync(musicCmd);
-    fs.renameSync(finalOut, outputPath);
-  }
-
-  console.log(`✅ Video đã tạo: ${outputPath}`);
+  /* -------------------------------------------------- */
+  /* 5. Trả về                                         */
+  fs.renameSync(finalOut, outputPath);
+  console.log(`✅  Video cuối: ${outputPath}`);
   return outputPath;
 }
-
 
 /**
  * API chính: Tạo video từ kịch bản với giọng đọc
@@ -1616,5 +1745,8 @@ module.exports = {
   renderEditPartsPage,
   createFinalVideo,
   checkSetup,
-  debugVideo
+  debugVideo,
+  uploadAudioForPart,
+  upload      ,   // middleware hình ảnh
+  audioUpload 
 };

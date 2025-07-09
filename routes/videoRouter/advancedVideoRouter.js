@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
-const {generateAdvancedVideo, getAvailableVoices, prepareVideoScript, generateImageForPart, generateAudioForPart, finalizeAdvancedVideo, uploadImageForPart, generateSampleAudio, upload, renderEditPartsPage, createFinalVideo, checkSetup, debugVideo} = require('../../controllers/videoController/advancedVideoController')
+const {generateAdvancedVideo, getAvailableVoices, prepareVideoScript, generateImageForPart, generateAudioForPart, finalizeAdvancedVideo, uploadImageForPart, generateSampleAudio, upload, renderEditPartsPage, createFinalVideo, checkSetup, debugVideo,uploadAudioForPart , audioUpload} = require('../../controllers/videoController/advancedVideoController')
+
 // Trang hiển thị
 const { isAuthenticated } = require('../../middleware/authMiddleware')
 
@@ -53,8 +54,13 @@ router.post('/upload-media', upload.single('media'), uploadMedia)
 
 // API kiểm tra trạng thái controller
 router.get('/check-editor-status', checkStatus)
-
+router.post(
+  '/upload-audio-for-part',
+  audioUpload.single('audio'),     // ← đúng middleware
+  uploadAudioForPart
+);
 // API kiểm tra dữ liệu request
 router.post('/check-request-data', checkRequestData)
+
 
 module.exports = router
