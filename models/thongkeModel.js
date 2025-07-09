@@ -3,7 +3,7 @@ const { db } = require('../models/connectDb');
 async function getYoutubeUploadedVideos(userId, filter = {}) {
   // 1. Lấy video theo id_nguoidung
   const sql = `
-    SELECT title, updated_at, youtube_id
+    SELECT title, updated_at, id, id_nguoidung
     FROM videos
     WHERE id_nguoidung = $1
     ORDER BY updated_at DESC

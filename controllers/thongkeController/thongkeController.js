@@ -22,29 +22,68 @@ async function getYoutubeStatsPage(req, res) {
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
     const ids = videos.map(v => v.youtube_id).filter(Boolean);
-    let viewsMap = {};
+    let viewsMap = {}, likesMap = {}, durations = {}, completions = {};
 
     if (ids.length > 0) {
       const ytRes = await youtube.videos.list({
-        part: 'snippet,statistics,status',
+        part: 'snippet,statistics,contentDetails',
         id: ids.join(','),
       });
 
       for (const item of ytRes.data.items) {
-        viewsMap[item.id] = item.statistics?.viewCount || 0;
+        const durationISO = item.contentDetails?.duration || 'PT0M0S';
+        const viewCount = parseInt(item.statistics?.viewCount || 0);
+        const likeCount = parseInt(item.statistics?.likeCount || 0);
+        const estimatedWatchTime = parseInt(item.statistics?.estimatedMinutesWatched || 0); // giả định có API tương đương
+
+        const match = durationISO.match(/PT(?:(\d+)M)?(?:(\d+)S)?/);
+        const minutes = match ? parseInt(match[1] || '0') + parseInt((match[2] || '0') / 60) : 0;
+
+        viewsMap[item.id] = viewCount;
+        likesMap[item.id] = likeCount;
+        durations[item.id] = minutes;
+        completions[item.id] = viewCount > 0 ? ((estimatedWatchTime / minutes) / viewCount) * 100 : 0;
       }
     }
 
+    let totalViews = 0, totalLikes = 0, totalWatchTime = 0, completionRates = [], totalVideos = videos.length;
+    let chartLabels = [], chartData = [];
+
     for (let v of videos) {
-      v.viewCount = viewsMap[v.youtube_id] || 0;
+      const vid = v.youtube_id;
+      v.viewCount = viewsMap[vid] || 0;
+      v.likeCount = likesMap[vid] || 0;
+      v.duration = durations[vid] || 0;
+      v.completionRate = completions[vid] || 0;
+
+      totalViews += v.viewCount;
+      totalLikes += v.likeCount;
+      totalWatchTime += v.viewCount * v.duration;
+      if (v.completionRate) completionRates.push(v.completionRate);
+
+      const uploadDate = new Date(v.updated_at);
+      const label = uploadDate.toISOString().split('T')[0];
+      chartLabels.push(label);
+      chartData.push(v.viewCount);
     }
 
-    const totalViews = videos.reduce((sum, v) => sum + parseInt(v.viewCount || 0), 0);
-    const totalVideos = videos.length;
+    const avgWatchDuration = totalVideos > 0 && totalViews > 0 ? (totalWatchTime / totalViews).toFixed(2) : 0;
+    const avgCompletionRate = completionRates.length > 0 ? (completionRates.reduce((a, b) => a + b, 0) / completionRates.length).toFixed(1) : 0;
 
     res.render('thongkeVideo', {
       title: 'Thống kê video YouTube',
-      stats: { totalViews, totalVideos },
+      stats: {
+        totalVideos,
+        totalViews,
+        totalLikes,
+        totalWatchTime: Math.round(totalWatchTime),
+        avgWatchDuration,
+        completionRate: avgCompletionRate
+      },
+      viewChartJSON: {
+        labels: JSON.stringify(chartLabels),
+        data: JSON.stringify(chartData)
+      },
       videos,
       filterMonth: month
     });
