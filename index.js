@@ -5,8 +5,6 @@ const { engine } = require('express-handlebars')
 const passport = require('passport')
 const session = require('express-session')
 const flash = require('connect-flash')
- //const googleAuthRouter = require('./routes/googleAuthRouter')
-
 require('dotenv').config(); // Load biến môi trường từ file .env
 
 const { initializePassport } = require('./middleware/auth'); // Cấu hình Passport với chiến lược tự xây dựng
@@ -101,7 +99,6 @@ app.use(homeRouter)
 app.use(registerRouter)
 app.use(loginRouter)
 app.use(logoutRouter)
-//app.use('/', googleAuthRouter)
 app.use(searchRouter)
 app.use(suggestRouter)
 app.use(videoRouter)
