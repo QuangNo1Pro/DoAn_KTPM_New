@@ -190,3 +190,21 @@ document.querySelectorAll('.btn-del').forEach(btn=>{
   });
 
 </script>
+<video id="video-player" controls>
+  <source src="{{video.publish_url}}" type="video/mp4">
+</video>
+
+<script>
+  const video = document.getElementById('video-player');
+  video.addEventListener('ended', () => {
+    fetch('/api/video-statistics/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        videoId: {{video.id}},
+        durationWatched: Math.floor(video.duration),
+        isCompleted: true
+      })
+    });
+  });
+</script>

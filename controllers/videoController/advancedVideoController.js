@@ -436,7 +436,7 @@ async function renderZoomFrames(
     const scaleFactor = baseScale * zoom;
 
     const vf = `scale=iw*${scaleFactor}:ih*${scaleFactor},` +
-               `crop=${targetWidth}:${targetHeight}:(iw-${targetWidth})/2:(ih-${targetHeight})/2`;
+      `crop=${targetWidth}:${targetHeight}:(iw-${targetWidth})/2:(ih-${targetHeight})/2`;
 
     const framePath = path.join(outDir, `frame_${i.toString().padStart(4, '0')}.jpg`);
     const cmd = `ffmpeg -y -i "${imagePath}" -vf "${vf}" "${framePath}"`;
@@ -1118,9 +1118,10 @@ const finalizeAdvancedVideo = async (req, res) => {
     const sizeMb = (stats.size / 1024 / 1024).toFixed(2);
     console.log("ID nguoi dung: ", req.session.user)
     const userId =
-      req.session?.user_id           // <-- loginController đã gán
+      req.session?.user?.id_nguoidung
       || req.user?.id_nguoidung
       || null;
+
     await videoModel.insertVideo({
       filename: videoFileName,
       firebaseKey: firebaseKey,
@@ -1376,9 +1377,10 @@ const createFinalVideo = async (req, res) => {
     const stats = fs.statSync(outputPath);
     const sizeMb = (stats.size / 1024 / 1024).toFixed(2);
     const userId =
-      req.session?.user_id
+      req.session?.user?.id_nguoidung
       || req.user?.id_nguoidung
       || null;
+
     await videoModel.insertVideo({
       filename, firebaseKey, publicUrl, sizeMb,
       title, script, userId
