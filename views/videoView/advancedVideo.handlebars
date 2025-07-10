@@ -7,6 +7,9 @@
         </div>
         <div class="card-body">
             <form id="video-form">
+                <div class="form-group mb-3">
+                    <label for="topic">Chủ đề:</label>
+                    <input type="text" class="form-control" id="topic" placeholder="Nhập chủ đề cho video">
                 
                 <div class="row">
                     <div class="col-md-8 mb-3">
@@ -215,6 +218,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Xử lý form tạo video
     document.getElementById('video-form').addEventListener('submit', async function(e) {
         e.preventDefault();
+        const topic = document.getElementById('topic').value;
         
         const script = document.getElementById('script').value;
         const voiceId = document.getElementById('voice').value;
@@ -237,7 +241,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
+                    topic,
                     script,
+
                     voiceId,
                     aspectRatio: document.getElementById('aspect-ratio').value
                 })

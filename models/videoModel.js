@@ -38,6 +38,22 @@ async function insertVideo({
   return existing.id;
 }
 
+
+async function deleteById(id, userId = null) {
+  if (!id) throw new Error('id is required');
+
+  // Dùng điều kiện động để tránh SQL-Injection (pg-promise tự binding)
+  const query = userId
+    ? 'DELETE FROM videos WHERE id = $1 AND id_nguoidung = $2'
+    : 'DELETE FROM videos WHERE id = $1';
+
+  const params = userId ? [id, userId] : [id];
+
+  const result = await db.result(query, params, r => r.rowCount);
+  return result;                       // 0 hoặc 1
+}
+
+
 /*--------------- LIST / COUNT ---------------*/
 async function listVideos({ userId = null, limit = 10, offset = 0 } = {}) {
   if (userId) {
@@ -69,4 +85,4 @@ async function countVideos({ userId = null } = {}) {
   return Number(row.total);
 }
 
-module.exports = { insertVideo, listVideos, countVideos, /* … */ };
+module.exports = { insertVideo, listVideos, countVideos, deleteById};

@@ -12,4 +12,12 @@ router.get('/video-editor',  renderVideoEditorPage)
 // Sử dụng router cho API tạo video nâng cao
 router.use('/api/advanced-video',  advancedVideoRouter)
 
+const { recordVideoWatch } = require('../../controllers/videoController/watchVideoController');
+
+router.get('/watch/:id', recordVideoWatch);
+
+const videoStatisticsRouter = require('./video-statisticsRouter');
+router.use('/api/video-statistics', videoStatisticsRouter);
+
+
 module.exports = router

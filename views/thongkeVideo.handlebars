@@ -35,7 +35,7 @@
             <div class="card text-bg-dark border-success">
                 <div class="card-body">
                     <h5 class="card-title">⏱️ Tổng thời gian phát</h5>
-                    <p class="display-6 fw-bold text-success">{{stats.totalWatchTime}} phút</p>
+                    <p class="display-6 fw-bold text-success">{{stats.totalWatchTime}} giây</p>
                 </div>
             </div>
         </div>
@@ -43,7 +43,7 @@
             <div class="card text-bg-dark border-primary">
                 <div class="card-body">
                     <h5 class="card-title">⏳ Thời lượng xem trung bình</h5>
-                    <p class="display-6 fw-bold text-primary">{{stats.avgWatchDuration}} phút</p>
+                    <p class="display-6 fw-bold text-primary">{{stats.avgWatchDuration}} giây</p>
                 </div>
             </div>
         </div>
@@ -110,7 +110,7 @@
 <script>
     const ctx = document.getElementById('viewsChart').getContext('2d');
     const chart = new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: {{{ viewChartJSON.labels }}},
     datasets: [{
