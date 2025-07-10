@@ -70,6 +70,7 @@ async function getYoutubeStatsPage(req, res) {
     const avgWatchDuration = totalVideos > 0 && totalViews > 0 ? (totalWatchTime / totalViews).toFixed(2) : 0;
     const avgCompletionRate = completionRates.length > 0 ? (completionRates.reduce((a, b) => a + b, 0) / completionRates.length).toFixed(1) : 0;
 
+    console.log('Thống kê video:',videos)
     res.render('thongkeVideo', {
       title: 'Thống kê video YouTube',
       stats: {

@@ -1102,6 +1102,8 @@
             if (data.success) {
               scriptContent.textContent = data.script;
               scriptContainer.classList.remove('d-none');
+              const generateVideoWrapper = document.getElementById('generate-video-wrapper');
+              if (generateVideoWrapper) generateVideoWrapper.style.display = 'block';
               window.scrollTo({ top: scriptContainer.offsetTop - 20, behavior: 'smooth' });
             } else {
               alert(data.error || 'Lỗi không xác định!');
@@ -1148,6 +1150,8 @@
             if (data.success) {
               scriptContent.textContent = data.script;
               scriptContainer.classList.remove('d-none');
+              const generateVideoWrapper = document.getElementById('generate-video-wrapper');
+              if (generateVideoWrapper) generateVideoWrapper.style.display = 'block';
               window.scrollTo({ top: scriptContainer.offsetTop - 20, behavior: 'smooth' });
             } else {
               alert(data.error || 'Lỗi không xác định!');
