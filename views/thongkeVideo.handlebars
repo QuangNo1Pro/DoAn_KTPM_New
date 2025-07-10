@@ -110,7 +110,7 @@
 <script>
     const ctx = document.getElementById('viewsChart').getContext('2d');
     const chart = new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: {{{ viewChartJSON.labels }}},
     datasets: [{

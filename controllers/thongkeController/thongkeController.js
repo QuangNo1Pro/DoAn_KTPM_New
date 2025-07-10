@@ -10,18 +10,12 @@ const {
 function parseMonthParam(monthStr) {
   if (!monthStr) return null;
   const [year, month] = monthStr.split('-').map(Number);
-  const fromDate = new Date(year, month - 1, 1); // đầu tháng
+  const fromDate = new Date(year, month - 1, 1);
   const now = new Date();
-
-  // Nếu là tháng hiện tại thì toDate là hôm nay, ngược lại là cuối tháng
   const isCurrentMonth = now.getFullYear() === year && (now.getMonth() + 1) === month;
-  const toDate = isCurrentMonth
-    ? now
-    : new Date(year, month, 0, 23, 59, 59); // cuối tháng
-
+  const toDate = isCurrentMonth ? now : new Date(year, month, 0, 23, 59, 59);
   return { year, month, fromDate, toDate };
 }
-
 
 async function getYoutubeStatsPage(req, res) {
   try {
@@ -31,7 +25,6 @@ async function getYoutubeStatsPage(req, res) {
     const { month } = req.query;
     const monthFilter = parseMonthParam(month);
     const { fromDate, toDate } = monthFilter || {};
-
 
     const videos = await getYoutubeUploadedVideos(userId, monthFilter);
     const oauth2Client = getOAuth2Client(req);
@@ -58,14 +51,19 @@ async function getYoutubeStatsPage(req, res) {
         viewsMap[item.id] = viewCount;
         likesMap[item.id] = likeCount;
         durations[item.id] = minutes;
-        completions[item.id] = viewCount > 0 && minutes > 0
+        completions[item.id] = (viewCount > 0 && minutes > 0)
           ? ((estimatedWatchTime / minutes) / viewCount) * 100
           : 0;
       }
     }
 
-    let totalViews = 0, totalLikes = 0, totalWatchTime = 0, completionRates = [], totalVideos = videos.length;
-    let chartLabels = [], chartData = [];
+    let totalViews = 0;
+    let totalLikes = 0;
+    let totalWatchTime = 0;
+    let completionRates = [];
+    let totalVideos = videos.length;
+
+    const viewsPerDay = {};
 
     for (let v of videos) {
       const vid = v.youtube_id;
@@ -79,13 +77,17 @@ async function getYoutubeStatsPage(req, res) {
       totalWatchTime += v.viewCount * v.duration;
       if (v.completionRate) completionRates.push(v.completionRate);
 
+      // Gom lượt xem theo ngày
       const uploadDate = new Date(v.updated_at);
-      const label = uploadDate.toISOString().split('T')[0];
-      chartLabels.push(label);
-      chartData.push(v.viewCount);
+      const label = uploadDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
+
+      viewsPerDay[label] = (viewsPerDay[label] || 0) + v.viewCount;
     }
 
-    // 👉 fallback sang thống kê nội bộ nếu API trả về không đủ
+    const chartLabels = Object.keys(viewsPerDay).sort();
+    const chartData = chartLabels.map(date => viewsPerDay[date]);
+
+    // Fallback nội bộ nếu API không đủ
     const [
       internalWatchTime,
       internalAvgDuration,
@@ -95,7 +97,6 @@ async function getYoutubeStatsPage(req, res) {
       getAvgWatchDuration(userId, fromDate, toDate),
       getCompletionRate(userId, fromDate, toDate)
     ]);
-
 
     const avgWatchDuration = totalViews > 0
       ? (totalWatchTime / totalViews).toFixed(2)
@@ -107,7 +108,7 @@ async function getYoutubeStatsPage(req, res) {
 
     const totalWatchTimeFinal = totalWatchTime > 0
       ? Math.round(totalWatchTime)
-      : Math.round(internalWatchTime / 60); // từ giây → phút
+      : Math.round(internalWatchTime / 60);
 
     res.render('thongkeVideo', {
       title: 'Thống kê video YouTube',
