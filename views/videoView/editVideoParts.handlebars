@@ -1,683 +1,411 @@
-<div class="container mt-5">
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chỉnh sửa các phần video</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+</head>
+<body>
+  <div class="container mt-5">
     <h1 class="text-center mb-4">Chỉnh Sửa Các Phần Video</h1>
-    
+
+    <!-- Thông tin trợ giúp -->
     <div class="alert alert-info">
-        <p>Ở đây bạn có thể chỉnh sửa từng phần của video trước khi hoàn thiện. Với mỗi phần, bạn có thể:</p>
-        <ul>
-            <li>Tạo hình ảnh mới dựa trên mô tả hoặc từ khóa tùy chỉnh</li>
-            <li>Tạo giọng đọc mới hoặc chỉnh sửa nội dung văn bản</li>
-        </ul>
-        <p>Sau khi hoàn thành tất cả các phần, nhấn nút "Tạo Video" để kết hợp các phần thành video hoàn chỉnh.</p>
+      <p>Ở đây bạn có thể chỉnh sửa từng phần của video trước khi hoàn thiện. Với mỗi phần, bạn có thể:</p>
+      <ul>
+        <li>Tạo hình ảnh mới dựa trên mô tả hoặc từ khóa tuỳ chỉnh</li>
+        <li>Tạo giọng đọc mới hoặc chỉnh sửa nội dung văn bản</li>
+        <li>Thu âm giọng nói của chính bạn để thay thế giọng đọc AI</li>
+      </ul>
+      <p>Sau khi hoàn thành tất cả các phần, nhấn nút <strong>"Tạo Video"</strong> để kết hợp chúng.</p>
     </div>
 
+    <!-- Tổng quan kịch bản -->
     <div class="mb-4" id="script-overview">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h3>Tổng Quan Kịch Bản</h3>
-            </div>
-            <div class="card-body">
-                <p id="script-preview"></p>
-                <button class="btn btn-sm btn-outline-primary" id="toggle-script-btn">Hiển thị toàn bộ kịch bản</button>
-                <div id="full-script" class="mt-2" style="display: none;">
-                    <h5>Kịch bản đầy đủ:</h5>
-                    <div id="script-content" class="p-3 border rounded bg-light"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Các nút tạo ảnh/giọng đọc và video -->
-    <div class="text-center mb-4">
-        <div class="d-flex justify-content-center gap-3">
-            <button id="generate-all-btn" class="btn btn-warning">
-                <i class="bi bi-magic"></i> Tạo tất cả ảnh và giọng đọc
-            </button>
-            <button id="preview-edit-btn" class="btn btn-info">
-                <i class="bi bi-pencil-square"></i> Xem trước và chỉnh sửa
-            </button>
-            <button id="create-video-btn" class="btn btn-success">
-                <i class="bi bi-film"></i> Tạo Video
-            </button>
-        </div>
-        <div class="progress mt-2" id="global-progress" style="display: none;">
-            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
-        </div>
-        <small class="text-muted mt-1 d-block">Quá trình này có thể mất vài phút tùy thuộc vào số lượng phần</small>
-    </div>
-
-    <div id="parts-container">
-        <!-- Các phần sẽ được thêm vào đây bằng JavaScript -->
-        <div class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Đang tải...</span>
-            </div>
-            <p>Đang tải dữ liệu...</p>
-        </div>
-    </div>
-
-
-    
-    <div class="mt-5" id="result-container" style="display: none;">
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h3>Video Đã Tạo</h3>
-            </div>
-            <div class="card-body">
-                <div class="embed-responsive embed-responsive-16by9 mb-4">
-                    <video id="result-video" controls class="embed-responsive-item w-100">
-                        Video của bạn không thể hiển thị
-                    </video>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="mt-3" id="loading-container" style="display: none;">
-        <div class="d-flex justify-content-center">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Đang tải...</span>
-            </div>
-        </div>
-        <p class="text-center mt-2">Đang tạo video, quá trình này có thể mất vài phút...</p>
-    </div>
-</div>
-
-<!-- Template cho từng phần -->
-<template id="part-template">
-    <div class="card mb-4 part-card">
-        <div class="card-header">
-            <h3 class="part-title">Phần 1</h3>
-        </div>
+      <div class="card">
+        <div class="card-header bg-primary text-white"><h3>Tổng Quan Kịch Bản</h3></div>
         <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group mb-3">
-                        <label>Lời thoại:</label>
-                        <div class="d-flex align-items-center mb-2">
-                            <textarea class="form-control text-content" rows="3"></textarea>
-                        </div>
-                        <button class="btn btn-outline-primary btn-sm regenerate-audio-btn">
-                            <i class="bi bi-mic-fill"></i> Tạo giọng đọc
-                        </button>
-                        <div class="mt-2 audio-container" style="display: none;">
-                            <audio controls class="audio-player w-100">
-                                <source src="" type="audio/mpeg">
-                                Trình duyệt không hỗ trợ phát âm thanh.
-                            </audio>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group mb-3">
-                        <label>Hình ảnh:</label>
-                        <div class="image-description mb-2"></div>
-                        <div class="input-group mb-2">
-                            <input type="text" class="form-control custom-prompt" placeholder="Nhập từ khóa tùy chỉnh...">
-                            <button class="btn btn-outline-primary regenerate-image-btn">
-                                <i class="bi bi-image"></i> Tạo hình ảnh
-                            </button>
-                        </div>
-                        <!-- Thêm chức năng tải lên ảnh từ máy tính -->
-                        <div class="mb-2">
-                            <input type="file" class="form-control upload-image" accept="image/*" style="display: none;">
-                            <button class="btn btn-outline-secondary btn-sm upload-image-btn">
-                                <i class="bi bi-upload"></i> Tải ảnh từ máy tính
-                            </button>
-                        </div>
-                        <div class="image-container text-center" style="min-height: 150px;">
-                            <div class="placeholder-image d-flex justify-content-center align-items-center bg-light" style="height: 150px;">
-                                <span class="text-muted">Chưa có hình ảnh</span>
-                            </div>
-                            <img src="" class="img-fluid part-image mt-2" style="display: none; max-height: 300px;">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="progress mt-3 part-progress" style="display: none;">
-                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
-            </div>
+          <p id="script-preview"></p>
+          <button class="btn btn-sm btn-outline-primary" id="toggle-script-btn">Hiển thị toàn bộ kịch bản</button>
+          <div id="full-script" class="mt-2" style="display:none">
+            <h5>Kịch bản đầy đủ:</h5>
+            <div id="script-content" class="p-3 border rounded bg-light small"></div>
+          </div>
         </div>
+      </div>
     </div>
-</template>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Lấy thông tin từ sessionStorage
-    const sessionId = sessionStorage.getItem('videoSessionId');
-    const script = sessionStorage.getItem('videoScript');
-    const scriptPartsJSON = sessionStorage.getItem('videoScriptParts');
-    const voiceId = sessionStorage.getItem('videoVoiceId');
-    const aspectRatio = sessionStorage.getItem('videoAspectRatio') || '16:9'; // Mặc định là 16:9
-    
-    if (!sessionId || !script || !scriptPartsJSON) {
-        alert('Không tìm thấy thông tin kịch bản. Vui lòng quay lại trang tạo kịch bản.');
-        window.location.href = '/api/advanced-video'; // Chuyển về trang tạo kịch bản
-        return;
+    <!-- Nhóm nút thao tác chung -->
+    <div class="text-center mb-4">
+      <div class="d-flex justify-content-center gap-3 flex-wrap">
+        <button id="generate-all-btn" class="btn btn-warning"><i class="bi bi-magic"></i> Tạo tất cả</button>
+        <button id="preview-edit-btn" class="btn btn-info"><i class="bi bi-pencil-square"></i> Xem trước &amp; chỉnh sửa</button>
+        <button id="create-video-btn" class="btn btn-success"><i class="bi bi-film"></i> Tạo Video</button>
+      </div>
+      <div class="progress mt-2" id="global-progress" style="display:none">
+        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%"></div>
+      </div>
+      <small class="text-muted">Quá trình này có thể mất vài phút tuỳ thuộc vào số lượng phần</small>
+    </div>
+
+    <!-- Danh sách phần -->
+    <div id="parts-container">
+      <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p>Đang tải dữ liệu…</p>
+      </div>
+    </div>
+
+    <!-- Kết quả video -->
+    <div class="mt-5" id="result-container" style="display:none">
+      <div class="card">
+        <div class="card-header bg-success text-white"><h3>Video Đã Tạo</h3></div>
+        <div class="card-body">
+          <video id="result-video" controls class="w-100 rounded shadow"></video>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loader khi render -->
+    <div class="mt-3" id="loading-container" style="display:none">
+      <div class="d-flex justify-content-center">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+      <p class="text-center mt-2">Đang tạo video, vui lòng đợi…</p>
+    </div>
+  </div>
+
+  <!-- Template phần -->
+  <template id="part-template">
+    <div class="card mb-4 part-card">
+      <div class="card-header"><h3 class="part-title"></h3></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <!-- Cột lời thoại & âm thanh -->
+          <div class="col-lg-6">
+            <div class="form-group">
+              <label class="fw-bold">Lời thoại:</label>
+              <textarea class="form-control text-content mb-2" rows="4"></textarea>
+              <div class="btn-group btn-group-sm mb-2" role="group">
+                <button class="btn btn-outline-primary regenerate-audio-btn"><i class="bi bi-robot"></i> Giọng đọc AI</button>
+                <button class="btn btn-outline-secondary record-audio-btn"><i class="bi bi-record-circle"></i> Thu âm</button>
+                <button class="btn btn-outline-danger stop-record-btn" style="display:none"><i class="bi bi-stop-circle"></i> Dừng</button>
+              </div>
+              <span class="text-danger small recording-status" style="display:none">● Đang ghi…</span>
+              <div class="audio-container mt-2" style="display:none">
+                <audio controls class="audio-player w-100 rounded shadow-sm">
+                  <source type="audio/mpeg" />
+                  Trình duyệt không hỗ trợ phát âm thanh.
+                </audio>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cột hình ảnh -->
+          <div class="col-lg-6">
+            <div class="form-group">
+              <label class="fw-bold">Hình ảnh:</label>
+              <p class="image-description small text-muted"></p>
+
+              <div class="input-group input-group-sm mb-2">
+                <input type="text" class="form-control custom-prompt" placeholder="Nhập mô tả hoặc để trống" />
+                <button class="btn btn-outline-primary regenerate-image-btn"><i class="bi bi-image"></i></button>
+              </div>
+
+              <div class="mb-2">
+                <input type="file" class="form-control upload-image d-none" accept="image/*" />
+                <button class="btn btn-outline-secondary btn-sm upload-image-btn"><i class="bi bi-upload"></i> Tải ảnh</button>
+              </div>
+
+              <div class="image-container text-center position-relative border rounded" style="min-height:150px">
+                <div class="placeholder-image d-flex align-items-center justify-content-center h-100 w-100 text-muted">Chưa có hình ảnh</div>
+                <img class="img-fluid part-image position-absolute top-0 start-0 w-100 h-100 object-fit-contain" style="display:none" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- progress mỗi phần -->
+        <div class="progress part-progress mt-3" style="display:none">
+          <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ========== SCRIPT ========== -->
+  <script>
+  (function(){
+    /* ---------- Utils  ---------- */
+    const apiFetch = async (endpoint, options = {}) => {
+      const res = await fetch(`/api${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`, options);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status} ${text}`);
+      }
+      return res.json();
+    };
+
+    /* ---------- Lấy dữ liệu sessionStorage ---------- */
+    const sessionId     = sessionStorage.getItem('videoSessionId');
+    const script        = sessionStorage.getItem('videoScript');
+    const scriptParts   = JSON.parse(sessionStorage.getItem('videoScriptParts') || '[]');
+    const voiceId       = sessionStorage.getItem('videoVoiceId');
+    const aspectRatio   = sessionStorage.getItem('videoAspectRatio') || '16:9';
+
+    if (!sessionId || !script || scriptParts.length === 0) {
+      alert('Không tìm thấy dữ liệu kịch bản, vui lòng quay lại bước trước.');
+      location.href = '/api/advanced-video';
+      return;
     }
-    
-    const scriptParts = JSON.parse(scriptPartsJSON);
-    
-    // Hiển thị tổng quan kịch bản
-    document.getElementById('script-preview').textContent = script.substring(0, 150) + '...';
-    document.getElementById('script-content').innerHTML = script.replace(/\n/g, '<br>');
-    
-    // Hiển thị hoặc ẩn toàn bộ kịch bản
-    document.getElementById('toggle-script-btn').addEventListener('click', function() {
-        const fullScript = document.getElementById('full-script');
-        const isVisible = fullScript.style.display !== 'none';
-        fullScript.style.display = isVisible ? 'none' : 'block';
-        this.textContent = isVisible ? 'Hiển thị toàn bộ kịch bản' : 'Ẩn kịch bản';
-    });
-    
-    // Tạo giao diện cho từng phần
+
+    /* ---------- Hiển thị kịch bản ---------- */
+    document.getElementById('script-preview').textContent = script.slice(0, 150) + '…';
+    document.getElementById('script-content').innerHTML  = script.replace(/\n/g, '<br>');
+    document.getElementById('toggle-script-btn').onclick = e => {
+      const target = document.getElementById('full-script');
+      target.style.display = target.style.display === 'none' ? 'block' : 'none';
+      e.target.textContent = target.style.display === 'none' ? 'Hiển thị toàn bộ kịch bản' : 'Ẩn kịch bản';
+    };
+
+    /* ---------- Render phần ---------- */
     const partsContainer = document.getElementById('parts-container');
-    partsContainer.innerHTML = ''; // Xóa spinner
-    
-    scriptParts.forEach((part, index) => {
-        const template = document.getElementById('part-template');
-        const partElement = template.content.cloneNode(true);
-        
-        // Thiết lập ID và dữ liệu
-        const partCard = partElement.querySelector('.part-card');
-        partCard.id = `part-${part.id}`;
-        partCard.dataset.partId = part.id;
-        
-        // Thiết lập tiêu đề
-        const title = partElement.querySelector('.part-title');
-        title.textContent = `Phần ${index + 1}${part.part ? ': ' + part.part : ''}`;
-        
-        // Thiết lập nội dung văn bản
-        const textContent = partElement.querySelector('.text-content');
-        textContent.value = part.text;
-        
-        // Thiết lập mô tả hình ảnh
-        const imageDescription = partElement.querySelector('.image-description');
-        if (part.image && part.image.trim()) {
-            imageDescription.innerHTML = `<small><strong>Mô tả:</strong> ${part.image}</small>`;
-        } else {
-            imageDescription.innerHTML = `<small class="text-muted">Không có mô tả hình ảnh</small>`;
-        }
-        
-        // Thêm vào container
-        partsContainer.appendChild(partElement);
-        
-        // Thiết lập sự kiện tạo hình ảnh
-        setupImageGeneration(part.id);
-        
-        // Thiết lập sự kiện tạo âm thanh
-        setupAudioGeneration(part.id);
+    partsContainer.innerHTML = '';
+
+    scriptParts.forEach((p, idx) => {
+      const tpl       = document.getElementById('part-template').content.cloneNode(true);
+      const card      = tpl.querySelector('.part-card');
+      card.id         = `part-${p.id}`;
+      card.dataset.partId = p.id;
+      tpl.querySelector('.part-title').textContent = `Phần ${idx + 1}${p.part ? ': ' + p.part : ''}`;
+      tpl.querySelector('.text-content').value     = p.text;
+      tpl.querySelector('.image-description').textContent = p.image || 'Không có mô tả hình ảnh';
+
+      partsContainer.appendChild(tpl);
+      setupImageHandlers(p.id);
+      setupAudioHandlers(p.id);
+      setupRecordingHandlers(p.id);
     });
-    
-    // Thiết lập sự kiện tạo video
-    document.getElementById('create-video-btn').addEventListener('click', finalizeVideo);
-    
-    // Thiết lập sự kiện "Tạo tất cả"
-    document.getElementById('generate-all-btn').addEventListener('click', generateAllParts);
-    
-    // Thiết lập sự kiện "Xem trước và chỉnh sửa"
-    document.getElementById('preview-edit-btn').addEventListener('click', previewAndEdit);
-    
-    // Hàm để xem trước và chỉnh sửa video
-    async function previewAndEdit() {
-        try {
-            // Thu thập dữ liệu từ tất cả các phần
-            const videoData = {
-                sessionId,
-                scriptParts: []
-            };
-            
-            // Thu thập thông tin từ mỗi phần
-            const partCards = document.querySelectorAll('.part-card');
-            for (const card of partCards) {
-                const partId = card.dataset.partId;
-                const textContent = card.querySelector('.text-content').value.trim();
-                const imageElement = card.querySelector('.part-image');
-                const imagePath = imageElement.style.display !== 'none' ? imageElement.src : '';
-                const audioElement = card.querySelector('.audio-player source');
-                const audioPath = audioElement ? audioElement.src : '';
-                
-                videoData.scriptParts.push({
-                    partId,
-                    text: textContent,
-                    imagePath,
-                    audioPath
-                });
-            }
-            
-            // Lưu dữ liệu vào sessionStorage
-            sessionStorage.setItem('videoPreviewData', JSON.stringify(videoData));
-            
-            // Chuyển hướng đến trang chỉnh sửa video
-            window.location.href = '/video-editor';
-        } catch (error) {
-            console.error('Lỗi khi chuẩn bị dữ liệu xem trước:', error);
-            alert('Đã xảy ra lỗi khi chuẩn bị dữ liệu xem trước: ' + error.message);
-        }
-    }
-    
-    // Hàm để tạo tất cả ảnh và giọng đọc cho tất cả các phần
-    async function generateAllParts() {
-        const generateBtn = document.getElementById('generate-all-btn');
-        generateBtn.disabled = true;
-        
-        // Hiển thị thanh tiến trình toàn cục
-        const globalProgress = document.getElementById('global-progress');
-        const globalProgressBar = globalProgress.querySelector('.progress-bar');
-        globalProgress.style.display = 'block';
-        globalProgressBar.style.width = '0%';
-        globalProgressBar.textContent = 'Đang chuẩn bị...';
-        
-        try {
-            // Lấy tất cả các phần
-            const allParts = scriptParts.map(part => part.id);
-            
-            // Tính toán tiến trình
-            const totalOperations = allParts.length * 2; // 2 operations per part (image + audio)
-            let completedOperations = 0;
-            
-            // Cập nhật tiến trình
-            const updateProgress = () => {
-                const percentage = Math.min(Math.round((completedOperations / totalOperations) * 100), 100);
-                globalProgressBar.style.width = percentage + '%';
-                globalProgressBar.textContent = `Tiến trình: ${percentage}%`;
-            };
-            
-            // Xử lý từng phần, lần lượt tạo ảnh và giọng đọc
-            for (const partId of allParts) {
-                const partElement = document.getElementById(`part-${partId}`);
-                
-                // Cuộn đến phần đang xử lý
-                partElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                // 1. Tạo ảnh cho phần
-                try {
-                    globalProgressBar.textContent = `Đang tạo ảnh cho phần ${scriptParts.findIndex(p => p.id === partId) + 1}...`;
-                    
-                    // Lấy input prompt từ phần tương ứng
-                    const customPromptInput = partElement.querySelector('.custom-prompt');
-                    
-                    // Gọi API tạo hình ảnh
-                    const response = await fetch('/api/advanced-video/generate-image-for-part', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            sessionId,
-                            partId,
-                            customPrompt: customPromptInput.value.trim()
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        // Cập nhật giao diện
-                        const placeholderImage = partElement.querySelector('.placeholder-image');
-                        const partImage = partElement.querySelector('.part-image');
-                        placeholderImage.style.display = 'none';
-                        partImage.style.display = 'block';
-                        partImage.src = data.imagePath;
-                    } else {
-                        throw new Error(data.error || 'Không thể tạo hình ảnh');
-                    }
-                    
-                    // Cập nhật số lượng thao tác đã hoàn thành
-                    completedOperations++;
-                    updateProgress();
-                    
-                    // Thêm thời gian chờ giữa các lần tạo ảnh để tránh lỗi
-                    await new Promise(resolve => setTimeout(resolve, 8000)); // Đợi 8 giây
-                    
-                } catch (error) {
-                    console.error(`Lỗi khi tạo ảnh cho phần ${partId}:`, error);
-                    // Tiếp tục với phần tiếp theo nếu có lỗi
-                }
-                
-                // 2. Tạo giọng đọc cho phần
-                try {
-                    globalProgressBar.textContent = `Đang tạo giọng đọc cho phần ${scriptParts.findIndex(p => p.id === partId) + 1}...`;
-                    
-                    // Lấy nội dung text từ phần tương ứng
-                    const textContent = partElement.querySelector('.text-content');
-                    
-                    // Nếu không có nội dung, bỏ qua
-                    if (!textContent.value.trim()) {
-                        console.warn(`Phần ${partId} không có nội dung văn bản, bỏ qua tạo giọng đọc`);
-                        completedOperations++;
-                        updateProgress();
-                        continue;
-                    }
-                    
-                    // Gọi API tạo giọng đọc
-                    const response = await fetch('/api/advanced-video/generate-audio-for-part', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            sessionId,
-                            partId,
-                            voiceId,
-                            customText: textContent.value.trim()
-                        })
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (data.success) {
-                        // Cập nhật giao diện
-                        const audioContainer = partElement.querySelector('.audio-container');
-                        const audioPlayer = partElement.querySelector('.audio-player');
-                        audioContainer.style.display = 'block';
-                        audioPlayer.querySelector('source').src = data.audioPath;
-                        audioPlayer.load();
-                    } else {
-                        throw new Error(data.error || 'Không thể tạo giọng đọc');
-                    }
-                    
-                    // Cập nhật số lượng thao tác đã hoàn thành
-                    completedOperations++;
-                    updateProgress();
-                    
-                    // Thêm thời gian chờ giữa các lần tạo giọng đọc
-                    await new Promise(resolve => setTimeout(resolve, 3000)); // Đợi 3 giây
-                    
-                } catch (error) {
-                    console.error(`Lỗi khi tạo giọng đọc cho phần ${partId}:`, error);
-                    // Tiếp tục với phần tiếp theo nếu có lỗi
-                }
-            }
-            
-            // Hoàn thành
-            globalProgressBar.style.width = '100%';
-            globalProgressBar.textContent = 'Đã hoàn thành tất cả!';
-            globalProgressBar.classList.remove('progress-bar-animated');
-            globalProgressBar.classList.add('bg-success');
-            
-            // Hiển thị thông báo
-            alert('Đã tạo xong tất cả ảnh và giọng đọc. Bạn có thể xem lại và chỉnh sửa nếu cần.');
-            
-        } catch (error) {
-            console.error('Lỗi khi tạo tất cả:', error);
-            globalProgressBar.classList.add('bg-danger');
-            globalProgressBar.textContent = 'Đã xảy ra lỗi';
-            alert('Đã xảy ra lỗi khi tạo tất cả: ' + error.message);
-        } finally {
-            // Kích hoạt lại nút
-            generateBtn.disabled = false;
-        }
-    }
-    
-    // Hàm thiết lập tạo hình ảnh
-    function setupImageGeneration(partId) {
-        const partCard = document.getElementById(`part-${partId}`);
-        const regenerateBtn = partCard.querySelector('.regenerate-image-btn');
-        const customPromptInput = partCard.querySelector('.custom-prompt');
-        const imageContainer = partCard.querySelector('.image-container');
-        const placeholderImage = partCard.querySelector('.placeholder-image');
-        const partImage = partCard.querySelector('.part-image');
-        const progressBar = partCard.querySelector('.part-progress');
-        
-        // Thiết lập sự kiện tải ảnh từ máy tính
-        const uploadImageBtn = partCard.querySelector('.upload-image-btn');
-        const uploadImageInput = partCard.querySelector('.upload-image');
-        
-        uploadImageBtn.addEventListener('click', function() {
-            uploadImageInput.click();
-        });
-        
-        uploadImageInput.addEventListener('change', async function(e) {
-            if (!e.target.files || !e.target.files[0]) return;
-            
-            // Hiển thị thanh tiến trình
-            progressBar.style.display = 'block';
-            const progressBarInner = progressBar.querySelector('.progress-bar');
-            progressBarInner.style.width = '0%';
-            progressBarInner.textContent = 'Đang tải ảnh...';
-            
-            try {
-                const file = e.target.files[0];
-                const formData = new FormData();
-                formData.append('image', file);
-                formData.append('sessionId', sessionId);
-                formData.append('partId', partId);
-                
-                // Animation tiến trình
-                let progress = 0;
-                const progressInterval = setInterval(() => {
-                    progress += 10;
-                    if (progress > 90) progress = 90;
-                    progressBarInner.style.width = progress + '%';
-                }, 200);
-                
-                // Gọi API tải lên hình ảnh
-                const response = await fetch('/api/advanced-video/upload-image-for-part', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                // Dừng animation
-                clearInterval(progressInterval);
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Hiển thị hình ảnh đã tải lên
-                    placeholderImage.style.display = 'none';
-                    partImage.style.display = 'block';
-                    partImage.src = data.imagePath;
-                    
-                    // Cập nhật giao diện
-                    progressBarInner.style.width = '100%';
-                    progressBarInner.textContent = 'Hoàn thành!';
-                    
-                    // Ẩn thanh tiến trình sau vài giây
-                    setTimeout(() => {
-                        progressBar.style.display = 'none';
-                    }, 2000);
-                } else {
-                    throw new Error(data.error || 'Không thể tải lên hình ảnh');
-                }
-            } catch (error) {
-                console.error('Lỗi khi tải lên hình ảnh:', error);
-                progressBar.querySelector('.progress-bar').classList.add('bg-danger');
-                progressBar.querySelector('.progress-bar').textContent = 'Lỗi';
-                alert('Lỗi khi tải lên hình ảnh: ' + error.message);
-            }
-        });
-        
-        regenerateBtn.addEventListener('click', async function() {
-            // Hiển thị thanh tiến trình
-            progressBar.style.display = 'block';
-            const progressBarInner = progressBar.querySelector('.progress-bar');
-            progressBarInner.style.width = '0%';
-            progressBarInner.textContent = 'Đang chuẩn bị...';
-            
-            // Vô hiệu hóa nút
-            regenerateBtn.disabled = true;
-            
-            try {
-                // Animation tiến trình
-                let progress = 0;
-                const progressInterval = setInterval(() => {
-                    progress += 5;
-                    if (progress > 90) progress = 90;
-                    progressBarInner.style.width = progress + '%';
-                    progressBarInner.textContent = 'Đang tạo hình ảnh...';
-                }, 500);
-                
-                // Gọi API tạo hình ảnh
-                const response = await fetch('/api/advanced-video/generate-image-for-part', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        sessionId,
-                        partId,
-                        customPrompt: customPromptInput.value.trim()
-                    })
-                });
-                
-                const data = await response.json();
-                
-                // Dừng animation
-                clearInterval(progressInterval);
-                
-                if (data.success) {
-                    // Hiển thị hình ảnh
-                    placeholderImage.style.display = 'none';
-                    partImage.style.display = 'block';
-                    partImage.src = data.imagePath;
-                    
-                    // Cập nhật giao diện
-                    progressBarInner.style.width = '100%';
-                    progressBarInner.textContent = 'Hoàn thành!';
-                    
-                    // Ẩn thanh tiến trình sau vài giây
-                    setTimeout(() => {
-                        progressBar.style.display = 'none';
-                    }, 2000);
-                } else {
-                    throw new Error(data.error || 'Không thể tạo hình ảnh');
-                }
-            } catch (error) {
-                console.error('Lỗi khi tạo hình ảnh:', error);
-                progressBar.querySelector('.progress-bar').classList.add('bg-danger');
-                progressBar.querySelector('.progress-bar').textContent = 'Lỗi';
-                alert('Lỗi khi tạo hình ảnh: ' + error.message);
-            } finally {
-                regenerateBtn.disabled = false;
-            }
-        });
-    }
-    
-    // Hàm thiết lập tạo âm thanh
-    function setupAudioGeneration(partId) {
-        const partCard = document.getElementById(`part-${partId}`);
-        const regenerateBtn = partCard.querySelector('.regenerate-audio-btn');
-        const textContent = partCard.querySelector('.text-content');
-        const audioContainer = partCard.querySelector('.audio-container');
-        const audioPlayer = partCard.querySelector('.audio-player');
-        const progressBar = partCard.querySelector('.part-progress');
-        
-        regenerateBtn.addEventListener('click', async function() {
-            // Kiểm tra nếu không có nội dung
-            if (!textContent.value.trim()) {
-                alert('Vui lòng nhập nội dung lời thoại trước khi tạo giọng đọc.');
-                return;
-            }
-            
-            // Hiển thị thanh tiến trình
-            progressBar.style.display = 'block';
-            const progressBarInner = progressBar.querySelector('.progress-bar');
-            progressBarInner.style.width = '0%';
-            progressBarInner.textContent = 'Đang chuẩn bị...';
-            
-            // Vô hiệu hóa nút
-            regenerateBtn.disabled = true;
-            
-            try {
-                // Animation tiến trình
-                let progress = 0;
-                const progressInterval = setInterval(() => {
-                    progress += 5;
-                    if (progress > 90) progress = 90;
-                    progressBarInner.style.width = progress + '%';
-                    progressBarInner.textContent = 'Đang tạo giọng đọc...';
-                }, 500);
-                
-                // Gọi API tạo giọng đọc
-                const response = await fetch('/api/advanced-video/generate-audio-for-part', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        sessionId,
-                        partId,
-                        voiceId,
-                        customText: textContent.value.trim()
-                    })
-                });
-                
-                const data = await response.json();
-                
-                // Dừng animation
-                clearInterval(progressInterval);
-                
-                if (data.success) {
-                    // Hiển thị audio player
-                    audioContainer.style.display = 'block';
-                    audioPlayer.querySelector('source').src = data.audioPath;
-                    audioPlayer.load(); // Tải lại để áp dụng nguồn mới
-                    
-                    // Cập nhật giao diện
-                    progressBarInner.style.width = '100%';
-                    progressBarInner.textContent = 'Hoàn thành!';
-                    
-                    // Ẩn thanh tiến trình sau vài giây
-                    setTimeout(() => {
-                        progressBar.style.display = 'none';
-                    }, 2000);
-                } else {
-                    throw new Error(data.error || 'Không thể tạo giọng đọc');
-                }
-            } catch (error) {
-                console.error('Lỗi khi tạo giọng đọc:', error);
-                progressBar.querySelector('.progress-bar').classList.add('bg-danger');
-                progressBar.querySelector('.progress-bar').textContent = 'Lỗi';
-                alert('Lỗi khi tạo giọng đọc: ' + error.message);
-            } finally {
-                regenerateBtn.disabled = false;
-            }
-        });
-    }
-    
-    // Hàm hoàn thiện video
-    async function finalizeVideo() {
-        // Kiểm tra xem đã tạo đủ hình ảnh và giọng đọc cho tất cả các phần chưa
-        
-        // Hiển thị trạng thái đang tạo video
-        document.getElementById('loading-container').style.display = 'block';
-        document.getElementById('create-video-btn').disabled = true;
-        
-        try {
-            const response = await fetch('/api/advanced-video/finalize-video', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    sessionId,
-                    aspectRatio
-                })
+
+    /* ---------- Generate ALL ---------- */
+    document.getElementById('generate-all-btn').onclick = () => bulkGenerate();
+    async function bulkGenerate(){
+      const btn   = document.getElementById('generate-all-btn');
+      const bar   = document.querySelector('#global-progress .progress-bar');
+      const prog  = document.getElementById('global-progress');
+      btn.disabled = true; prog.style.display='block';
+
+      const totalOps = scriptParts.length * 2; // image + audio
+      let done = 0;
+      const update = msg => {
+        const pct = Math.round((done/totalOps)*100);
+        bar.style.width = pct + '%';
+        bar.textContent = msg + ` (${pct}%)`;
+      };
+
+      for(const s of scriptParts){
+        const partEl = document.getElementById(`part-${s.id}`);
+        partEl.scrollIntoView({behavior:'smooth', block:'center'});
+
+        // image
+        try{
+          update('Tạo hình ảnh…');
+          const prompt = partEl.querySelector('.custom-prompt').value.trim();
+          const imgRes = await apiFetch('/advanced-video/generate-image-for-part', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({sessionId, partId: s.id, customPrompt: prompt})
+          });
+          showImage(partEl, imgRes.imagePath);
+        }catch(e){ console.error(e); }
+        done++; update('Đang xử lý');
+
+        // audio
+        try{
+          update('Tạo giọng đọc…');
+          const text = partEl.querySelector('.text-content').value.trim();
+          if(text){
+            const audRes = await apiFetch('/advanced-video/generate-audio-for-part', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({sessionId, partId:s.id, voiceId, customText:text})
             });
-            
-            const data = await response.json();
-            
-            // Ẩn trạng thái đang tạo video
-            document.getElementById('loading-container').style.display = 'none';
-            document.getElementById('create-video-btn').disabled = false;
-            
-            if (data.success) {
-                // Hiển thị video
-                const resultContainer = document.getElementById('result-container');
-                resultContainer.style.display = 'block';
-                document.getElementById('result-video').src = data.videoUrl;
-                
-                // Cuộn đến kết quả
-                resultContainer.scrollIntoView({ behavior: 'smooth' });
-            } else {
-                throw new Error(data.error || 'Không thể tạo video');
-            }
-        } catch (error) {
-            console.error('Lỗi khi tạo video:', error);
-            document.getElementById('loading-container').style.display = 'none';
-            document.getElementById('create-video-btn').disabled = false;
-            alert('Lỗi khi tạo video: ' + error.message);
-        }
+            showAudio(partEl, audRes.audioPath);
+          }
+        }catch(e){ console.error(e); }
+        done++; update('Đang xử lý');
+      }
+
+      bar.classList.remove('progress-bar-animated');
+      bar.classList.add('bg-success');
+      bar.textContent = 'Hoàn thành!';
+      btn.disabled    = false;
     }
-});
-</script> 
+
+    /* ---------- Preview & edit ---------- */
+    document.getElementById('preview-edit-btn').onclick = () => {
+      const parts = Array.from(document.querySelectorAll('.part-card')).map(c => ({
+        partId: c.dataset.partId,
+        text  : c.querySelector('.text-content').value.trim(),
+        imagePath: c.querySelector('.part-image').src || '',
+        audioPath: c.querySelector('.audio-player source').src || ''
+      }));
+      sessionStorage.setItem('videoPreviewData', JSON.stringify({sessionId, scriptParts: parts}));
+      location.href = '/video-editor';
+    };
+
+    /* ---------- Finalize video ---------- */
+    document.getElementById('create-video-btn').onclick = async () => {
+      document.getElementById('loading-container').style.display='block';
+      document.getElementById('create-video-btn').disabled = true;
+      try{
+        const res = await apiFetch('/advanced-video/finalize-video', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({sessionId, aspectRatio})
+        });
+        document.getElementById('result-video').src = res.videoUrl;
+        document.getElementById('result-container').style.display='block';
+        document.getElementById('result-container').scrollIntoView({behavior:'smooth'});
+      }catch(e){ alert('Tạo video lỗi: '+e.message); }
+      document.getElementById('loading-container').style.display='none';
+      document.getElementById('create-video-btn').disabled = false;
+    };
+
+    /* ---------- Helpers hiển thị ---------- */
+    function showImage(card, src){
+      card.querySelector('.placeholder-image').style.display='none';
+      const img = card.querySelector('.part-image');
+      img.src = src; img.style.display='block';
+    }
+    function showAudio(card, src){
+      const wrap = card.querySelector('.audio-container');
+      wrap.style.display='block';
+      const audio = card.querySelector('.audio-player');
+      audio.querySelector('source').src = src; audio.load();
+    }
+
+    /* ---------- Handlers cho từng phần ---------- */
+    function setupImageHandlers(partId){
+      const card      = document.getElementById(`part-${partId}`);
+      const genBtn    = card.querySelector('.regenerate-image-btn');
+      const uploadBtn = card.querySelector('.upload-image-btn');
+      const fileInput = card.querySelector('.upload-image');
+      const customPrompt = card.querySelector('.custom-prompt');
+      const progress  = card.querySelector('.part-progress');
+      const bar       = progress.querySelector('.progress-bar');
+
+      // Upload file từ máy
+      uploadBtn.onclick = () => fileInput.click();
+      fileInput.onchange = async e => {
+        if(!e.target.files[0]) return;
+        progress.style.display='block'; bar.style.width='0%';
+        const form = new FormData();
+        form.append('image', e.target.files[0]);
+        form.append('sessionId', sessionId);
+        form.append('partId', partId);
+        try{
+          const res = await apiFetch('/advanced-video/upload-image-for-part', {method:'POST', body: form});
+          showImage(card, res.imagePath); bar.style.width='100%';
+          setTimeout(()=>progress.style.display='none', 1500);
+        }catch(err){ bar.classList.add('bg-danger'); bar.textContent='Lỗi'; alert(err.message); }
+      };
+
+      // Sinh ảnh AI
+      genBtn.onclick = async () => {
+        progress.style.display='block'; bar.style.width='15%'; bar.textContent='Đang tạo…';
+        try{
+          const res = await apiFetch('/advanced-video/generate-image-for-part', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({sessionId, partId, customPrompt: customPrompt.value.trim()})
+          });
+          showImage(card, res.imagePath); bar.style.width='100%';
+          setTimeout(()=>progress.style.display='none', 1500);
+        }catch(err){ bar.classList.add('bg-danger'); bar.textContent='Lỗi'; alert(err.message); }
+      };
+    }
+
+    function setupAudioHandlers(partId){
+      const card   = document.getElementById(`part-${partId}`);
+      const genBtn = card.querySelector('.regenerate-audio-btn');
+      const textEl = card.querySelector('.text-content');
+      const progress = card.querySelector('.part-progress');
+      const bar      = progress.querySelector('.progress-bar');
+
+      genBtn.onclick = async () => {
+        if(!textEl.value.trim()) return alert('Vui lòng nhập lời thoại');
+        progress.style.display='block'; bar.style.width='15%'; bar.textContent='Đang tạo…';
+        try{
+          const res = await apiFetch('/advanced-video/generate-audio-for-part', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({sessionId, partId, voiceId, customText: textEl.value.trim()})
+          });
+          showAudio(card, res.audioPath); bar.style.width='100%';
+          setTimeout(()=>progress.style.display='none', 1500);
+        }catch(err){ bar.classList.add('bg-danger'); bar.textContent='Lỗi'; alert(err.message); }
+      };
+    }
+
+    function setupRecordingHandlers(partId){
+      const card      = document.getElementById(`part-${partId}`);
+      const recBtn    = card.querySelector('.record-audio-btn');
+      const stopBtn   = card.querySelector('.stop-record-btn');
+      const statusLbl = card.querySelector('.recording-status');
+      const progress  = card.querySelector('.part-progress');
+      const bar       = progress.querySelector('.progress-bar');
+      const audioWrap = card.querySelector('.audio-container');
+      const audioTag  = card.querySelector('.audio-player');
+      let   recorder, chunks = [];
+
+      if(!navigator.mediaDevices?.getUserMedia){
+        recBtn.disabled = true; recBtn.title = 'Trình duyệt không hỗ trợ thu âm';
+        return;
+      }
+
+      recBtn.onclick = async () => {
+        try{
+          const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+          recorder = new MediaRecorder(stream);
+          chunks   = [];
+          recorder.ondataavailable = e => chunks.push(e.data);
+          recorder.onstop = async() => {
+            const blob = new Blob(chunks, {type:'audio/webm'});
+            const url  = URL.createObjectURL(blob);
+            audioWrap.style.display='block';
+            audioTag.querySelector('source').src = url; audioTag.load();
+            await uploadBlob(blob);
+          };
+          recorder.start();
+          recBtn.classList.add('disabled');
+          stopBtn.style.display='inline-block'; statusLbl.style.display='inline';
+        }catch(err){ alert('Không thể truy cập micro: '+err.message); }
+      };
+
+      stopBtn.onclick = () => {
+        recorder?.state === 'recording' && recorder.stop();
+        recBtn.classList.remove('disabled');
+        stopBtn.style.display='none'; statusLbl.style.display='none';
+      };
+
+      async function uploadBlob(blob){
+        progress.style.display='block'; bar.style.width='25%'; bar.textContent='Đang tải…';
+        const form = new FormData();
+        form.append('audio', blob, `record_${Date.now()}.webm`);
+        form.append('sessionId', sessionId);
+        form.append('partId', partId);
+        try{
+          const res = await apiFetch('/advanced-video/upload-audio-for-part', {method:'POST', body: form});
+          audioTag.querySelector('source').src = res.audioPath; audioTag.load();
+          bar.style.width='100%'; bar.textContent='Hoàn thành!';
+          setTimeout(()=>progress.style.display='none', 1500);
+        }catch(err){ bar.classList.add('bg-danger'); bar.textContent='Lỗi'; alert('Upload audio lỗi: '+err.message); }
+      }
+    }
+  })();
+  </script>
+</body>
+</html>
