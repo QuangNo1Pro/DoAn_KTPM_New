@@ -5,4 +5,4 @@ const { getYoutubeStatsPage } = require('../../controllers/thongkeController/tho
 
 router.get('/thongke', isAuthenticated, getYoutubeStatsPage)
 
-module.exports = router
+module.exports = router;
