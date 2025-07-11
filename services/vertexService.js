@@ -71,9 +71,31 @@ function getStyleDescription(style) {
   }
 }
 
+// Hàm helper để lấy mô tả đối tượng người xem từ giá trị audienceType
+function getAudienceDescription(audience) {
+  switch(audience) {
+    case 'children':
+      return 'trẻ em từ 4-12 tuổi, ngôn ngữ đơn giản, hình ảnh sinh động, giải thích dễ hiểu';
+    case 'teenager':
+      return 'thanh thiếu niên từ 13-19 tuổi, ngôn ngữ hiện đại, năng động, xu hướng mới, sử dụng giọng điệu trẻ trung';
+    case 'adult':
+      return 'người trưởng thành từ 20-50 tuổi, ngôn ngữ cân bằng, thông tin chi tiết, đưa ra dẫn chứng và số liệu';
+    case 'elder':
+      return 'người cao tuổi trên 60, ngôn ngữ tôn trọng, rõ ràng, chậm rãi, ít sử dụng từ ngữ hiện đại, chủ đề liên quan đến sức khỏe và cuộc sống';
+    case 'student':
+      return 'học sinh và sinh viên, tập trung vào giáo dục, kiến thức học thuật, phù hợp với môi trường học đường';
+    case 'professional':
+      return 'chuyên gia và người làm việc chuyên nghiệp, sử dụng thuật ngữ chuyên ngành, phân tích chuyên sâu, thông tin chính xác';
+    case 'family':
+      return 'gia đình, nội dung lành mạnh, phù hợp với mọi lứa tuổi, tập trung vào giá trị gia đình và hoạt động chung';
+    default:
+      return 'đại chúng, phù hợp với nhiều đối tượng, ngôn ngữ phổ thông dễ hiểu';
+  }
+}
+
 // Hàm tạo kịch bản bằng Vertex AI với Gemini Pro
-const generateScriptByVertexAI = async (keyword, modelType = 'pro', scriptStyle = 'natural') => {
-  console.log(`🔍 Gọi Vertex AI (${modelType}) để tạo kịch bản với từ khóa: ${keyword}, phong cách: ${scriptStyle}`);
+const generateScriptByVertexAI = async (keyword, modelType = 'pro', scriptStyle = 'natural', audienceType = 'general') => {
+  console.log(`🔍 Gọi Vertex AI (${modelType}) để tạo kịch bản với từ khóa: ${keyword}, phong cách: ${scriptStyle}, đối tượng: ${audienceType}`);
   
   // Chọn model dựa trên modelType
   const model = getModelId(modelType);
@@ -81,6 +103,7 @@ const generateScriptByVertexAI = async (keyword, modelType = 'pro', scriptStyle 
   
   const cleanKeyword = cleanText(keyword);
   const styleDescription = getStyleDescription(scriptStyle);
+  const audienceDescription = getAudienceDescription(audienceType);
   
   try {
     // Đảm bảo keyword là chuỗi và không rỗng
@@ -105,14 +128,15 @@ Yêu cầu:
   + Tránh các cấu trúc phức tạp và hướng dẫn quá chi tiết
   + Không sử dụng ký hiệu đặc biệt, hashtag hay emoticon
 - Phong cách viết phải là phong cách ${styleDescription}
+- Đối tượng người xem là ${audienceDescription}
 - Định dạng kịch bản phải tuân thủ nghiêm ngặt theo cấu trúc sau:
 
 PHẦN 1
-Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích, phong cách ${scriptStyle}]
+Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích, phong cách ${scriptStyle}, phù hợp với đối tượng ${audienceType}]
 Hình ảnh: [Mô tả chi tiết hình ảnh minh họa trực quan cho chính xác nội dung lời thoại phần này]
 
 PHẦN 2
-Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích, phong cách ${scriptStyle}]
+Lời thoại: [Nội dung giọng đọc ngắn gọn, súc tích, phong cách ${scriptStyle}, phù hợp với đối tượng ${audienceType}]
 Hình ảnh: [Mô tả chi tiết hình ảnh minh họa trực quan cho chính xác nội dung lời thoại phần này]
 
 [Và tương tự cho các phần còn lại]
@@ -131,9 +155,10 @@ Lưu ý:
   + Tránh các cấu trúc phức tạp và hướng dẫn quá chi tiết
   + Không sử dụng ký hiệu đặc biệt, hashtag hay emoticon
 - Phong cách viết phải theo đúng phong cách: ${styleDescription}
+- Đối tượng người xem là: ${audienceDescription}
 `;
 
-    console.log(`🤖 Đang gọi Vertex AI (${modelType}) để tạo kịch bản với phong cách ${scriptStyle}...`);
+    console.log(`🤖 Đang gọi Vertex AI (${modelType}) để tạo kịch bản với phong cách ${scriptStyle} và đối tượng ${audienceType}...`);
     
     // Chuẩn bị auth
     if (!credentials) {

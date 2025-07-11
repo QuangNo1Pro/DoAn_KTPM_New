@@ -232,6 +232,20 @@
                 </select>
                 <small class="text-muted">Chọn phong cách viết kịch bản phù hợp với nội dung của bạn</small>
               </div>
+              <div class="mb-3">
+                <label for="userAudienceType" class="form-label">Đối tượng người xem:</label>
+                <select class="form-select audience-type-select" id="userAudienceType" name="audience_type_user">
+                  <option value="general" selected>Phổ thông</option>
+                  <option value="children">Trẻ em</option>
+                  <option value="teenager">Thanh thiếu niên</option>
+                  <option value="adult">Người trưởng thành</option>
+                  <option value="elder">Người cao tuổi</option>
+                  <option value="student">Học sinh/Sinh viên</option>
+                  <option value="professional">Chuyên gia/Người làm việc</option>
+                  <option value="family">Gia đình</option>
+                </select>
+                <small class="text-muted">Chọn đối tượng người xem phù hợp với nội dung video của bạn</small>
+              </div>
               <div class="text-end">
                 <button type="button" class="btn btn-primary px-4" id="userSubmitBtn">
                   <i class="bi bi-magic me-2"></i>Sinh kịch bản
@@ -304,6 +318,20 @@
                   <option value="marketing">Marketing</option>
                 </select>
                 <small class="text-muted">Chọn phong cách viết kịch bản phù hợp với nội dung của bạn</small>
+              </div>
+              <div class="mb-3">
+                <label for="webAudienceType" class="form-label">Đối tượng người xem:</label>
+                <select class="form-select audience-type-select" id="webAudienceType" name="audience_type_web">
+                  <option value="general" selected>Phổ thông</option>
+                  <option value="children">Trẻ em</option>
+                  <option value="teenager">Thanh thiếu niên</option>
+                  <option value="adult">Người trưởng thành</option>
+                  <option value="elder">Người cao tuổi</option>
+                  <option value="student">Học sinh/Sinh viên</option>
+                  <option value="professional">Chuyên gia/Người làm việc</option>
+                  <option value="family">Gia đình</option>
+                </select>
+                <small class="text-muted">Chọn đối tượng người xem phù hợp với nội dung video của bạn</small>
               </div>
               <div class="text-end">
                 <button type="button" class="btn btn-success px-4" id="webSubmitBtn">
@@ -422,6 +450,20 @@
                 </select>
                 <small class="text-muted">Chọn phong cách viết kịch bản phù hợp với nội dung của bạn</small>
               </div>
+              <div class="mb-3">
+                <label for="aiAudienceType" class="form-label">Đối tượng người xem:</label>
+                <select class="form-select audience-type-select" id="aiAudienceType" name="audience_type_ai">
+                  <option value="general" selected>Phổ thông</option>
+                  <option value="children">Trẻ em</option>
+                  <option value="teenager">Thanh thiếu niên</option>
+                  <option value="adult">Người trưởng thành</option>
+                  <option value="elder">Người cao tuổi</option>
+                  <option value="student">Học sinh/Sinh viên</option>
+                  <option value="professional">Chuyên gia/Người làm việc</option>
+                  <option value="family">Gia đình</option>
+                </select>
+                <small class="text-muted">Chọn đối tượng người xem phù hợp với nội dung video của bạn</small>
+              </div>
               <div class="text-end">
                 <button type="submit" class="btn btn-danger px-4" id="aiSubmitBtn">
                   <i class="bi bi-stars me-2"></i>Tạo ý tưởng bằng AI
@@ -475,27 +517,53 @@
                   const aiModelValue = document.getElementById('aiModelInput').value || 'pro';
                   console.log('Submit với model:', aiModelValue);
 
-                  // Tạo form và submit
+                  // Tạo form mới và submit trực tiếp
                   const tempForm = document.createElement('form');
                   tempForm.method = 'POST';
                   tempForm.action = '/search';
                   tempForm.style.display = 'none';
 
-                  const inputs = [
-                    { name: 'mode', value: 'ai' },
-                    { name: 'keyword', value: aiKeywordValue },
-                    { name: 'source', value: 'ai' },
-                    { name: 'ai_model', value: aiModelValue }
-                  ];
+                  // Thêm các input cần thiết
+                  const modeInput = document.createElement('input');
+                  modeInput.type = 'hidden';
+                  modeInput.name = 'mode';
+                  modeInput.value = 'ai';
+                  tempForm.appendChild(modeInput);
 
-                  inputs.forEach(input => {
-                    const element = document.createElement('input');
-                    element.type = 'hidden';
-                    element.name = input.name;
-                    element.value = input.value;
-                    tempForm.appendChild(element);
-                  });
+                  const keywordInput = document.createElement('input');
+                  keywordInput.type = 'hidden';
+                  keywordInput.name = 'keyword'; // Server controller sẽ tìm từ khóa ở đây
+                  keywordInput.value = aiKeywordValue;
+                  tempForm.appendChild(keywordInput);
 
+                  const sourceInput = document.createElement('input');
+                  sourceInput.type = 'hidden';
+                  sourceInput.name = 'source';
+                  sourceInput.value = 'ai';
+                  tempForm.appendChild(sourceInput);
+
+                  // Thêm input cho model AI
+                  const modelInput = document.createElement('input');
+                  modelInput.type = 'hidden';
+                  modelInput.name = 'ai_model';
+                  modelInput.value = aiModelValue;
+                  tempForm.appendChild(modelInput);
+
+                  // Thêm input cho phong cách kịch bản
+                  const scriptStyleInput = document.createElement('input');
+                  scriptStyleInput.type = 'hidden';
+                  scriptStyleInput.name = 'script_style';
+                  scriptStyleInput.value = document.getElementById('aiScriptStyle').value || 'natural';
+                  tempForm.appendChild(scriptStyleInput);
+                  
+                  // Thêm input cho đối tượng người dùng
+                  const audienceTypeInput = document.createElement('input');
+                  audienceTypeInput.type = 'hidden';
+                  audienceTypeInput.name = 'audience_type';
+                  audienceTypeInput.value = document.getElementById('aiAudienceType').value || 'general';
+                  tempForm.appendChild(audienceTypeInput);
+
+                  // Thêm form vào body và submit
                   document.body.appendChild(tempForm);
                   tempForm.submit();
                 });
@@ -712,6 +780,13 @@
           scriptStyleInput.name = 'script_style';
           scriptStyleInput.value = scriptStyle;
           tempForm.appendChild(scriptStyleInput);
+          
+          // Thêm input cho đối tượng người dùng
+          const audienceTypeInput = document.createElement('input');
+          audienceTypeInput.type = 'hidden';
+          audienceTypeInput.name = 'audience_type';
+          audienceTypeInput.value = document.getElementById('aiAudienceType').value || 'general';
+          tempForm.appendChild(audienceTypeInput);
 
           // Thêm form vào body và submit
           document.body.appendChild(tempForm);
@@ -1081,6 +1156,9 @@
 
           // Lấy phong cách kịch bản
           const scriptStyle = document.getElementById('userScriptStyle')?.value || 'natural';
+          
+          // Lấy đối tượng người xem
+          const audienceType = document.getElementById('userAudienceType')?.value || 'general';
 
           // Hiển thị loading
           loadingSpinner.classList.remove('d-none');
@@ -1093,7 +1171,8 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 keyword,
-                script_style: scriptStyle
+                script_style: scriptStyle,
+                audience_type: audienceType
               })
             });
 
@@ -1129,6 +1208,9 @@
 
           // Lấy phong cách kịch bản
           const scriptStyle = document.getElementById('webScriptStyle')?.value || 'natural';
+          
+          // Lấy đối tượng người xem
+          const audienceType = document.getElementById('webAudienceType')?.value || 'general';
 
           // Hiển thị loading
           loadingSpinner.classList.remove('d-none');
@@ -1141,7 +1223,8 @@
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
                 keyword,
-                script_style: scriptStyle
+                script_style: scriptStyle,
+                audience_type: audienceType
               })
             });
 
@@ -1222,6 +1305,10 @@
           // Lấy phong cách kịch bản từ select box hiện tại
           const visibleStyleSelect = document.querySelector('.search-options.active .script-style-select');
           const scriptStyle = visibleStyleSelect?.value || 'natural';
+          
+          // Lấy đối tượng người xem từ select box hiện tại
+          const visibleAudienceSelect = document.querySelector('.search-options.active .audience-type-select');
+          const audienceType = visibleAudienceSelect?.value || 'general';
 
           // Hiển thị spinner
           const loadingSpinner = document.getElementById('loadingSpinner');
@@ -1236,7 +1323,8 @@
             body: JSON.stringify({
               keyword: keyword,
               ai_model: modelValue,
-              script_style: scriptStyle
+              script_style: scriptStyle,
+              audience_type: audienceType
             }),
           })
             .then(response => response.json())
