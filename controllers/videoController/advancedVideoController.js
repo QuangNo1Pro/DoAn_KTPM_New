@@ -49,6 +49,18 @@ const audioUpload = multer({
     else cb(new Error('Chỉ chấp nhận file âm thanh'),false);
   }
 });
+function convertUrlToFilePath(url) {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) {
+    url = new URL(url).pathname;          // bỏ domain
+  }
+  if (url.startsWith('/')) {
+    return path.join(__dirname, '../../public', url.slice(1));
+  }
+  return path.isAbsolute(url)
+    ? url
+    : path.join(__dirname, '../../public', url);
+}
 
 /* --- API UPLOAD AUDIO --- */
 const uploadAudioForPart = async (req,res)=>{
@@ -67,11 +79,16 @@ const uploadAudioForPart = async (req,res)=>{
                     .find(p=>p.id===partId);
       if(!part)   throw new Error('Không tìm thấy part');
 
-      part.audioPath = req.file.path;               // cập nhật
+      const rel = `/temp/${path.basename(req.file.path)}`;
+part.audioPath = rel;
+
 
       return res.json({
           success:true,
-          audioPath:`/temp/${path.basename(req.file.path)}`
+          audioPath:`/temp/${path.basename(req.file.path)}`,
+          audioPath: rel,
+  mime :'audio/mpeg'
+          
       });
   }catch(err){
       console.error('uploadAudioForPart',err);
@@ -534,9 +551,16 @@ async function renderZoomFrames(
     const vf = `scale=iw*${scaleFactor}:ih*${scaleFactor},` +
       `crop=${targetWidth}:${targetHeight}:(iw-${targetWidth})/2:(ih-${targetHeight})/2`;
 
-    const framePath = path.join(outDir, `frame_${i.toString().padStart(4, '0')}.jpg`);
-    const cmd = `ffmpeg -y -i "${imagePath}" -vf "${vf}" "${framePath}"`;
-    execSync(cmd);
+        const framePath = path.join(
+      outDir,
+      `frame_${i.toString().padStart(4, '0')}.jpg`
+    );
+
+    /* vẽ 1 frame jpg duy nhất */
+    execSync(
+      `ffmpeg -y -i "${imagePath}" -vf "${vf}" -frames:v 1 "${framePath}"`,
+      { stdio: 'pipe' }
+    );
   }
 }
 async function createVideoSegment(
@@ -629,8 +653,12 @@ async function createVideoWithAudio(
   const srtLines = [];
 
   for (let i = 0; i < scriptParts.length; i++) {
-    const p = scriptParts[i];
-    if (!p.imagePath || !p.audioPath) continue;        // bỏ qua part thiếu media
+   const p = scriptParts[i];
+   if (!p.imagePath || !p.audioPath) continue;
+
+    /* chuyển về path tuyệt đối trước khi dùng ffmpeg */
+    const imgAbs = convertUrlToFilePath(p.imagePath);
+    const audAbs = convertUrlToFilePath(p.audioPath);       // bỏ qua part thiếu media
 
     /* 1.1  Xác định thời lượng audio  ----------------- */
     let duration = await new Promise(r => {
@@ -648,17 +676,16 @@ async function createVideoWithAudio(
     const zoomStart = i % 2 ? 1.5 : 1.0;
     const zoomEnd   = i % 2 ? 1.0 : 1.5;
     await renderZoomFrames(
-      p.imagePath, frameDir, zoomStart, zoomEnd,
-      duration, fps, vw, vh
-    );
-
+   imgAbs,      frameDir, zoomStart, zoomEnd,
+    duration, fps, vw, vh
+ );
     /* 1.3  Gộp frame + audio thành segment ------------ */
-    const segPath = path.join(outDir, `segment_${i}_${Date.now()}.mp4`);
-    execSync(
-      `ffmpeg -y -framerate ${fps} -i "${frameDir}/frame_%04d.jpg" ` +
-      `-i "${p.audioPath}" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "${segPath}"`,
-      { stdio:'inherit' }
-    );
+   const segPath = path.join(outDir, `segment_${i}_${Date.now()}.mp4`);
+ execSync(
+   `ffmpeg -y -framerate ${fps} -i "${frameDir}/frame_%04d.jpg" ` +
+   `-i "${audAbs}" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "${segPath}"`,
+   { stdio:'inherit' }
+ );
     segments.push(segPath);
 
     /* 1.4  Phụ đề dòng hiện tại ----------------------- */
@@ -1183,7 +1210,8 @@ const generateAudioForPart = async (req, res) => {
     await convertTextToSpeech(text, outputPath, selectedVoiceId);
 
     // Cập nhật đường dẫn âm thanh trong session
-    part.audioPath = outputPath;
+    const rel = `/temp/audio/${audioFilename}`;
+ part.audioPath = rel;
 
     // Nếu văn bản được tùy chỉnh, cập nhật nội dung text trong part
     if (customText) {
@@ -1193,6 +1221,7 @@ const generateAudioForPart = async (req, res) => {
     return res.json({
       success: true,
       audioPath: `/temp/audio/${audioFilename}`,
+      audioPath: rel,
       text: text
     });
   } catch (error) {
