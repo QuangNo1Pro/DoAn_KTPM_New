@@ -271,20 +271,35 @@ async function downloadImagesForKeywords(keywords, tempDir) {
 
   const imageFiles = [];
 
-  // Tạo ảnh cho từng từ khóa bằng imageController API
+  // Tạo ảnh cho từng từ khóa hoặc mô tả bằng imageController API
   for (const keyword of keywords) {
     try {
-      console.log(`🖼️ Đang tạo ảnh cho từ khóa: ${keyword}`);
+      // Hiển thị phần đầu của từ khóa/mô tả nếu dài
+      const displayKeyword = keyword.length > 50 ? `${keyword.substring(0, 50)}...` : keyword;
+      console.log(`🖼️ Đang tạo ảnh cho: ${displayKeyword}`);
 
       // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 15 giây)
       await new Promise(resolve => setTimeout(resolve, 15000));
 
-      // Lấy thông tin tỉ lệ khung hình từ session nếu có
-      const aspectRatio = req.session?.videoPreparation?.aspectRatio || '16:9';
+      // Nếu keyword là mô tả dài, thêm các từ khóa nâng cao chất lượng
+      let prompt = keyword;
+      if (keyword.length > 30) {
+        prompt = `${keyword}, high quality, detailed, clear image, sharp focus`;
+      }
 
-      // Gọi API imageController để tạo ảnh với tỉ lệ khung hình phù hợp
+      // Lấy thông tin tỉ lệ khung hình từ session nếu có
+      let aspectRatio = '16:9';
+      try {
+        if (req && req.session && req.session.videoPreparation && req.session.videoPreparation.aspectRatio) {
+          aspectRatio = req.session.videoPreparation.aspectRatio;
+        }
+      } catch (error) {
+        console.log('⚠️ Không thể lấy aspectRatio từ session, sử dụng mặc định 16:9');
+      }
+
+      // Gọi API imageController để tạo ảnh với prompt nâng cao
       const response = await axios.post('http://localhost:3000/api/image/generate', {
-        prompt: keyword,
+        prompt: prompt,
         modelType: 'standard', // Có thể chọn 'ultra', 'standard', hoặc 'fast' tùy nhu cầu
         imageCount: 1,
         aspectRatio: aspectRatio
@@ -351,14 +366,32 @@ async function downloadImagesForScriptParts(scriptParts, tempDir) {
   for (const part of scriptParts) {
     // Sử dụng mô tả hình ảnh nếu có
     if (part.image && part.image.trim() !== '') {
+      // Sử dụng toàn bộ mô tả hình ảnh
+      const imageDescription = part.image.trim();
+      console.log(`🖼️ Tải hình ảnh với mô tả đầy đủ: ${imageDescription}`);
+      
+      // Tạo mảng chứa một phần tử là toàn bộ mô tả
+      const fullDescription = [imageDescription];
+      
+      // Tải hình ảnh với mô tả đầy đủ
+      const images = await downloadImagesForKeywords(fullDescription, tempDir);
+      if (images.length > 0) {
+        results.push({
+          ...part,
+          imagePath: images[0].path
+        });
+        continue;
+      }
+      
+      // Nếu không tìm được ảnh với mô tả đầy đủ, thử với từ khóa trích xuất
+      console.log(`⚠️ Không tìm được ảnh với mô tả đầy đủ, thử với từ khóa`);
       const keywords = extractKeywordsFromDescription(part.image);
-
       if (keywords.length > 0) {
-        const images = await downloadImagesForKeywords(keywords, tempDir);
-        if (images.length > 0) {
+        const keywordImages = await downloadImagesForKeywords(keywords, tempDir);
+        if (keywordImages.length > 0) {
           results.push({
             ...part,
-            imagePath: images[0].path
+            imagePath: keywordImages[0].path
           });
           continue;
         }
@@ -1034,11 +1067,12 @@ const generateImageForPart = async (req, res) => {
     // Xác định prompt cho hình ảnh
     let imagePrompt = customPrompt;
 
-    // Nếu không có prompt tùy chỉnh, sử dụng mô tả hình ảnh hoặc trích xuất từ văn bản
+    // Nếu không có prompt tùy chỉnh, sử dụng toàn bộ mô tả hình ảnh hoặc trích xuất từ văn bản
     if (!imagePrompt) {
       if (part.image && part.image.trim() !== '') {
-        const keywords = extractKeywordsFromDescription(part.image);
-        imagePrompt = keywords.join(', ');
+        // Sử dụng toàn bộ mô tả hình ảnh thay vì chỉ trích xuất từ khóa
+        imagePrompt = part.image.trim();
+        console.log(`🖼️ Sử dụng toàn bộ mô tả hình ảnh: ${imagePrompt}`);
       } else {
         // Trích xuất từ khóa từ văn bản
         const textKeywords = part.text
