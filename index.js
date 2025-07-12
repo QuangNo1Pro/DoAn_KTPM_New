@@ -6,7 +6,7 @@ const passport = require('passport')
 const session = require('express-session')
 const flash = require('connect-flash')
 require('dotenv').config(); // Load biến môi trường từ file .env
-
+const { formatDate } = require('./helper/handlebars');
 const { initializePassport } = require('./middleware/auth'); // Cấu hình Passport với chiến lược tự xây dựng
 
 const port = 3000
@@ -69,7 +69,8 @@ app.engine('handlebars', engine({
   defaultLayout: 'main',
   layoutsDir: path.join(__dirname, 'views', 'layouts'),
   helpers: {
-    eq: (a, b) => a === b
+    eq: (a, b) => a === b,
+    formatDate
   }
 }))
 

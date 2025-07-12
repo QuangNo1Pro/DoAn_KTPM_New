@@ -1,66 +1,70 @@
-<div class="container mt-5">
-    <h2 class="text-warning mb-4">📊 Thống kê Video YouTube</h2>
+<!-- thongkeVideo.hbs -->
+<style>
+    body {
+        background: linear-gradient(145deg, #fefefe, #dce3ea);
+        color: #212529;
+        font-family: 'Segoe UI', sans-serif;
+        background-attachment: fixed;
+        background-size: cover;
+    }
 
-    <!-- Form lọc -->
+    .card {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        border-radius: 16px;
+    }
+
+    .table thead th {
+        font-weight: bold;
+    }
+
+    canvas {
+        background-color: #ffffff;
+        border-radius: 8px;
+        padding: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+</style>
+
+<div class="container mt-5">
+    <h2 class="text-warning mb-4">📊 Phân tích Video YouTube</h2>
+
+    <!-- Bộ lọc tháng -->
     <form class="row g-3 mb-4" method="get" action="/thongke">
         <div class="col-md-3">
             <label for="month" class="form-label">📅 Chọn tháng</label>
-            <input type="month" class="form-control" name="month" id="month" value="{{filterMonth}}">
+            <input type="month" class="form-control bg-light text-dark border-warning" name="month" id="month"
+                value="{{filterMonth}}">
         </div>
         <div class="col-md-3 align-self-end">
             <button type="submit" class="btn btn-warning"><i class="bi bi-funnel"></i> Lọc</button>
         </div>
     </form>
 
-    <!-- Tổng quan -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card text-bg-dark border-warning">
-                <div class="card-body">
-                    <h5 class="card-title">🎬 Tổng số video</h5>
-                    <p class="display-6 fw-bold text-warning">{{stats.totalVideos}}</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card text-bg-dark border-info">
+    <!-- Thống kê tổng quan -->
+    <div class="row mb-4 g-4">
+        <div class="col-md-4">
+            <div class="card bg-white border-warning">
                 <div class="card-body">
                     <h5 class="card-title">👁️ Tổng lượt xem</h5>
-                    <p class="display-6 fw-bold text-info">{{stats.totalViews}}</p>
+                    <p class="display-6 fw-bold text-warning">{{stats.totalViews}}</p>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-6">
-            <div class="card text-bg-dark border-success">
+        <div class="col-md-4">
+            <div class="card bg-white border-info">
                 <div class="card-body">
-                    <h5 class="card-title">⏱️ Tổng thời gian phát</h5>
-                    <p class="display-6 fw-bold text-success">{{stats.totalWatchTime}} giây</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card text-bg-dark border-primary">
-                <div class="card-body">
-                    <h5 class="card-title">⏳ Thời lượng xem trung bình</h5>
-                    <p class="display-6 fw-bold text-primary">{{stats.avgWatchDuration}} giây</p>
+                    <h5 class="card-title">❤️ Tổng lượt thích</h5>
+                    <p class="display-6 fw-bold text-info">{{stats.totalLikes}}</p>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-6">
-            <div class="card text-bg-dark border-danger">
+        <div class="col-md-4">
+            <div class="card bg-white border-light">
                 <div class="card-body">
-                    <h5 class="card-title">✅ Tỷ lệ xem hết</h5>
-                    <p class="display-6 fw-bold text-danger">{{stats.completionRate}}%</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card text-bg-dark border-light">
-                <div class="card-body">
-                    <h5 class="card-title">❤️ Lượt thích</h5>
-                    <p class="display-6 fw-bold text-light">{{stats.totalLikes}}</p>
+                    <h5 class="card-title">🎬 Tổng số video</h5>
+                    <p class="display-6 fw-bold text-dark">{{stats.totalVideos}}</p>
                 </div>
             </div>
         </div>
@@ -68,73 +72,123 @@
 
     <!-- Danh sách video -->
     <div class="table-responsive mb-5">
-        <table class="table table-hover table-dark table-striped align-middle">
-            <thead class="table-warning">
+        <table class="table table-hover table-striped align-middle">
+            <thead class="table-warning text-dark">
                 <tr>
                     <th>📌 Tiêu đề</th>
                     <th>⏰ Ngày upload</th>
                     <th>🔗 Link YouTube</th>
                     <th>👁️‍🗨️ Lượt xem</th>
+                    <th>❤️ Like</th>
                 </tr>
             </thead>
             <tbody>
                 {{#each videos}}
                 <tr>
                     <td>{{this.title}}</td>
-                    <td>{{this.updated_at}}</td>
+                    <td>{{formatDate this.updated_at format="HH:mm DD/MM/YYYY"}}</td>
                     <td>
                         <a href="https://www.youtube.com/watch?v={{this.youtube_id}}"
-                            class="btn btn-sm btn-outline-light" target="_blank">
+                            class="btn btn-sm btn-outline-dark" target="_blank">
                             <i class="bi bi-play-circle"></i> Xem
                         </a>
                     </td>
-                    <td><span class="badge bg-info">{{this.viewCount}}</span></td>
+                    <td><span class="badge bg-info text-dark">{{this.viewCount}}</span></td>
+                    <td><span class="badge bg-success">{{this.likeCount}}</span></td>
                 </tr>
                 {{else}}
                 <tr>
-                    <td colspan="4" class="text-center text-muted">Không có video nào trong thời gian được chọn.</td>
+                    <td colspan="7" class="text-center text-muted">Không có video nào trong thời gian được chọn.</td>
                 </tr>
                 {{/each}}
             </tbody>
         </table>
     </div>
 
-    <!-- Biểu đồ lượt xem -->
-    <h4 class="text-dark mb-3">📈 Biểu đồ lượt xem theo tháng</h4>
-
+    <!-- Biểu đồ lượt xem theo ngày -->
+    <h4 class="text-dark mb-3">📈 Biểu đồ lượt xem theo ngày</h4>
     <canvas id="viewsChart" height="100"></canvas>
+
+    <!-- Biểu đồ lượt xem từng video -->
+    <h4 class="text-dark mt-5 mb-3">📊 Lượt xem từng video</h4>
+    <canvas id="videoViewsChart" height="120"></canvas>
 </div>
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    const ctx = document.getElementById('viewsChart').getContext('2d');
-    const chart = new Chart(ctx, {
-        type: 'bar',
+    const ctx1 = document.getElementById('viewsChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'line',
         data: {
             labels: {{{ viewChartJSON.labels }}},
-    datasets: [{
-        label: 'Lượt xem',
-        data: {{{ viewChartJSON.data }}},
-        backgroundColor: 'rgba(255,193,7,0.2)',
-        borderColor: 'rgba(255,193,7,1)',
-        borderWidth: 2,
+        datasets: [{
+            label: 'Lượt xem hàng ngày',
+            data: {{{ viewChartJSON.data }}},
+        backgroundColor: 'rgba(255, 206, 86, 0.2)',
+        borderColor: 'rgba(255, 159, 64, 1)',
+        borderWidth: 3,
         fill: true,
-        tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 6
+        tension: 0.4,
+        pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+        pointRadius: 4,
+        pointHoverRadius: 7
             }]
         },
-    options: {
+        options: {
         responsive: true,
-            scales: {
+        plugins: {
+            legend: { position: 'top' },
+            title: { display: true, text: '📈 Biểu đồ lượt xem theo ngày', font: { size: 18 } }
+        },
+        scales: {
             y: {
                 beginAtZero: true,
-                    ticks: {
-                    precision: 0
-                }
+                ticks: { precision: 0 }
             }
         }
     }
+    });
+
+    const ctx2 = document.getElementById('videoViewsChart').getContext('2d');
+    const videoTitles = {{{ videoTitles }}};
+    const videoViews = {{{ videoViews }}};
+
+    new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: videoTitles,
+            datasets: [{
+                label: 'Lượt xem',
+                data: videoViews,
+                backgroundColor: [
+                    'rgba(255, 99, 132, 0.6)',
+                    'rgba(54, 162, 235, 0.6)',
+                    'rgba(255, 206, 86, 0.6)',
+                    'rgba(75, 192, 192, 0.6)',
+                    'rgba(153, 102, 255, 0.6)',
+                    'rgba(255, 159, 64, 0.6)',
+                    'rgba(100, 181, 246, 0.6)',
+                    'rgba(255, 138, 128, 0.6)',
+                    'rgba(174, 213, 129, 0.6)'
+                ],
+                borderColor: 'rgba(0,0,0,0.05)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: '📊 Lượt xem từng video', font: { size: 18 } }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 }
+                }
+            }
+        }
     });
 </script>

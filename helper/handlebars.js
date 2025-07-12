@@ -1,7 +1,8 @@
 const moment = require('moment');
 
 module.exports = {
-  formatDate: function (dateStr) {
-    return moment(dateStr).format('DD/MM/YYYY');
+  formatDate: function (dateStr, options) {
+    const format = options?.hash?.format || 'DD/MM/YYYY';
+    return moment(dateStr).format(format);
   }
 };

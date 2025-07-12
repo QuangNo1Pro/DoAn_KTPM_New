@@ -110,7 +110,7 @@ async function getYoutubeStatsPage(req, res) {
       ? Math.round(totalWatchTime)
       : Math.round(internalWatchTime / 60);
 
-    console.log('Thống kê video:',videos)
+    //console.log('Thống kê video:',videos)
     res.render('thongkeVideo', {
       title: 'Thống kê video YouTube',
       stats: {
@@ -125,10 +125,12 @@ async function getYoutubeStatsPage(req, res) {
         labels: JSON.stringify(chartLabels),
         data: JSON.stringify(chartData)
       },
+      videoTitles: JSON.stringify(videos.map(v => v.title)),
+      videoViews: JSON.stringify(videos.map(v => v.viewCount)),
       videos,
       filterMonth: month
     });
-
+  
   } catch (err) {
     console.error('Lỗi thống kê:', err);
     if (err.message.includes('Insufficient Permission')) {
