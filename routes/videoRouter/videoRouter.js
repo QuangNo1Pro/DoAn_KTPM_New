@@ -1,23 +1,24 @@
-const express = require('express')
-const router = express.Router()
-const {renderAdvancedVideoPage, renderVideoEditorPage} = require('../../controllers/videoController/videoController')
-const advancedVideoRouter = require('./advancedVideoRouter')
-const { isAuthenticated } = require('../../middleware/authMiddleware')
+const express = require('express');
+const router = express.Router();
+const { renderAdvancedVideoPage, renderVideoEditorPage } = require('../../controllers/videoController/videoController');
+const advancedVideoRouter = require('./advancedVideoRouter');
+const { requireAuth } = require('../../middleware/auth');
+const { recordVideoWatch } = require('../../controllers/videoController/watchVideoController');
+const videoStatisticsRouter = require('./video-statisticsRouter');
+
 // Route trang tạo video nâng cao
-router.get('/advanced-video',  renderAdvancedVideoPage)
+router.get('/advanced-video', requireAuth, renderAdvancedVideoPage);
 
 // Route cho trang chỉnh sửa video
-router.get('/video-editor',  renderVideoEditorPage)
+router.get('/video-editor', requireAuth, renderVideoEditorPage);
+
+// Route xem video và ghi lại lượt xem
+router.get('/watch/:id', recordVideoWatch); // Giữ công khai hoặc thêm requireAuth nếu cần
 
 // Sử dụng router cho API tạo video nâng cao
-router.use('/api/advanced-video',  advancedVideoRouter)
+router.use('/api/advanced-video', advancedVideoRouter); // Xóa requireAuth
 
-const { recordVideoWatch } = require('../../controllers/videoController/watchVideoController');
+// Sử dụng router cho API thống kê video
+router.use('/api/video-statistics', requireAuth, videoStatisticsRouter);
 
-router.get('/watch/:id', recordVideoWatch);
-
-const videoStatisticsRouter = require('./video-statisticsRouter');
-router.use('/api/video-statistics', videoStatisticsRouter);
-
-
-module.exports = router
+module.exports = router;
