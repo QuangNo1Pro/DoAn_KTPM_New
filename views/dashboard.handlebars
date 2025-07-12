@@ -12,40 +12,72 @@
 
     <style>
         :root {
-            --main-bg: #0F1419;              /* Màu xám đậm làm nền chính */
-            --card-bg: linear-gradient(to bottom, #1D2530, #0E0F11); /* Gradient từ xanh đậm sang xám rất đậm */
-            --accent: rgb(252, 211, 77);               /* Màu xanh dương sáng cho điểm nhấn (nút, tiêu đề) */
-            --accent-dark: #06B6D4;          /* Màu xanh ngọc khi hover */
-            --text-light: #FFFFFF;           /* Màu trắng cho văn bản chính */
-            --text-muted: #94A3B8;           /* Màu xám nhạt cho văn bản phụ */
-            --footer-bg: #15202B;            /* Màu xanh đậm cho footer */
+            --main-bg: #0F1419;
+            /* Màu xám đậm làm nền chính */
+            --card-bg: linear-gradient(to bottom, #1D2530, #0E0F11);
+            /* Gradient từ xanh đậm sang xám rất đậm */
+            --accent: rgb(252, 211, 77);
+            /* Màu vàng sáng cho điểm nhấn (nút, tiêu đề) */
+            --accent-dark: #06B6D4;
+            /* Màu xanh ngọc khi hover */
+            --text-light: #FFFFFF;
+            /* Màu trắng cho văn bản chính */
+            --text-muted: #94A3B8;
+            /* Màu xám nhạt cho văn bản phụ */
+            --footer-bg: #15202B;
+            /* Màu xanh đậm cho footer */
         }
 
         body {
-            background: linear-gradient(to bottom, #0F172A, #1D2530); /* Gradient từ xanh đậm sang xanh nhạt */
+            background: linear-gradient(to bottom, #0F172A, #1D2530);
+            /* Gradient from dark blue to lighter blue as fallback */
             color: var(--text-light);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             padding-bottom: 60px;
+            position: relative;
+            /* Ensure video positioning works */
         }
 
         main {
             flex: 1 0 auto;
+            position: relative;
+            /* Ensure content stays above video */
+            z-index: 1;
+            /* Place content above video */
+            padding-top: 40px;
+            /* Add top padding for better spacing */
         }
 
         .title-glow {
             color: var(--accent);
+            text-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color), 0 0 30px var(--accent-dark);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 5px var(--glow-color), 0 0 10px var(--glow-color), 0 0 15px var(--accent-dark);
+            }
+
+            to {
+                text-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color), 0 0 30px var(--accent-dark);
+            }
         }
 
         .text-muted {
             color: var(--text-muted) !important;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            /* Subtle shadow for muted text */
         }
 
         .card {
             background-color: var(--card-bg);
             color: var(--text-light);
             transition: transform 0.2s ease, box-shadow 0.2s;
+            border-radius: 10px;
+            /* Rounded corners for cards */
         }
 
         .card:hover {
@@ -56,26 +88,42 @@
         .card-title {
             font-weight: 600;
             color: var(--accent);
+            text-shadow: 0 0 10px var(--glow-color), 0 0 20px var(--glow-color), 0 0 30px var(--accent-dark);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        .card-text {
+            color: var(--text-light);
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            /* Subtle glow for readability */
         }
 
         .card-img-top {
             width: 100%;
-            max-height: 300px;
-            aspect-ratio: 1024 / 1526;
+            max-height: 200px;
+            /* Reduced height for better fit */
+            aspect-ratio: 16 / 9;
+            /* Adjusted for a wider aspect ratio */
             object-fit: contain;
-            background: linear-gradient(to bottom, #15202B, #090A0B); /* Gradient từ xanh đậm sang xám rất đậm */
-            border-radius: 0.375rem 0.375rem 0 0;
+            background: linear-gradient(to bottom, #15202B, #090A0B);
+            /* Gradient từ xanh đậm sang xám rất đậm */
+            border-radius: 10px 10px 0 0;
+            /* Match card radius */
         }
 
         .btn-outline-primary {
             color: var(--accent);
             border-color: var(--accent);
+            text-shadow: 0 0 5px var(--glow-color);
+            /* Glow effect on button text */
         }
 
         .btn-outline-primary:hover {
             background-color: var(--accent-dark);
             color: var(--text-light);
             border-color: var(--accent-dark);
+            text-shadow: none;
+            /* Remove glow on hover for contrast */
         }
 
         footer {
@@ -87,22 +135,63 @@
             padding: 15px 0;
             text-align: center;
             color: var(--text-light);
+            z-index: 2;
+            /* Ensure footer stays above video */
+        }
+
+        #bg-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            /* Match the viewport width */
+            height: auto;
+            /* Maintain aspect ratio */
+            object-fit: contain;
+            /* Ensure full video is visible without cropping */
+            z-index: -1;
+            /* Place video behind all content */
+            opacity: 0.5;
+            /* Adjust for readability */
+            pointer-events: none;
+            /* Prevent interaction with video */
+        }
+
+        .header-text {
+            margin-top: -8px; /* Move up 0.8 cm (approx 8px) */
+        }
+
+        .header-text h2 {
+            font-size: 2.5rem; /* Increase font size for h2 */
+        }
+
+        .header-text p {
+            font-size: 1.2rem; /* Increase font size for p */
         }
     </style>
 </head>
 
 <body>
+    <!-- Video background -->
+    <video autoplay muted loop id="bg-video">
+        <source src="/video_background/background.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
     <main class="container mt-5">
-        <div class="text-center mb-5">
+        <div class="text-center mb-5 header-text">
             <h2 class="fw-bold title-glow">Bảng điều khiển - AI Short Video Creator</h2>
             <p class="text-muted">Chọn một chức năng để bắt đầu sáng tạo video ngắn với AI</p>
         </div>
 
-        <div class="row g-4">
+        <div class="row g-4 justify-content-center">
             <!-- Gợi ý xu hướng -->
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="card h-100 shadow-sm">
-                    <img src="/image/image1.png" class="card-img-top" alt="Gợi ý xu hướng">
+                    <video autoplay muted loop class="feature-video">
+                        <source src="/video_background/idea.mp4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
                     <div class="card-body text-center">
                         <h5 class="card-title">🎯 Gợi ý chủ đề theo xu hướng</h5>
                         <p class="card-text">Khám phá những ý tưởng hot nhất hiện nay thông qua AI và API trend.</p>
@@ -112,9 +201,12 @@
             </div>
 
             <!-- Quản lý video -->
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="card h-100 shadow-sm">
-                    <img src="/image/image2.png" class="card-img-top" alt="Quản lý video">
+                    <video autoplay muted loop class="feature-video">
+                        <source src="/video_background/ScriptGeneration.mp4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
                     <div class="card-body text-center">
                         <h5 class="card-title">📁 Quản lý video đã tạo</h5>
                         <p class="card-text">Xem lại, chỉnh sửa hoặc tải lại những video bạn đã tạo trước đó.</p>
@@ -122,10 +214,14 @@
                     </div>
                 </div>
             </div>
+
             <!-- Thống kê video -->
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <div class="card h-100 shadow-sm">
-                    <img src="/image/image3.png" class="card-img-top" alt="Thống kê video">
+                    <video autoplay muted loop class="feature-video">
+                        <source src="/video_background/VideoBuilder.mp4" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
                     <div class="card-body text-center">
                         <h5 class="card-title">📊 Thống kê video</h5>
                         <p class="card-text">Xem số lượng video đã tạo, đã đăng YouTube, lượt xem, và các chỉ số khác.</p>
@@ -133,7 +229,6 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </main>
 
