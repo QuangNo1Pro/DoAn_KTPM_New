@@ -1,173 +1,142 @@
-{{!-- views/videoView/myVideos.handlebars --}}
-<link rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
-<link rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"/>
 
 <style>
-/* ========= COLOR PALETTE ========= */
+/* ========= DESIGN TOKENS ========= */
 :root{
-  --c-bg:#0f1720;
-  --c-surface:#111722;
+  --c-bg:#0e1824;
   --c-surface-glass:rgba(17,23,34,.55);
   --c-card-border:rgba(255,255,255,.06);
   --c-primary:#0dcaf0;
   --c-danger:#ff5757;
   --c-danger-light:#ff8d8d;
+  --c-accent-start:#00d4ff;
+  --c-accent-end:#ff006a;
+  --radius-lg:1rem;
 }
 
 body{
   background:var(--c-bg);
   color:#e8e8e8;
   min-height:100vh;
-  font-family:'Inter',system-ui,Arial,Helvetica,sans-serif
+  font-family:'Inter',system-ui,Arial,Helvetica,sans-serif;
 }
+
+/* ==== BACKGROUND VIDEO ==== */
+#bgVideo{
+  position:fixed;inset:0;
+  width:100vw;height:100vh;
+  object-fit:cover;
+  filter:brightness(.6) contrast(1.1) saturate(1.2);
+  z-index:-2;
+}
+.bg-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.35);
+  backdrop-filter:blur(4px);
+  z-index:-1;
+  pointer-events:none;
+}
+@media(max-width:768px){#bgVideo,.bg-overlay{display:none;}}
+
+/* ========= HERO TITLE ========= */
+.hero-title{
+  font-weight:800;
+  font-size:clamp(2rem,4vw,3rem);
+  line-height:1.2;
+  background:linear-gradient(90deg,var(--c-accent-start) 0%,var(--c-accent-end) 60%);
+  -webkit-background-clip:text;color:transparent;
+  text-shadow:0 0 8px rgba(0,0,0,.45);
+  display:inline-flex;align-items:center;gap:.4rem;
+}
+.hero-title .sparkle{animation:blink 1.4s infinite alternate;}
+@keyframes blink{from{opacity:.4}to{opacity:1;}}
 
 /* ========= BADGE ========= */
 .badge-size{
   font-size:.75rem;padding:.35em .6em;border-radius:50rem;
   background:linear-gradient(135deg,#5efce8 0%,#736efe 100%);
-  color:#000;
-  border:none;
+  color:#000;border:none;
 }
 
 /* ========= CARD ========= */
 .video-card{
   position:relative;
   border:1px solid var(--c-card-border);
-  border-radius:1rem;
+  border-radius:var(--radius-lg);
   background:var(--c-surface-glass);
-  backdrop-filter:blur(10px) saturate(160%);
+  backdrop-filter:blur(12px) saturate(180%);
   box-shadow:0 10px 30px rgba(0,0,0,.55);
   overflow:hidden;
   transition:transform .3s,box-shadow .3s,border-color .3s;
 }
-.video-card:hover{
-  transform:translateY(-6px);
-  box-shadow:0 16px 42px rgba(0,0,0,.7);
-  border-color:rgba(0,212,255,.3);
-}
-/* fancy glowing border on hover */
+.video-card:hover{transform:translateY(-6px);box-shadow:0 16px 42px rgba(0,0,0,.7);border-color:rgba(0,212,255,.3);}
 .video-card::before{
-  content:"";
-  position:absolute;inset:0;
-  border-radius:inherit;
-  padding:2px;
-  background:linear-gradient(130deg,#00d4ff,#ff006a 70%);
-  -webkit-mask:
-        linear-gradient(#000 0 0) content-box,
-        linear-gradient(#000 0 0);
+  content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;
+  background:linear-gradient(130deg,var(--c-accent-start),var(--c-accent-end) 70%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
   -webkit-mask-composite:xor;mask-composite:exclude;
-  opacity:0;transition:.4s;
-  pointer-events:none;
+  opacity:0;transition:.4s;pointer-events:none;
 }
-.video-card:hover::before{opacity:1}
+.video-card:hover::before{opacity:1;}
 
 /* thumbnail */
 .video-thumb{position:relative;display:block;width:100%;aspect-ratio:16/9}
-.video-thumb video{width:100%;height:100%;object-fit:cover;border-radius:.5rem  .5rem 0 0}
-.play-overlay{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:3.5rem;color:#fff;
-  background:rgba(0,0,0,.35);
-  backdrop-filter:blur(2px);
-  opacity:0;transition:.25s;
-}
-.play-overlay i{filter:drop-shadow(0 0 6px #ff006a)}
-.video-thumb:hover .play-overlay{opacity:1}
+.video-thumb video{width:100%;height:100%;object-fit:cover;border-radius:.5rem .5rem 0 0}
+.play-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:3.5rem;color:#fff;background:rgba(0,0,0,.35);backdrop-filter:blur(2px);opacity:0;transition:.25s;}
+.play-overlay i{filter:drop-shadow(0 0 6px var(--c-accent-end))}
+.video-thumb:hover .play-overlay{opacity:1;}
 
 /* ========= BUTTONS ========= */
-.btn-outline-sky{
-  --bs-btn-color:var(--c-primary);
-  --bs-btn-border-color:var(--c-primary);
-  --bs-btn-hover-bg:var(--c-primary);
-  --bs-btn-hover-color:#000;
-  --bs-btn-hover-border-color:var(--c-primary);
-  --bs-btn-active-bg:var(--c-primary);
-}
-.btn-youtube{
-  background:linear-gradient(135deg,#ff0844,#ffb199);
-  border:none;
-  color:#fff;
-}
+.btn-youtube{background:linear-gradient(135deg,#ff0844,#ffb199);border:none;color:#fff;}
 .btn-youtube:hover{filter:brightness(1.08)}
 .btn-youtube:disabled{background:#6c757d}
 
-.btn-outline-danger{
-  --bs-btn-color:var(--c-danger);
-  --bs-btn-border-color:var(--c-danger);
-  --bs-btn-hover-bg:var(--c-danger);
-  --bs-btn-hover-color:#fff;
-  --bs-btn-hover-border-color:var(--c-danger);
-  --bs-btn-active-bg:var(--c-danger);
-}
+.btn-outline-danger{--bs-btn-color:var(--c-danger);--bs-btn-border-color:var(--c-danger);--bs-btn-hover-bg:var(--c-danger);--bs-btn-hover-color:#fff;--bs-btn-hover-border-color:var(--c-danger);--bs-btn-active-bg:var(--c-danger);}
 
-/* ========= MODAL ========= */
-.modal-content{
-  backdrop-filter:blur(12px) saturate(160%);
-  background:var(--c-surface-glass);
-  border:1px solid var(--c-card-border);
-  box-shadow:0 6px 30px rgba(0,0,0,.6);
-}
-.modal-header{
-  border-bottom:none;
-  background:linear-gradient(130deg,rgba(0,212,255,.2),rgba(255,0,106,.15));
-}
+/* ========= MODAL & TOAST ========= */
+.modal-content,.toast.glass{backdrop-filter:blur(12px) saturate(180%);background:var(--c-surface-glass);border:1px solid var(--c-card-border);} 
+.modal-header{border-bottom:none;background:linear-gradient(130deg,rgba(0,212,255,.18),rgba(255,0,106,.15));}
 
-/* ========= TOAST ========= */
-#toastMsg{
-  backdrop-filter:blur(10px) saturate(180%);
-  background:rgba(17,23,34,.8);
-  border:1px solid var(--c-card-border);
-  box-shadow:0 6px 20px rgba(0,0,0,.5);
-}
+#toastMsg{backdrop-filter:blur(10px) saturate(180%);background:rgba(17,23,34,.8);border:1px solid var(--c-card-border);box-shadow:0 6px 20px rgba(0,0,0,.5);} 
 #toastMsg.bg-success{background:rgba(39,174,96,.85)!important}
-#toastMsg.bg-danger {background:rgba(231,76,60,.85)!important}
+#toastMsg.bg-danger{background:rgba(231,76,60,.85)!important}
 </style>
 
+<!-- ==== BACKGROUND VIDEO & OVERLAY ==== -->
+<video id="bgVideo" autoplay muted loop playsinline poster="/video_background/bg_mv.png">
+  <source src="/video_background/backgroundmyVideos.mp4" type="video/mp4"/>
+</video>
+<div class="bg-overlay"></div>
+
+<!-- ========= MAIN ========= -->
 <div class="container py-5">
-  <h2 class="text-center mb-4 fw-bold" style="background:linear-gradient(90deg,#00d4ff 0%,#ff006a 60%);-webkit-background-clip:text;color:transparent">📁 Video của bạn</h2>
+  <h2 class="hero-title mb-5 text-center">
+    <span>🎬</span> Bộ sưu tập Video <span class="sparkle">✨</span>
+  </h2>
 
   {{#if videos.length}}
   <div class="row g-4">
     {{#each videos}}
     <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
       <div class="video-card h-100 d-flex flex-column">
-    
-        {{!-- thumbnail + nút play --}}
+        <!-- thumbnail + play -->
         <a href="{{public_url}}" target="_blank" class="video-thumb flex-shrink-0" data-bs-toggle="tooltip" data-bs-title="Xem nhanh">
           <video src="{{public_url}}#t=0.25" muted playsinline loop></video>
           <span class="play-overlay"><i class="bi bi-play-circle-fill"></i></span>
         </a>
-    
-        {{!-- info + nút --}}
+
         <div class="card-body d-flex flex-column">
           <h6 class="mb-2 text-truncate small fw-semibold" title="{{title}}">{{title}}</h6>
-    
           <span class="badge-size mb-2 d-inline-block">{{size_mb}} MB</span>
-    
           <div class="d-flex flex-column gap-2 mt-auto">
             {{#if youtube_id}}
-              <button class="btn btn-sm btn-secondary w-100 mt-2" disabled data-bs-toggle="tooltip" data-bs-title="Đã upload">
-                <i class="bi bi-check-circle-fill me-1"></i> Đã upload
-              </button>
+              <button class="btn btn-sm btn-secondary w-100 mt-2" disabled data-bs-toggle="tooltip" data-bs-title="Đã upload"><i class="bi bi-check-circle-fill me-1"></i> Đã upload</button>
             {{else}}
-              <button class="btn btn-sm btn-youtube w-100 btn-youtube"
-                      data-bs-toggle="tooltip"
-                      data-bs-title="Upload YouTube"
-                      data-id="{{id}}"
-                      data-url="{{local_path}}"
-                      data-title="{{title}}">
-                <i class="bi bi-youtube me-1"></i> YouTube
-              </button>
+              <button class="btn btn-sm btn-youtube w-100 btn-youtube" data-bs-toggle="tooltip" data-bs-title="Upload YouTube" data-id="{{id}}" data-url="{{local_path}}" data-title="{{title}}"><i class="bi bi-youtube me-1"></i> YouTube</button>
             {{/if}}
 
-            <button class="btn btn-sm btn-outline-danger w-100 btn-del"
-                    data-bs-toggle="tooltip"
-                    data-bs-title="Xoá video"
-                    data-id="{{id}}">
-              <i class="bi bi-trash me-1"></i> Xoá
-            </button>
+            <button class="btn btn-sm btn-outline-danger w-100 btn-del" data-bs-toggle="tooltip" data-bs-title="Xoá video" data-id="{{id}}"><i class="bi bi-trash me-1"></i> Xoá</button>
           </div>
         </div>
       </div>
@@ -175,93 +144,46 @@ body{
     {{/each}}
   </div>
 
-  {{!-- ===== PAGINATION ===== --}}
+  <!-- ===== PAGINATION ===== -->
   <nav class="mt-5 d-flex justify-content-center">
     <ul class="pagination pagination-sm mb-0">
-      <li class="page-item {{#if (eq page 1)}}disabled{{/if}}">
-        <a class="page-link" href="?page={{prevPage}}">&laquo;</a>
-      </li>
-
+      <li class="page-item {{#if (eq page 1)}}disabled{{/if}}"><a class="page-link" href="?page={{prevPage}}">&laquo;</a></li>
       {{#each pages}}
         {{#if (or (lte this 2) (gte this ../lastPageMinus1) (between this ../pageMinus1 ../pagePlus1))}}
-          <li class="page-item {{#if (eq ../page this)}}active{{/if}}">
-            <a class="page-link" href="?page={{this}}">{{this}}</a>
-          </li>
+          <li class="page-item {{#if (eq ../page this)}}active{{/if}}"><a class="page-link" href="?page={{this}}">{{this}}</a></li>
         {{else}}
-          {{#unless (lookup ../_ellipsis this)}}
-            {{set ../_ellipsis this true}}
-            <li class="page-item disabled"><span class="page-link">…</span></li>
-          {{/unless}}
+          {{#unless (lookup ../_ellipsis this)}} {{set ../_ellipsis this true}} <li class="page-item disabled"><span class="page-link">…</span></li>{{/unless}}
         {{/if}}
       {{/each}}
-
-      <li class="page-item {{#if (eq page lastPage)}}disabled{{/if}}">
-        <a class="page-link" href="?page={{nextPage}}">&raquo;</a>
-      </li>
+      <li class="page-item {{#if (eq page lastPage)}}disabled{{/if}}"><a class="page-link" href="?page={{nextPage}}">&raquo;</a></li>
     </ul>
   </nav>
-
   {{else}}
     <p class="text-center fs-5 text-muted">Bạn chưa tạo video nào.</p>
   {{/if}}
 </div>
 
-{{!-- ========= MODAL XOÁ ========= --}}
+<!-- ========= MODALS & TOAST ========= -->
+{{!-- Delete Modal --}}
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title text-danger-emphasis">
-          <i class="bi bi-trash-fill me-2"></i>Xoá video?
-        </h5>
-        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        Bạn có chắc muốn xoá&nbsp;<strong id="del-video-title"></strong>?<br>
-        <small class="text-danger">Hành động này không thể hoàn tác.</small>
-      </div>
-      <div class="modal-footer border-0">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Huỷ</button>
-        <button class="btn btn-danger" id="confirm-delete-btn">
-          <i class="bi bi-trash"></i> Xoá
-        </button>
-      </div>
-    </div>
-  </div>
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content glass">
+      <div class="modal-header"><h5 class="modal-title text-danger-emphasis"><i class="bi bi-trash-fill me-2"></i>Xoá video?</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">Bạn có chắc muốn xoá&nbsp;<strong id="del-video-title"></strong>?<br><small class="text-danger">Hành động này không thể hoàn tác.</small></div>
+      <div class="modal-footer border-0"><button class="btn btn-secondary" data-bs-dismiss="modal">Huỷ</button><button class="btn btn-danger" id="confirm-delete-btn"><i class="bi bi-trash"></i> Xoá</button></div>
+  </div></div>
 </div>
 
-{{!-- ========= MODAL UPLOAD ========= --}}
+{{!-- Upload Modal --}}
 <div class="modal fade" id="confirmUploadModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title text-danger-emphasis">
-          <i class="bi bi-youtube me-2"></i>Upload YouTube?
-        </h5>
-        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        Upload&nbsp;<strong id="up-video-title"></strong>&nbsp;lên YouTube?
-      </div>
-      <div class="modal-footer border-0">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Huỷ</button>
-        <button class="btn btn-danger" id="confirm-upload-btn">
-          <i class="bi bi-cloud-upload"></i> Upload
-        </button>
-      </div>
-    </div>
-  </div>
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content glass">
+      <div class="modal-header"><h5 class="modal-title text-danger-emphasis"><i class="bi bi-youtube me-2"></i>Upload YouTube?</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">Upload&nbsp;<strong id="up-video-title"></strong>&nbsp;lên YouTube?</div>
+      <div class="modal-footer border-0"><button class="btn btn-secondary" data-bs-dismiss="modal">Huỷ</button><button class="btn btn-danger" id="confirm-upload-btn"><i class="bi bi-cloud-upload"></i> Upload</button></div>
+  </div></div>
 </div>
 
-{{!-- ========= TOAST ========= --}}
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1080">
-  <div id="toastMsg" class="toast text-white" role="alert">
-    <div class="d-flex">
-      <div id="toast-body" class="toast-body"></div>
-      <button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-    </div>
-  </div>
-</div>
+{{!-- Toast --}}
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index:1080"><div id="toastMsg" class="toast text-white" role="alert"><div class="d-flex"><div id="toast-body" class="toast-body"></div><button class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
