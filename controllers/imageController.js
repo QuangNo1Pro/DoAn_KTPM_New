@@ -3,7 +3,14 @@ const { generateImageByImagen } = require('../services/imagenService');
 const generateImage = async (req, res) => {
   const { prompt, modelType = 'ultra', imageCount = 1, aspectRatio = '1:1' } = req.body;
   
-  console.log('Generate image request:', { prompt, modelType, imageCount, aspectRatio });
+  // Log tóm tắt request với độ dài prompt
+  console.log(`📝 Generate image request: modelType=${modelType}, imageCount=${imageCount}, aspectRatio=${aspectRatio}, promptLength=${prompt?.length || 0}`);
+  // Log phần đầu của prompt để debug
+  if (prompt && prompt.length > 50) {
+    console.log(`📝 Prompt preview: "${prompt.substring(0, 50)}..."`);
+  } else {
+    console.log(`📝 Prompt: "${prompt}"`);
+  }
   
   try {
     if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
@@ -11,6 +18,17 @@ const generateImage = async (req, res) => {
         success: false, 
         error: 'Vui lòng nhập prompt để tạo ảnh.' 
       });
+    }
+    
+    // Xử lý prompt nếu quá dài
+    let processedPrompt = prompt.trim();
+    const maxPromptLength = 1000; // Giới hạn ký tự phù hợp với API
+    
+    if (processedPrompt.length > maxPromptLength) {
+      console.log(`⚠️ Prompt quá dài (${processedPrompt.length} ký tự), đang cắt ngắn xuống ${maxPromptLength} ký tự`);
+      // Cắt xuống độ dài tối đa và đảm bảo không cắt giữa từ
+      processedPrompt = processedPrompt.substring(0, maxPromptLength).split(/\s+/).slice(0, -1).join(' ');
+      console.log(`✂️ Prompt sau khi cắt ngắn: ${processedPrompt.substring(0, 50)}...`);
     }
     
     // Giới hạn số lượng ảnh từ 1-4
@@ -32,7 +50,7 @@ const generateImage = async (req, res) => {
       // Gọi service để tạo ảnh
       console.log(`🖼️ Đang gọi Imagen API (${actualModelType}) để tạo ${count} ảnh với tỷ lệ ${validAspectRatio}...`);
       
-      const images = await generateImageByImagen(prompt, {
+      const images = await generateImageByImagen(processedPrompt, {
         modelType: actualModelType,
         imageCount: count,
         aspectRatio: validAspectRatio,
