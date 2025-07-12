@@ -16,8 +16,9 @@ for (let helper in helpers) {
   hbs.registerHelper(helper, helpers[helper]);
 }
 
-// Đăng ký helper bổ sung (nếu cần)
+// Đăng ký helper bổ sung, bao gồm eq
 hbs.registerHelper({
+  eq: (a, b) => a === b, // Đảm bảo helper eq được đăng ký
   gt: (a, b) => a > b,
   gte: (a, b) => a >= b,
   lt: (a, b) => a < b,
