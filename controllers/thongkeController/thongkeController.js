@@ -7,14 +7,26 @@ const {
   getCompletionRate
 } = require('../../models/thongkeModel');
 
-function parseMonthParam(monthStr) {
-  if (!monthStr) return null;
-  const [year, month] = monthStr.split('-').map(Number);
-  const fromDate = new Date(year, month - 1, 1);
+function parseTimePeriod(periodStr, startDate, endDate) {
   const now = new Date();
-  const isCurrentMonth = now.getFullYear() === year && (now.getMonth() + 1) === month;
-  const toDate = isCurrentMonth ? now : new Date(year, month, 0, 23, 59, 59);
-  return { year, month, fromDate, toDate };
+  let fromDate, toDate;
+
+  if (startDate && endDate) {
+    fromDate = new Date(startDate);
+    toDate = new Date(endDate);
+  } else if (periodStr === 'week') {
+    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    fromDate = startOfWeek;
+    toDate = now;
+  } else if (periodStr === 'year') {
+    fromDate = new Date(now.getFullYear(), 0, 1);
+    toDate = now;
+  } else { // Mặc định là month
+    fromDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    toDate = now;
+  }
+
+  return { fromDate, toDate };
 }
 
 async function getYoutubeStatsPage(req, res) {
@@ -22,38 +34,50 @@ async function getYoutubeStatsPage(req, res) {
     const userId = req.session.user?.id_nguoidung || req.user?.id_nguoidung;
     if (!userId) return res.redirect('/login');
 
-    const { month } = req.query;
-    const monthFilter = parseMonthParam(month);
-    const { fromDate, toDate } = monthFilter || {};
+    const { period, startDate, endDate } = req.query;
+    const filterPeriod = period || 'month'; // Đặt giá trị mặc định là 'month' nếu không có
+    const { fromDate, toDate } = parseTimePeriod(period, startDate, endDate);
 
-    const videos = await getYoutubeUploadedVideos(userId, monthFilter);
+    const videos = await getYoutubeUploadedVideos(userId, { fromDate, toDate });
     const oauth2Client = getOAuth2Client(req);
+    const { token } = await oauth2Client.getAccessToken();
+    if (!token || token.expiry_date < Date.now()) {
+      return res.status(401).send('Token hết hạn. Vui lòng đăng nhập lại.');
+    }
     const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
 
     const ids = videos.map(v => v.youtube_id).filter(Boolean);
     let viewsMap = {}, likesMap = {}, durations = {}, completions = {};
 
     if (ids.length > 0) {
-      const ytRes = await youtube.videos.list({
-        part: 'snippet,statistics,contentDetails',
-        id: ids.join(','),
-      });
+      const chunkedIds = [];
+      for (let i = 0; i < ids.length; i += 50) {
+        chunkedIds.push(ids.slice(i, i + 50));
+      }
+      for (const chunk of chunkedIds) {
+        const ytRes = await youtube.videos.list({
+          part: 'snippet,statistics,contentDetails',
+          id: chunk.join(','),
+        });
+        for (const item of ytRes.data.items) {
+          const durationISO = item.contentDetails?.duration || 'PT0M0S';
+          const viewCount = parseInt(item.statistics?.viewCount || 0);
+          const likeCount = parseInt(item.statistics?.likeCount || 0);
+          const estimatedWatchTime = parseInt(item.statistics?.estimatedMinutesWatched || '0') || 0;
 
-      for (const item of ytRes.data.items) {
-        const durationISO = item.contentDetails?.duration || 'PT0M0S';
-        const viewCount = parseInt(item.statistics?.viewCount || 0);
-        const likeCount = parseInt(item.statistics?.likeCount || 0);
-        const estimatedWatchTime = parseInt(item.statistics?.estimatedMinutesWatched || 0); // giả định
+          const match = durationISO.match(/PT(?:(\d+)M)?(?:(\d+)S)?/);
+          const minutes = match ? parseInt(match[1] || '0') + parseInt((match[2] || '0') / 60) : 0;
 
-        const match = durationISO.match(/PT(?:(\d+)M)?(?:(\d+)S)?/);
-        const minutes = match ? parseInt(match[1] || '0') + parseInt((match[2] || '0') / 60) : 0;
-
-        viewsMap[item.id] = viewCount;
-        likesMap[item.id] = likeCount;
-        durations[item.id] = minutes;
-        completions[item.id] = (viewCount > 0 && minutes > 0)
-          ? ((estimatedWatchTime / minutes) / viewCount) * 100
-          : 0;
+          viewsMap[item.id] = viewCount;
+          likesMap[item.id] = likeCount;
+          durations[item.id] = minutes;
+          completions[item.id] = (viewCount > 0 && minutes > 0)
+            ? ((estimatedWatchTime / minutes) / viewCount) * 100
+            : 0;
+          if (!item.statistics?.estimatedMinutesWatched) {
+            console.warn(`Dữ liệu estimatedMinutesWatched thiếu cho video ${item.id}`);
+          }
+        }
       }
     }
 
@@ -77,17 +101,14 @@ async function getYoutubeStatsPage(req, res) {
       totalWatchTime += v.viewCount * v.duration;
       if (v.completionRate) completionRates.push(v.completionRate);
 
-      // Gom lượt xem theo ngày
       const uploadDate = new Date(v.updated_at);
       const label = uploadDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
-
       viewsPerDay[label] = (viewsPerDay[label] || 0) + v.viewCount;
     }
 
     const chartLabels = Object.keys(viewsPerDay).sort();
     const chartData = chartLabels.map(date => viewsPerDay[date]);
 
-    // Fallback nội bộ nếu API không đủ
     const [
       internalWatchTime,
       internalAvgDuration,
@@ -110,7 +131,6 @@ async function getYoutubeStatsPage(req, res) {
       ? Math.round(totalWatchTime)
       : Math.round(internalWatchTime / 60);
 
-    //console.log('Thống kê video:',videos)
     res.render('thongkeVideo', {
       title: 'Thống kê video YouTube',
       stats: {
@@ -128,13 +148,14 @@ async function getYoutubeStatsPage(req, res) {
       videoTitles: JSON.stringify(videos.map(v => v.title)),
       videoViews: JSON.stringify(videos.map(v => v.viewCount)),
       videos,
-      filterMonth: month
+      filterPeriod, // Truyền filterPeriod để giữ giá trị đã chọn
+      startDate,    // Truyền startDate để giữ giá trị đã chọn
+      endDate       // Truyền endDate để giữ giá trị đã chọn
     });
-  
   } catch (err) {
     console.error('Lỗi thống kê:', err);
     if (err.message.includes('Insufficient Permission')) {
-      return res.status(403).send('Token Google không đủ quyền để xem thống kê video. Vui lòng đăng nhập lại.');
+      return res.status(403).send('Token Google không đủ quyền để xem thống kê video. Vui lòng đăng nhập lại hoặc cấp quyền bổ sung.');
     }
     return res.status(500).send('Lỗi khi thống kê video YouTube');
   }
