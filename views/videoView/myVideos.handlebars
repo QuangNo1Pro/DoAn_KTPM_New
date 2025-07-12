@@ -87,7 +87,6 @@ body{background:#0f1720;color:#e8e8e8;min-height:100vh}
         <a class="page-link" href="?page={{prevPage}}">&laquo;</a>
       </li>
 
-      {{!-- chỉ in 1 … mỗi phía --}}
       {{#each pages}}
         {{#if (or (lte this 2) (gte this ../lastPageMinus1) (between this ../pageMinus1 ../pagePlus1))}}
           <li class="page-item {{#if (eq ../page this)}}active{{/if}}">
@@ -136,6 +135,29 @@ body{background:#0f1720;color:#e8e8e8;min-height:100vh}
   </div>
 </div>
 
+{{!-- ========= MODAL XÁC NHẬN UPLOAD ========= --}}
+<div class="modal fade" id="confirmUploadModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light border-0">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">
+          <i class="bi bi-youtube text-danger me-2"></i>Upload YouTube?
+        </h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        Bạn muốn upload&nbsp;<strong id="up-video-title"></strong>&nbsp;lên YouTube?
+      </div>
+      <div class="modal-footer border-0">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Huỷ</button>
+        <button class="btn btn-danger" id="confirm-upload-btn">
+          <i class="bi bi-cloud-upload"></i> Upload
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {{!-- ========= TOAST THÔNG BÁO ========= --}}
 <div class="position-fixed bottom-0 end-0 p-3" style="z-index:1080">
   <div id="toastMsg" class="toast text-white bg-success border-0" role="alert">
@@ -153,17 +175,28 @@ body{background:#0f1720;color:#e8e8e8;min-height:100vh}
 (() => {
   /* ------------------ Modal & Toast ------------------ */
   const deleteModal  = new bootstrap.Modal('#confirmDeleteModal');
-  const toastEl      = document.getElementById('toastMsg');
-  const toastBody    = document.getElementById('toast-body');
-  const toast        = new bootstrap.Toast(toastEl,{delay:3000});
-  let targetCard, videoId;
+  const uploadModal  = new bootstrap.Modal('#confirmUploadModal');
+
+  const toastEl   = document.getElementById('toastMsg');
+  const toastBody = document.getElementById('toast-body');
+  const toast     = new bootstrap.Toast(toastEl,{delay:3000});
+
+  let delTargetCard, delId;
+  let upBtn, upId, upUrl, upTitle;
+
+  function showToast(msg,type='success'){
+    toastEl.classList.remove('bg-success','bg-danger','bg-info');
+    toastEl.classList.add(`bg-${type}`);
+    toastBody.textContent = msg;
+    toast.show();
+  }
 
   /* ===== XOÁ VIDEO ===== */
   document.querySelectorAll('.btn-del').forEach(btn => {
     btn.addEventListener('click', () => {
-      videoId    = btn.dataset.id;
-      targetCard = btn.closest('[class*="col-"]');
-      const title= targetCard.querySelector('h6').textContent.trim();
+      delId         = btn.dataset.id;
+      delTargetCard = btn.closest('[class*="col-"]');
+      const title   = delTargetCard.querySelector('h6').textContent.trim();
       document.getElementById('del-video-title').textContent = `"${title}"`;
       deleteModal.show();
     });
@@ -175,10 +208,10 @@ body{background:#0f1720;color:#e8e8e8;min-height:100vh}
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang xoá...';
 
     try{
-      const res = await fetch('/api/videos/'+videoId,{method:'DELETE'});
+      const res = await fetch('/api/videos/'+delId,{method:'DELETE'});
       const js  = await res.json();
       if(js.success){
-        targetCard.remove();
+        delTargetCard.remove();
         showToast('Đã xoá video thành công ✔️','success');
       }else{
         showToast(js.error||'Xoá thất bại!','danger');
@@ -193,54 +226,66 @@ body{background:#0f1720;color:#e8e8e8;min-height:100vh}
     }
   });
 
-  function showToast(msg,type='success'){
-    toastEl.classList.remove('bg-success','bg-danger','bg-info');
-    toastEl.classList.add(`bg-${type}`);
-    toastBody.textContent = msg;
-    toast.show();
-  }
-
-  /* ===== UPLOAD YOUTUBE (giữ confirm) ===== */
+  /* ===== UPLOAD YOUTUBE ===== */
   document.querySelectorAll('.btn-youtube').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const id    = btn.dataset.id;
-      const url   = btn.dataset.url;
-      const title = btn.dataset.title;
+    btn.addEventListener('click', ()=>{
+      upBtn   = btn;
+      upId    = btn.dataset.id;
+      upUrl   = btn.dataset.url;
+      upTitle = btn.dataset.title;
 
-      if(!url) return showToast('❌ Thiếu đường dẫn video.','danger');
-      if(!confirm('Bạn có muốn upload video #'+id+' lên YouTube không?')) return;
+      if(!upUrl){ showToast('Thiếu đường dẫn video.','danger'); return; }
 
-      btn.disabled=true;
-      btn.innerHTML='<span class="spinner-border spinner-border-sm"></span> Đang upload...';
-
-      try{
-        const res = await fetch(`/api/videos/${id}/upload-youtube`,{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          credentials:'include',
-          body:JSON.stringify({url,title})
-        });
-        const txt = await res.text();
-        let js;
-        try{ js=JSON.parse(txt);}catch(e){
-          console.error('Server trả về:',txt); showToast('Server trả về dữ liệu lạ!','danger'); return;
-        }
-        if(js.success){
-          showToast('Upload YouTube thành công!','success');
-        }else{
-          showToast(js.error||'Upload thất bại!','danger');
-        }
-      }catch(err){
-        console.error(err); showToast('Upload lỗi – xem console.','danger');
-      }
-      btn.disabled=false;
-      btn.innerHTML='<i class="bi bi-youtube me-1"></i> YouTube';
+      document.getElementById('up-video-title').textContent = `"${upTitle}"`;
+      uploadModal.show();
     });
+  });
+
+  document.getElementById('confirm-upload-btn').addEventListener('click', async e=>{
+    const btn = e.currentTarget;
+    btn.disabled=true;
+    btn.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>Đang upload...';
+
+    try{
+      const res = await fetch(`/api/videos/${upId}/upload-youtube`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        credentials:'include',
+        body:JSON.stringify({url:upUrl,title:upTitle})
+      });
+      const txt = await res.text();
+      let js;
+      try{ js=JSON.parse(txt);}catch(err){
+        console.error('Server trả về:',txt);
+        showToast('Server trả về dữ liệu lạ!','danger');
+        return;
+      }
+
+      if(js.success){
+        /* đổi nút thành “Đã upload” */
+        upBtn.classList.remove('btn-outline-sky');
+        upBtn.classList.add('btn-secondary');
+        upBtn.innerHTML='<i class="bi bi-check-circle-fill me-1"></i> Đã upload';
+        upBtn.disabled=true;
+
+        showToast('Upload YouTube thành công!','success');
+      }else{
+        showToast(js.error||'Upload thất bại!','danger');
+      }
+
+    }catch(err){
+      console.error(err);
+      showToast('Upload lỗi – xem console.','danger');
+    }finally{
+      btn.disabled=false;
+      btn.innerHTML='<i class="bi bi-cloud-upload"></i> Upload';
+      uploadModal.hide();
+    }
   });
 })();
 </script>
 
-{{!-- (Tuỳ mục đích, phần video-player bên dưới có thể bỏ nếu trang chỉ là danh sách) --}}
+{{!-- (Tuỳ mục đích, có thể bỏ block player bên dưới) --}}
 <video id="video-player" controls hidden>
   <source src="{{video.publish_url}}" type="video/mp4">
 </video>
