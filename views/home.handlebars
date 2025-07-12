@@ -48,17 +48,9 @@
         }
 
         @keyframes animateBg {
-            0% {
-                transform: translate(0, 0) scale(1);
-            }
-
-            50% {
-                transform: translate(-20%, -10%) scale(1.2);
-            }
-
-            100% {
-                transform: translate(0, 0) scale(1);
-            }
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-20%, -10%) scale(1.2); }
+            100% { transform: translate(0, 0) scale(1); }
         }
 
         .hero {
@@ -67,6 +59,25 @@
             padding: 80px 30px;
             border-radius: 20px;
             box-shadow: 0 0 30px rgba(6, 182, 212, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
         }
 
         .btn-ai {
@@ -86,11 +97,30 @@
             border-radius: 16px;
             color: #FFFFFF;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden; /* Clip video to card boundaries */
         }
 
         .feature-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(28, 31, 38, 0.5);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .feature-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            opacity: 0.4; /* Adjust for content visibility */
+            pointer-events: none;
+        }
+
+        .feature-content {
+            position: relative;
+            z-index: 1; /* Ensure content is above video */
         }
 
         .feature-icon {
@@ -117,40 +147,64 @@
 </head>
 
 <body>
-    <!-- Video nền -->
+    <!-- Page-level video background -->
     <video autoplay muted loop id="bg-video">
         <source src="/video_background/background.mp4" type="video/mp4">
+        Your browser does not support the video tag.
     </video>
 
-    <!-- Wrapper layout chiếm toàn bộ chiều cao -->
     <div class="d-flex flex-column min-vh-100">
         <main class="container mt-5 flex-grow-1">
-            <section class="hero text-center">
-                <h1 class="display-5 fw-bold">Welcome to AI Short Video Creator</h1>
-                <p class="lead">Create engaging, AI-powered short videos in seconds. Just input your idea, and we'll do the rest.</p>
-                <a href="/login" class="btn btn-ai btn-lg mt-3">Get Started</a>
+            <section class="hero text-center position-relative">
+                <video autoplay muted loop class="hero-video">
+                    <source src="/video_background/hero_background.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <div class="hero-content">
+                    <h1 class="display-5 fw-bold">Welcome to AI Short Video Creator</h1>
+                    <p class="lead">Create engaging, AI-powered short videos in seconds. Just input your idea, and we'll do the rest.</p>
+                    <a href="/login" class="btn btn-ai btn-lg mt-3">Get Started</a>
+                </div>
             </section>
 
             <section class="row mt-5 text-center">
                 <div class="col-md-4">
                     <div class="feature-card h-100">
-                        <div class="feature-icon">🎯</div>
-                        <h5 class="fw-semibold">Trending Ideas</h5>
-                        <p>Auto-suggested video topics based on viral trends.</p>
+                        <video autoplay muted loop class="feature-video">
+                            <source src="/video_background/idea.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div class="feature-content">
+                            <div class="feature-icon">🎯</div>
+                            <h5 class="fw-semibold">Trending Ideas</h5>
+                            <p>Auto-suggested video topics based on viral trends.</p>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="feature-card h-100">
-                        <div class="feature-icon">✍️</div>
-                        <h5 class="fw-semibold">Script Generation</h5>
-                        <p>AI writes your video script instantly from your idea.</p>
+                        <video autoplay muted loop class="feature-video">
+                            <source src="/video_background/ScriptGeneration.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div class="feature-content">
+                            <div class="feature-icon">✍️</div>
+                            <h5 class="fw-semibold">Script Generation</h5>
+                            <p>AI writes your video script instantly from your idea.</p>
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="feature-card h-100">
-                        <div class="feature-icon">🎬</div>
-                        <h5 class="fw-semibold">Video Builder</h5>
-                        <p>Auto-create, edit, and export short videos.</p>
+                        <video autoplay muted loop class="feature-video">
+                            <source src="/video_background/VideoBuilder.mp4" type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        <div class="feature-content">
+                            <div class="feature-icon">🎬</div>
+                            <h5 class="fw-semibold">Video Builder</h5>
+                            <p>Auto-create, edit, and export short videos.</p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -162,70 +216,70 @@
     </div>
 </body>
 
-</html>
+</html>  
 
 {{!-- <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
 
-                <!-- Card: Tìm kiếm -->
-                <div class="col">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="card-title d-flex align-items-center">
-                                <i class="bi bi-search text-primary fs-2 me-2"></i>
-                                <span>Công cụ tìm kiếm</span>
-                            </h2>
-                            <p class="card-text">
-                                Tìm kiếm các chủ đề video hot trend hoặc hỏi ý kiến AI để đưa ra ý tưởng sáng tạo cho
-                                video
-                                ngắn.
-                            </p>
-                        </div>
-                        <div class="card-footer bg-transparent border-0 pb-3">
-                            <a href="/search" class="btn btn-outline-primary">
-                                <i class="bi bi-search me-2"></i>Bắt đầu tìm kiếm
-                            </a>
-                        </div>
-                    </div>
-                </div>
+    <!-- Card: Tìm kiếm -->
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title d-flex align-items-center">
+                    <i class="bi bi-search text-primary fs-2 me-2"></i>
+                    <span>Công cụ tìm kiếm</span>
+                </h2>
+                <p class="card-text">
+                    Tìm kiếm các chủ đề video hot trend hoặc hỏi ý kiến AI để đưa ra ý tưởng sáng tạo cho
+                    video
+                    ngắn.
+                </p>
+            </div>
+            <div class="card-footer bg-transparent border-0 pb-3">
+                <a href="/search" class="btn btn-outline-primary">
+                    <i class="bi bi-search me-2"></i>Bắt đầu tìm kiếm
+                </a>
+            </div>
+        </div>
+    </div>
 
-                <!-- Card: Tạo ảnh AI -->
-                <div class="col">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="card-title d-flex align-items-center">
-                                <i class="bi bi-image text-success fs-2 me-2"></i>
-                                <span>Tạo ảnh bằng AI</span>
-                            </h2>
-                            <p class="card-text">
-                                Tạo ảnh chất lượng cao bằng Imagen AI từ Google Cloud với nhiều phong cách khác nhau cho
-                                video của bạn.
-                            </p>
-                        </div>
-                        <div class="card-footer bg-transparent border-0 pb-3">
-                            <a href="/create-image" class="btn btn-outline-success">
-                                <i class="bi bi-image me-2"></i>Tạo ảnh ngay
-                            </a>
-                        </div>
-                    </div>
-                </div>
+    <!-- Card: Tạo ảnh AI -->
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title d-flex align-items-center">
+                    <i class="bi bi-image text-success fs-2 me-2"></i>
+                    <span>Tạo ảnh bằng AI</span>
+                </h2>
+                <p class="card-text">
+                    Tạo ảnh chất lượng cao bằng Imagen AI từ Google Cloud với nhiều phong cách khác nhau cho
+                    video của bạn.
+                </p>
+            </div>
+            <div class="card-footer bg-transparent border-0 pb-3">
+                <a href="/create-image" class="btn btn-outline-success">
+                    <i class="bi bi-image me-2"></i>Tạo ảnh ngay
+                </a>
+            </div>
+        </div>
+    </div>
 
-                <!-- Card: Sắp ra mắt -->
-                <div class="col">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h2 class="card-title d-flex align-items-center">
-                                <i class="bi bi-camera-video text-danger fs-2 me-2"></i>
-                                <span>Video Creator</span>
-                            </h2>
-                            <p class="card-text">
-                                Tạo video tự động từ kịch bản và hình ảnh. Công cụ này sẽ sớm ra mắt trong tương lai.
-                            </p>
-                        </div>
-                        <div class="card-footer bg-transparent border-0 pb-3">
-                            <button disabled class="btn btn-outline-secondary">
-                                <i class="bi bi-hourglass-split me-2"></i>Sắp ra mắt
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div> --}}
+    <!-- Card: Sắp ra mắt -->
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title d-flex align-items-center">
+                    <i class="bi bi-camera-video text-danger fs-2 me-2"></i>
+                    <span>Video Creator</span>
+                </h2>
+                <p class="card-text">
+                    Tạo video tự động từ kịch bản và hình ảnh. Công cụ này sẽ sớm ra mắt trong tương lai.
+                </p>
+            </div>
+            <div class="card-footer bg-transparent border-0 pb-3">
+                <button disabled class="btn btn-outline-secondary">
+                    <i class="bi bi-hourglass-split me-2"></i>Sắp ra mắt
+                </button>
+            </div>
+        </div>
+    </div>
+</div> --}}
