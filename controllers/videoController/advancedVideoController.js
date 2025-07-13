@@ -295,8 +295,8 @@ async function downloadImagesForKeywords(keywords, tempDir) {
       const displayKeyword = keyword.length > 50 ? `${keyword.substring(0, 50)}...` : keyword;
       console.log(`🖼️ Đang tạo ảnh cho: ${displayKeyword}`);
 
-      // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 15 giây)
-      await new Promise(resolve => setTimeout(resolve, 15000));
+      // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 30 giây)
+      await new Promise(resolve => setTimeout(resolve, 30000));
 
       // Nếu keyword là mô tả dài, thêm các từ khóa nâng cao chất lượng
       let prompt = keyword;
@@ -1129,7 +1129,9 @@ const generateImageForPart = async (req, res) => {
       prompt: enhancedPrompt,
       modelType: 'standard',
       imageCount: 1,
-      aspectRatio: aspectRatio
+      aspectRatio: aspectRatio,
+      retryDelay: 30000, // Thêm thời gian chờ 30 giây
+      maxRetries: 5      // Thử tối đa 5 lần
     });
 
     if (response.data.success && response.data.images && response.data.images.length > 0) {

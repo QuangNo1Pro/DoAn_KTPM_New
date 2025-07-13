@@ -3,6 +3,6 @@ const router = express.Router();
 const { isAuthenticated } = require('../../middleware/authMiddleware');
 const { getYoutubeStatsPage } = require('../../controllers/thongkeController/thongkeController');
 
-router.get('/thongke', isAuthenticated, getYoutubeStatsPage);
+router.get('/thongke', getYoutubeStatsPage);
 
 module.exports = router;

@@ -41,7 +41,7 @@ const generateImageByImagen = async (prompt, options = {}) => {
     modelType = 'ultra',
     imageCount = 1,
     aspectRatio = '1:1',
-    retryDelay = 5000, // Tăng thời gian chờ lên 5 giây
+    retryDelay = 30000, // Tăng thời gian chờ lên 30 giây
     maxRetries = 5     // Tăng số lần thử lại lên 5 lần
   } = options;
   

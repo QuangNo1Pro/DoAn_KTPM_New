@@ -54,7 +54,7 @@ const generateImage = async (req, res) => {
         modelType: actualModelType,
         imageCount: count,
         aspectRatio: validAspectRatio,
-        retryDelay: 5000, // 5 giây
+        retryDelay: 30000, // 30 giây
         maxRetries: 5     // Thử tối đa 5 lần
       });
       
