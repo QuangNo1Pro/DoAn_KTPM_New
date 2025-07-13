@@ -925,7 +925,7 @@ const prepareVideoScript = async (req, res) => {
   console.log('🚀 Bắt đầu chuẩn bị kịch bản...');
   console.log('Body request:', JSON.stringify(req.body).substring(0, 200) + '...');
 
-  const { topic, script, voiceId, aspectRatio = '16:9' } = req.body;
+  const { topic, script, voiceId, aspectRatio = '16:9', imageModel = 'ultra' } = req.body;
 
   if (!topic && !script) {
     console.log('❌ Lỗi: Thiếu chủ đề hoặc kịch bản');
@@ -1012,7 +1012,8 @@ const prepareVideoScript = async (req, res) => {
         imagePath: null
       })),
       voiceId,
-      aspectRatio
+      aspectRatio,
+      imageModel // Thêm thông tin về mô hình AI tạo ảnh
     };
 
     // Trả về thông tin kịch bản đã phân tích
@@ -1026,6 +1027,7 @@ const prepareVideoScript = async (req, res) => {
       })),
       voiceId,
       aspectRatio,
+      imageModel, // Thêm thông tin về mô hình AI tạo ảnh
       script: finalScript
     });
   } catch (error) {
@@ -1083,6 +1085,8 @@ const generateImageForPart = async (req, res) => {
 
     // Lấy thông tin tỉ lệ khung hình từ session
     const aspectRatio = req.session.videoPreparation.aspectRatio || '16:9';
+    // Lấy thông tin mô hình AI tạo ảnh từ session
+    const imageModel = req.session.videoPreparation.imageModel || 'ultra';
 
     // Tìm phần cần tạo hình ảnh
     const part = req.session.videoPreparation.scriptParts.find(p => p.id === partId);
@@ -1127,7 +1131,7 @@ const generateImageForPart = async (req, res) => {
     // Tạo hình ảnh bằng API
     const response = await axios.post('http://localhost:3000/api/image/generate', {
       prompt: enhancedPrompt,
-      modelType: 'standard',
+      modelType: imageModel, // Sử dụng mô hình AI đã chọn
       imageCount: 1,
       aspectRatio: aspectRatio,
       retryDelay: 30000, // Thêm thời gian chờ 30 giây

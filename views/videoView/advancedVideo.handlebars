@@ -12,7 +12,7 @@
                     <input type="text" class="form-control" id="topic" placeholder="Nhập chủ đề cho video">
                 
                 <div class="row">
-                    <div class="col-md-8 mb-3">
+                    <div class="col-md-5 mb-3">
                         <div class="form-group">
                             <label for="voice">Giọng đọc:</label>
                             <div class="d-flex align-items-center">
@@ -31,16 +31,52 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <div class="form-group">
                             <label for="aspect-ratio">Tỉ lệ khung hình:</label>
                             <select class="form-control" id="aspect-ratio">
-                                <option value="16:9" selected>16:9 - Ngang (Landscape)</option>
-                                <option value="9:16">9:16 - Dọc (Portrait)</option>
-                                <option value="1:1">1:1 - Vuông (Square)</option>
-                                <option value="4:3">4:3 - Truyền thống (Standard)</option>
+                                <option value="16:9" selected>16:9 - Ngang</option>
+                                <option value="9:16">9:16 - Dọc</option>
+                                <option value="1:1">1:1 - Vuông</option>
+                                <option value="4:3">4:3 - Truyền thống</option>
                             </select>
-                            <small class="form-text text-muted">Định dạng phù hợp với nền tảng đăng tải</small>
+                            <small class="form-text text-muted">Định dạng phù hợp</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="form-group">
+                            <label for="image-model">Mô hình AI tạo ảnh:</label>
+                            <div class="d-flex align-items-center">
+                                <select class="form-control" id="image-model" style="flex: 1;">
+                                    <option value="ultra" selected>Ultra - Chất lượng cao (chậm)</option>
+                                    <option value="standard">Standard - Cân bằng</option>
+                                    <option value="fast">Fast - Tốc độ nhanh</option>
+                                </select>
+                                <button type="button" class="btn btn-outline-success ms-2" id="test-image-btn">
+                                    <i class="bi bi-image"></i> Tạo thử
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="test-image-container" class="mt-2 mb-3" style="display: none;">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="form-group mb-2">
+                                        <label for="test-prompt">Mô tả hình ảnh:</label>
+                                        <input type="text" class="form-control" id="test-prompt" placeholder="Nhập mô tả để tạo ảnh thử...">
+                                    </div>
+                                    <button type="button" class="btn btn-primary" id="generate-test-image-btn">Tạo ảnh</button>
+                                </div>
+                                <div class="col-md-4">
+                                    <div id="test-image-result" class="text-center">
+                                        <p class="text-muted">Ảnh thử nghiệm sẽ hiển thị ở đây</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -215,6 +251,78 @@ document.addEventListener('DOMContentLoaded', function() {
             voiceSelect.innerHTML = '<option value="">Lỗi khi tải danh sách giọng đọc</option>';
         });
     
+    // Xử lý nút tạo thử ảnh
+    const testImageBtn = document.getElementById('test-image-btn');
+    const testImageContainer = document.getElementById('test-image-container');
+    const generateTestImageBtn = document.getElementById('generate-test-image-btn');
+    const testPromptInput = document.getElementById('test-prompt');
+    const testImageResult = document.getElementById('test-image-result');
+    
+    // Hiển thị/ẩn form tạo thử ảnh
+    testImageBtn.addEventListener('click', function() {
+        if (testImageContainer.style.display === 'none') {
+            testImageContainer.style.display = 'block';
+            testPromptInput.focus();
+        } else {
+            testImageContainer.style.display = 'none';
+        }
+    });
+    
+    // Xử lý tạo ảnh thử
+    generateTestImageBtn.addEventListener('click', async function() {
+        const prompt = testPromptInput.value.trim();
+        if (!prompt) {
+            alert('Vui lòng nhập mô tả hình ảnh!');
+            return;
+        }
+        
+        const imageModel = document.getElementById('image-model').value;
+        const aspectRatio = document.getElementById('aspect-ratio').value;
+        
+        // Thay đổi trạng thái nút
+        generateTestImageBtn.disabled = true;
+        generateTestImageBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Đang tạo...';
+        testImageResult.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Đang tải...</span></div><p class="mt-2">Đang tạo ảnh...</p>';
+        
+        try {
+            // Gọi API để tạo ảnh
+            const response = await fetch('/api/image/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    modelType: imageModel,
+                    imageCount: 1,
+                    aspectRatio: aspectRatio
+                })
+            });
+            
+            const imageData = await response.json();
+            
+            if (imageData.success && imageData.images && imageData.images.length > 0) {
+                // Hiển thị ảnh
+                let imageHtml = '';
+                if (imageData.images[0].type === 'base64') {
+                    imageHtml = `<img src="data:image/jpeg;base64,${imageData.images[0].imageData}" class="img-fluid" alt="Ảnh thử nghiệm">`;
+                } else if (imageData.images[0].type === 'url') {
+                    imageHtml = `<img src="${imageData.images[0].imageData}" class="img-fluid" alt="Ảnh thử nghiệm">`;
+                }
+                testImageResult.innerHTML = imageHtml;
+            } else {
+                throw new Error(imageData.error || 'Không thể tạo ảnh');
+            }
+        } catch (error) {
+            console.error('Lỗi khi tạo ảnh thử:', error);
+            testImageResult.innerHTML = `<div class="alert alert-danger">Lỗi: ${error.message}</div>`;
+        } finally {
+            // Khôi phục trạng thái nút
+            generateTestImageBtn.disabled = false;
+            generateTestImageBtn.innerHTML = 'Tạo ảnh';
+        }
+    });
+    
     // Xử lý form tạo video
     document.getElementById('video-form').addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -243,9 +351,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({
                     topic,
                     script,
-
                     voiceId,
-                    aspectRatio: document.getElementById('aspect-ratio').value
+                    aspectRatio: document.getElementById('aspect-ratio').value,
+                    imageModel: document.getElementById('image-model').value // Thêm mô hình AI tạo ảnh
                 })
             });
             
@@ -263,6 +371,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 sessionStorage.setItem('videoScriptParts', JSON.stringify(data.scriptParts));
                 sessionStorage.setItem('videoVoiceId', data.voiceId || '');
                 sessionStorage.setItem('videoAspectRatio', data.aspectRatio || '16:9');
+                sessionStorage.setItem('videoImageModel', data.imageModel || 'ultra'); // Lưu mô hình AI tạo ảnh
                 
                 // Chuyển hướng đến trang chỉnh sửa từng phần
                 window.location.href = '/api/advanced-video/edit-parts';
