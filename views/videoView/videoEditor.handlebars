@@ -537,81 +537,142 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const selectEl = document.getElementById('bg-music-select');
-    const volumeEl = document.getElementById('bg-music-volume');
-    const previewEl = document.getElementById('bg-music-preview');
-    const previewBtn = document.getElementById('preview-music-btn');
-    const stopBtn = document.getElementById('stop-music-btn');
-    const startTimeEl = document.getElementById('music-start-time');
-    const endTimeEl = document.getElementById('music-end-time');
-    const confirmRangeBtn = document.getElementById('confirm-music-range-btn');
+  // --- 1) Modal cleanup ---
+  ['textModal','imageModal'].forEach(id => {
+    const m = document.getElementById(id);
+    if (!m) return;
+    m.addEventListener('hidden.bs.modal', () => {
+      document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+    });
+  });
 
-    // Tự động cập nhật preview khi chọn nhạc mặc định
-    if (selectEl) {
-        selectEl.addEventListener('change', () => {
-            const selected = selectEl.value;
-            if (selected && previewEl) {
-                previewEl.src = `/music/${selected}`;
-                previewEl.volume = parseFloat(volumeEl ? volumeEl.value : 0.5);
-                previewEl.style.display = 'block';
-            } else if (previewEl) {
-                previewEl.pause();
-                previewEl.src = '';
-                previewEl.style.display = 'none';
-            }
+  // --- 2) Music preview setup (giữ nguyên như bạn có) ---
+  const sel          = document.getElementById('bg-music-select');
+  const volEl        = document.getElementById('bg-music-volume');
+  const previewAudio = document.getElementById('bg-music-preview');
+  const btnPlayA     = document.getElementById('preview-music-btn');
+  const btnStopA     = document.getElementById('stop-music-btn');
+  const startEl      = document.getElementById('music-start-time');
+  const endEl        = document.getElementById('music-end-time');
+  const btnConfirmM  = document.getElementById('confirm-music-range-btn');
+
+  sel?.addEventListener('change', () => {
+    if (!sel.value) {
+      previewAudio.pause();
+      previewAudio.src = '';
+      previewAudio.style.display = 'none';
+    } else {
+      previewAudio.src = `/music/${sel.value}`;
+      previewAudio.volume = parseFloat(volEl.value);
+      previewAudio.style.display = 'block';
+      previewAudio.currentTime = window.musicRangeStart || 0;
+    }
+  });
+  btnPlayA?.addEventListener('click', () => sel.value && previewAudio.play());
+  btnStopA?.addEventListener('click', () => { previewAudio.pause(); previewAudio.currentTime = 0; });
+  volEl?.addEventListener('input', () => previewAudio.volume = parseFloat(volEl.value));
+  btnConfirmM?.addEventListener('click', () => {
+    window.musicRangeStart = parseFloat(startEl.value) || 0;
+    window.musicRangeEnd   = parseFloat(endEl.value)   || null;
+    if (sel.value) {
+      previewAudio.currentTime = window.musicRangeStart;
+      previewAudio.play();
+      const stopAt = () => {
+        if (window.musicRangeEnd != null && previewAudio.currentTime >= window.musicRangeEnd) {
+          previewAudio.pause();
+          previewAudio.removeEventListener('timeupdate', stopAt);
+        }
+      };
+      previewAudio.addEventListener('timeupdate', stopAt);
+    }
+  });
+
+  // --- 3) Helper client: gatherClips(), gatherOverlays() ---
+  function gatherClips() {
+    // timeline.getClips() nếu có, hoặc fallback vào bất cứ mảng clips nào timeline lưu
+    const raw = window.timeline?.getClips?.() || window.timeline?.clips || [];
+    return raw.map(c => ({
+      partId:    c.partId    ?? c.id,
+      imagePath: c.imagePath ?? c.src,
+      audioPath: c.audioPath ?? c.audioSrc,
+      startTime: Number.isFinite(c.startTime) ? c.startTime : (c.start ?? 0),
+      duration:  Number.isFinite(c.duration)  ? c.duration  : (c.length ?? 0),
+      effect:    c.effect   ?? null,
+      transition:c.transition?? null
+    }));
+  }
+  function gatherText() {
+    const raw = window.textOverlay?.getAll?.() || [];
+    return raw.map(t => ({
+      content:   t.content ?? t.text        ?? '',
+      color:     t.color   ?? t.fillStyle   ?? 'white',
+      size:      t.size    ?? t.fontSize    ?? 24,
+      x:         Number.isFinite(t.x)       ? t.x           : (t.xNorm ?? 0.5),
+      y:         Number.isFinite(t.y)       ? t.y           : (t.yNorm ?? 0.5),
+      startTime: Number.isFinite(t.startTime)? t.startTime  : (t.start  ?? 0),
+      duration:  Number.isFinite(t.duration) ? t.duration   : (t.length ?? 3)
+    }));
+  }
+  function gatherImage() {
+    const raw = window.imageOverlay?.getAll?.() || [];
+    return raw.map(o => ({
+      src:       o.src       ?? o.imagePath     ?? '',
+      opacity:   Number.isFinite(o.opacity)   ? o.opacity     : ((o.alpha||1)*100),
+      scaleW:    Number.isFinite(o.scaleW)    ? o.scaleW      : (o.widthNorm ?? 1),
+      scaleH:    Number.isFinite(o.scaleH)    ? o.scaleH      : (o.heightNorm?? 1),
+      rotation:  o.rotation  ?? 0,
+      x:         Number.isFinite(o.x)         ? o.x           : (o.xNorm   ?? 0.5),
+      y:         Number.isFinite(o.y)         ? o.y           : (o.yNorm   ?? 0.5),
+      startTime: Number.isFinite(o.startTime)? o.startTime  : (o.start   ?? 0),
+      duration:  Number.isFinite(o.duration) ? o.duration   : (o.length  ?? 3)
+    }));
+  }
+
+  // --- 4) Poll cho tới khi timeline/textOverlay/imageOverlay/PreviewManager sẵn sàng ---
+  const iv = setInterval(() => {
+    if (window.timeline && window.textOverlay && window.imageOverlay && window.PreviewManager) {
+      clearInterval(iv);
+
+      // bind Play Preview
+      document.getElementById('play-preview-btn')
+        .addEventListener('click', () => window.PreviewManager.playPreview());
+
+      // bind Export Video
+      document.getElementById('export-video-btn')
+        .addEventListener('click', async () => {
+          try {
+            const clips         = gatherClips();
+            const textOverlays  = gatherText();
+            const imageOverlays = gatherImage();
+            const music = {
+              file:   sel.value ? `/music/${sel.value}` : null,
+              volume: parseFloat(volEl.value)||0.5,
+              start:  window.musicRangeStart||0,
+              end:    window.musicRangeEnd  ||null
+            };
+            const payload = {
+              sessionId:    sessionStorage.getItem('videoSessionId'),
+              clips, textOverlays, imageOverlays, music,
+              aspectRatio: '16:9'
+            };
+
+            const res = await fetch('/advanced-video/finalize-video', {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error(await res.text());
+            const { videoUrl } = await res.json();
+            alert('🎉 Video đã tạo: ' + videoUrl);
+            window.open(videoUrl,'_blank');
+          } catch (err) {
+            alert('Xuất video lỗi: ' + err.message);
+          }
         });
     }
-
-    // Xử lý nút nghe thử
-    if (previewBtn && previewEl) {
-        previewBtn.addEventListener('click', () => {
-            if (selectEl.value) {
-                previewEl.play();
-            }
-        });
-    }
-
-    // Xử lý nút dừng
-    if (stopBtn && previewEl) {
-        stopBtn.addEventListener('click', () => {
-            previewEl.pause();
-            previewEl.currentTime = 0;
-        });
-    }
-
-    // Cập nhật âm lượng
-    if (volumeEl && previewEl) {
-        volumeEl.addEventListener('input', () => {
-            previewEl.volume = parseFloat(volumeEl.value);
-        });
-    }
-
-    // Xử lý xác nhận đoạn nhạc
-    if (confirmRangeBtn) {
-        confirmRangeBtn.addEventListener('click', () => {
-            const startTime = parseFloat(startTimeEl.value) || 0;
-            const endTime = parseFloat(endTimeEl.value) || 60;
-            
-            // Lưu giá trị vào biến toàn cục để ExportManager sử dụng
-            window.musicRangeStart = startTime;
-            window.musicRangeEnd = endTime;
-            
-            // Cập nhật preview để phát từ vị trí mới
-            if (previewEl && selectEl.value) {
-                previewEl.currentTime = startTime;
-                previewEl.play();
-                
-                // Dừng lại khi đến thời điểm kết thúc
-                const stopAtEnd = () => {
-                    if (previewEl.currentTime >= endTime) {
-                        previewEl.pause();
-                        previewEl.removeEventListener('timeupdate', stopAtEnd);
-                    }
-                };
-                
-                previewEl.addEventListener('timeupdate', stopAtEnd);
-            }
-        });
-    }
+  },100);
 });
 </script>

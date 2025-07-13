@@ -1,296 +1,360 @@
-const path = require('path');
-const fs = require('fs');
-const { execSync } = require('child_process');
+const path  = require('path');
+const fs    = require('fs');
+const { execSync, exec } = require('child_process');
+const util  = require('util');
 const { v4: uuidv4 } = require('uuid');
-const { uploadFile } = require(path.resolve(__dirname, '../../services/firebaseService'));
-const videoModel = require('../../models/videoModel');
-const util = require('util');
 const multer = require('multer');
 
-/* ------------------- Utility Functions ------------------- */
-function safeExecSync(cmd, opts = {}) {
-  try {
-    return execSync(cmd, { stdio: 'pipe', ...opts });
-  } catch (e) {
+const { uploadFile } = require(path.resolve(__dirname, '../../services/firebaseService'));
+const videoModel     = require('../../models/videoModel');
+
+/* ------------------------------------------------------------------
+ * Helpers
+ * ------------------------------------------------------------------ */
+function ffPos (v, axis = 'x', ov = 'text_w') {
+  if (typeof v === 'string') return v;
+  if (!Number.isFinite(v)) v = 0.5;              // null / undefined ⇒ 0.5
+  if (v >= 0 && v <= 1) {
+    const main = axis === 'x' ? 'main_w' : 'main_h';
+    return `(${main}-${ov})*${v}`;
+  }
+  return Math.round(v);
+}
+const safeNum = (v, d = 0) => (Number.isFinite(+v) ? +v : d);
+
+function safeExecSync (cmd, opts = {}) {
+  try { return execSync(cmd, { stdio: 'pipe', ...opts }); }
+  catch (e) {
     console.error('[FFMPEG-ERR]', e.stderr?.toString() || e.message);
     throw e;
   }
 }
+function getFontPath () {
+  const winFont = 'C:/Windows/Fonts/arial.ttf';
+  const nixFont = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf';
+  return fs.existsSync(winFont) ? winFont : nixFont;
+}
 
-function mergeMediaParts(rawParts = []) {
+async function convertToMp3 (src) {
+  const dst = src.replace(/\.(webm|ogg)$/i, '.mp3');
+  await util.promisify(exec)(
+    `ffmpeg -y -loglevel error -i "${src}" -ar 44100 -ac 2 -codec:a libmp3lame -q:a 4 "${dst}"`
+  );
+  fs.unlinkSync(src);
+  return dst;
+}
+
+function getAudioDuration (p) {
+  try {
+    const o = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${p}"`);
+    return parseFloat(o.toString().trim()) || 0;
+  } catch { return 0; }
+}
+
+const secondsToSrtTime = s => {
+  const h  = String(Math.floor(s / 3600)).padStart(2, '0');
+  const m  = String(Math.floor(s % 3600 / 60)).padStart(2, '0');
+  const ss = String(Math.floor(s % 60)).padStart(2, '0');
+  const ms = String(Math.round((s % 1) * 1000)).padStart(3, '0');
+  return `${h}:${m}:${ss},${ms}`;
+};
+
+/**
+ * Chuyển đường dẫn web ("/temp/foo.png", "music/calm.mp3" …) ⇒ path tuyệt đối.
+ * Luôn trỏ vào thư mục `public`.
+ */
+function convertUrlToFilePath (p) {
+  if (!p) return null;
+  if (p.includes('?')) p = p.split('?')[0];
+  if (/^https?:\/\//i.test(p)) p = new URL(p).pathname;   // URL tuyệt đối
+
+  if (p.startsWith('/temp/'))  return path.join(__dirname, '../../public', p.slice(1));
+  if (p.startsWith('/music/')) return path.join(__dirname, '../../public', p.slice(1));
+  if (path.isAbsolute(p))     return p;                      // /home/… hoặc C:\…
+
+  // «music/…» không có dấu «/» đầu → thêm thủ công
+  return path.join(__dirname, '../../public', p.replace(/^\/?/, ''));
+}
+
+/* ------------------------------------------------------------------
+ * Gộp các đoạn clip cùng partId (ảnh + âm thanh)
+ * ------------------------------------------------------------------ */
+function mergeMediaParts (raw = []) {
   const map = {};
-  rawParts.forEach(p => {
+  raw.forEach(p => {
     if (!p.partId) return;
-    const key = p.partId.replace(/^(image|audio|video|sound|img|snd)[-_]?/, '');
-    map[key] ??= { partId: key };
-    if (p.imagePath) map[key].imagePath = p.imagePath;
-    if (p.audioPath) map[key].audioPath = p.audioPath;
-    ['effect', 'transition', 'caption', 'text', 'duration'].forEach(f => {
-      if (p[f] !== undefined) map[key][f] = p[f];
+    const k = p.partId.replace(/^(image|audio|video|sound|img|snd)[-_]?/, '');
+    map[k] ??= { partId: k };
+    if (p.imagePath) map[k].imagePath = p.imagePath;
+    if (p.audioPath) map[k].audioPath = p.audioPath;
+    ['effect','transition','caption','text','duration','startTime'].forEach(f => {
+      if (p[f] !== undefined) map[k][f] = p[f];
     });
   });
   return Object.values(map);
 }
 
-async function convertToMp3(srcPath) {
-  const dstPath = srcPath.replace(/\.(webm|ogg)$/i, '.mp3');
-  await util.promisify(require('child_process').exec)(
-    `ffmpeg -y -loglevel error -i "${srcPath}" -ar 44100 -ac 2 -codec:a libmp3lame -q:a 4 "${dstPath}"`
-  );
-  fs.unlinkSync(srcPath);
-  return dstPath;
-}
-
-function getAudioDuration(p) {
-  try {
-    const out = execSync(
-      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${p}"`
-    );
-    return parseFloat(out.toString().trim()) || 0;
-  } catch {
-    return 0;
-  }
-}
-
-function secondsToSrtTime(sec) {
-  const h = String(Math.floor(sec / 3600)).padStart(2, '0');
-  const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
-  const s = String(Math.floor(sec % 60)).padStart(2, '0');
-  const ms = String(Math.round((sec % 1) * 1000)).padStart(3, '0');
-  return `${h}:${m}:${s},${ms}`;
-}
-
-function normaliseWebPath(p = '') {
-  if (p.includes('?')) p = p.split('?')[0];
-  if (!p.startsWith('/')) p = '/' + p;
-  return p;
-}
-
-function convertUrlToFilePath(p) {
-  if (!p) return null;
-  if (p.includes('?')) p = p.split('?')[0];
-  if (p.startsWith('http')) {
-    p = new URL(p).pathname;
-  }
-  if (p.startsWith('/temp/')) {
-    return path.join(__dirname, '../../public', p.slice(1));
-  }
-  if (path.isAbsolute(p)) {
-    return p;
-  }
-  return path.join(__dirname, '../../public', p);
-}
-
-/* ------------------- Multer Configuration ------------------- */
-const audStore = multer.diskStorage({
+/* ------------------------------------------------------------------
+ * Multer – upload audio
+ * ------------------------------------------------------------------ */
+const audioStore = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = path.join(__dirname, '../../public/temp');
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: (req, file, cb) => {
-    cb(null,
-      `user_upload_${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname || '.webm')}`
-    );
-  }
+  filename   : (req, file, cb) => cb(null, `user_upload_${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname || '.webm')}`)
 });
 
 const audioUpload = multer({
-  storage: audStore,
-  limits: { fileSize: 25 * 1024 * 1024 },
+  storage   : audioStore,
+  limits    : { fileSize: 25 * 1024 * 1024 },
   fileFilter: (req, file, cb) => cb(null, file.mimetype.startsWith('audio/'))
 }).single('audio');
 
-/* ------------------- API: Upload Audio for Part ------------------- */
+/* ------------------------------------------------------------------
+ * API – uploadAudioForPart
+ * ------------------------------------------------------------------ */
 const uploadAudioForPart = [
   audioUpload,
   async (req, res) => {
     try {
       const { sessionId, partId } = req.body;
       if (!sessionId || !partId) throw new Error('Thiếu sessionId / partId');
-      if (!req.file) throw new Error('Không có file audio');
+      if (!req.file)             throw new Error('Không có file audio');
 
       let stored = req.file.path;
-      if (/\.webm$|\.ogg$/i.test(stored)) {
-        console.log('🔄 Convert WebM ➜ MP3');
-        stored = await convertToMp3(stored);
-      }
+      if (/\.(webm|ogg)$/i.test(stored)) stored = await convertToMp3(stored);
 
+      /* lưu vào session nếu có */
       if (req.session?.videoPreparation?.sessionId === sessionId) {
-        const p = req.session.videoPreparation.scriptParts.find(x => x.id === partId);
-        if (p) p.audioPath = `/temp/${path.basename(stored)}`;
+        const part = req.session.videoPreparation.scriptParts?.find(x => x.id === partId);
+        if (part) part.audioPath = `/temp/${path.basename(stored)}`;
       }
 
-      return res.json({
-        success: true,
-        audioPath: `/temp/${path.basename(stored)}`,
-        mime: 'audio/mpeg'
-      });
-    } catch (err) {
-      console.error('[uploadAudioForPart]', err);
-      res.status(500).json({ success: false, error: err.message });
+      return res.json({ success:true, audioPath:`/temp/${path.basename(stored)}`, mime:'audio/mpeg' });
+    } catch (e) {
+      console.error('[uploadAudioForPart]', e);
+      res.status(500).json({ success:false, error:e.message });
     }
   }
 ];
 
-/* ------------------- API: Generate SRT File ------------------- */
+/* ------------------------------------------------------------------
+ * Generate SRT
+ * ------------------------------------------------------------------ */
 function generateSrtFile(parts, outPath) {
-  let cur = 0,
-    idx = 1,
-    srt = '';
-  parts.forEach(p => {
-    const audDur = getAudioDuration(convertUrlToFilePath(p.audioPath));
-    if (!audDur) return;
-    srt += `${idx++}\n${secondsToSrtTime(cur)} --> ${secondsToSrtTime(cur + audDur)}\n` +
-      `${p.caption || p.text || ''}\n\n`;
-    cur += audDur;
+  let cur = 0, idx = 1, srt = '';
+   parts.forEach(p => {
+    // dùng p.duration nếu có, fallback sang ffprobe
+    const dur = Number.isFinite(p.duration)
+              ? p.duration
+              : getAudioDuration(convertUrlToFilePath(p.audioPath));
+    if (!dur) return;
+    // giờ lấy caption || text || content
+    const textLine = p.text   // kiểu mới
+                   || p.content // fallback
+                   || p.caption // nếu dùng caption từ clips
+                   || '';
+    srt += `${idx++}\n`
+         + `${secondsToSrtTime(cur)} --> ${secondsToSrtTime(cur + dur)}\n`
+         + `${textLine}\n\n`;
+    cur += dur;
   });
   fs.writeFileSync(outPath, srt.trim() + '\n', 'utf8');
 }
 
-/* ------------------- API: Save Video Edits ------------------- */
-const saveVideoEdits = async (req, res) => {
+/* ------------------------------------------------------------------
+ * Save video edits (draft)
+ * ------------------------------------------------------------------ */
+async function saveVideoEdits (req, res) {
   try {
-    const { sessionId, parts } = req.body;
-    if (!sessionId || !Array.isArray(parts))
-      return res.status(400).json({ success: false, error: 'Dữ liệu không hợp lệ' });
+    const { sessionId, parts = [], textOverlays = [], imageOverlays = [], music = null } = req.body;
+    if (!sessionId) return res.status(400).json({ success:false, error:'Thiếu sessionId' });
 
     const dir = path.join(__dirname, '../../public/temp', sessionId);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'editor_data.json'), JSON.stringify(parts, null, 2));
-    res.json({ success: true, message: 'Đã lưu' });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ success: false, error: e.message });
-  }
-};
+    fs.mkdirSync(dir, { recursive:true });
 
-/* ------------------- API: Create Final Video ------------------- */
+    fs.writeFileSync(
+      path.join(dir, 'editor_data.json'),
+      JSON.stringify({ parts, textOverlays, imageOverlays, music }, null, 2)
+    );
+    res.json({ success:true, message:'Đã lưu' });
+  } catch (e) {
+    console.error('[saveVideoEdits]', e);
+    res.status(500).json({ success:false, error:e.message });
+  }
+}
+
+/* ------------------------------------------------------------------
+ * createFinalVideo – trọng tâm FIX
+ * ------------------------------------------------------------------ */
 const createFinalVideo = async (req, res) => {
-  let srt;
   try {
-    let { sessionId, parts = [], aspectRatio = '16:9', script = null } = req.body;
+    let { sessionId, parts = [], aspectRatio = '16:9', script = null,
+          music = null } = req.body;
     if (!sessionId || !parts.length)
       return res.status(400).json({ success: false, error: 'Thiếu dữ liệu' });
 
-    parts = mergeMediaParts(parts);
-    console.table(parts);
-    parts.forEach((p, i) => {
-      console.log(`Part ${i}`, p.partId, p.imagePath, p.audioPath);
-    });
+    /* ===== 1. TÁCH NHÓM ===== */
+    const textOverlays  = (parts.find(p => p.type === 'textOverlays')  || {}).items || [];
+    const imageOverlays = (parts.find(p => p.type === 'imageOverlays') || {}).items || [];
+    const clipsRaw      = parts.filter(p => !p.type);
+    let   clips         = mergeMediaParts(clipsRaw);
 
-    /* ---- user / topic ----------------------------------------- */
-    const userId = req.authUserId; // Sử dụng req.authUserId từ middleware requireAuth
-    console.log('🔍 userId before insertVideo:', userId);
-    const topic = req.session?.videoPreparation?.topic || req.body.topic || 'Video không tiêu đề';
+    if (!clips.length)
+      return res.status(400).json({ success:false, error:'Không clip hợp lệ' });
 
-    /* ---- paths ------------------------------------------------- */
-    const videosDir = path.join(__dirname, '../../public/videos');
-    const tempDir = path.join(__dirname, '../../public/temp');
-    fs.mkdirSync(videosDir, { recursive: true });
+    /* ===== 2. META DIR ===== */
+    const userId = req.session?.user_id || req.user?.id_nguoidung || null;
+    const topic  = req.session?.videoPreparation?.topic || req.body.topic || 'Video AI';
+
+    const videosDir = path.join(__dirname,'../../public/videos');
+    const tempDir   = path.join(__dirname,'../../public/temp');
+    fs.mkdirSync(videosDir,{recursive:true});
 
     const tempId = uuidv4();
-    const segList = path.join(tempDir, `segments_${tempId}.txt`);
-    const videoName = `edited_video_${Date.now()}.mp4`;
-    const finalVideo = path.join(videosDir, videoName);
+    const segList= path.join(tempDir,`seg_${tempId}.txt`);
+    const segPaths=[];
+    const videoName=`edited_video_${Date.now()}.mp4`;
+    const concatOut= path.join(tempDir,`cat_${tempId}.mp4`);
+    const finalVid = path.join(videosDir,videoName);
 
-    let listTxt = '';
-    const segPaths = [];
+    /* ===== 3. XÂY TỪNG SEGMENT ===== */
+    for (let i=0;i<clips.length;i++){
+      const c=clips[i];
+      const img=convertUrlToFilePath(c.imagePath);
+      let   aud=convertUrlToFilePath(c.audioPath);
+      if (!fs.existsSync(img)||!fs.existsSync(aud))
+        return res.status(400).json({success:false,error:`Thiếu file ở clip #${i+1}`});
+      if (/\.webm$|\.ogg$/i.test(aud)) aud=await convertToMp3(aud);
+      const dur=getAudioDuration(aud)||5;
 
-    /* ---- build từng segment ----------------------------------- */
-    for (let i = 0; i < parts.length; i++) {
-      const prt = parts[i];
-      if (!prt.imagePath || !prt.audioPath) continue;
+      /* --- build filter-complex --- */
+      const filterParts=[];
+      let last = 'bg0';
+      filterParts.push(`[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,`+
+                       `pad=1920:1080:(ow-iw)/2:(oh-ih)/2[${last}]`);
 
-      const imgAbs = convertUrlToFilePath(prt.imagePath);
-      let audAbs = convertUrlToFilePath(prt.audioPath);
-      console.log('audioAbs:', audAbs, 'exists?', fs.existsSync(audAbs));
-
-      if (!fs.existsSync(audAbs))
-        return res.status(400).json({ success: false, error: `Thiếu *audio* ở part #${i + 1}` });
-
-      if (!fs.existsSync(imgAbs)) {
-        console.warn(`⚠️ Part ${i} không có ảnh, bỏ qua`);
-        continue;
+      /* Hiệu ứng */
+      if (c.effect?.type){
+        const v=c.effect.value;
+        const fx={
+          grayscale :'colorchannelmixer=.3:.4:.3:0:.3:.4:.3:0:.3:.4:.3:0',
+          sepia     :'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131:0',
+          brightness:`eq=brightness=${(v-50)/50}`,
+          contrast  :`eq=contrast=${v/50}`,
+          blur      :`boxblur=${v/20}:${v/20}`
+        }[c.effect.type];
+        if (fx){ filterParts.push(`[${last}]${fx}[fx1]`); last='fx1'; }
       }
 
-      if (/\.webm$|\.ogg$/i.test(audAbs)) {
-        audAbs = await convertToMp3(audAbs);
-        prt.audioPath = `/temp/${path.basename(audAbs)}`;
-      }
+      /* TEXT overlay khớp clip */
+      const start = c.startTime||0;
+      const end   = start+dur;
+      textOverlays.filter(t => (t.startTime||0)<end && ((t.startTime||0)+(t.duration||3))>start)
+        .forEach((t,idx)=>{
+          const st=Math.max(0,(t.startTime||0)-start).toFixed(2);
+          const et=Math.min(dur,(t.startTime||0)+(t.duration||3)-start).toFixed(2);
+          const safe=(t.content||t.text||'').replace(/['"]/g,c=>c==='\''
+                                                      ?"\\'"
+                                                      :'\\"');
+          filterParts.push(
+  `[${last}]drawtext=` +
+  `fontfile=/Windows/Fonts/arial.ttf:` +
+  `text='${safe}':` +
+  `fontcolor=${t.color || 'white'}:` +
+  `fontsize=${safeNum(t.size, 44)}:` +
 
-      const dur = getAudioDuration(audAbs) || 5;
-      let vf = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2';
+`x=${ffPos(t.x,'x','text_w')}:` +
+ `y=${ffPos(t.y,'y','text_h')}:` +
+  `enable='between(t,${st},${et})'[txt${idx}]`
+);
+          last=`txt${idx}`;
+        });
 
-      if (prt.effect?.type) {
-        const v = prt.effect.value;
-        vf += ({
-          grayscale: ',colorchannelmixer=.3:.4:.3:0:.3:.4:.3:0:.3:.4:.3:0',
-          sepia: ',colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131:0',
-          brightness: `,eq=brightness=${(v - 50) / 50}`,
-          contrast: `,eq=contrast=${v / 50}`,
-          blur: `,boxblur=${v / 20}:${v / 20}`
-        }[prt.effect.type] || '');
-      }
+      /* IMAGE overlay */
+      let extInputs='';
+      let ovCount=0;
+      imageOverlays.filter(o => (o.startTime||0)<end && ((o.startTime||0)+(o.duration||3))>start)
+        .forEach(o=>{
+          const ovAbs=convertUrlToFilePath(o.src||o.imagePath);
+          if (!fs.existsSync(ovAbs)) return;
+          extInputs+=` -loop 1 -i "${ovAbs}"`;
+          const st=Math.max(0,(o.startTime||0)-start).toFixed(2);
+          const et=Math.min(dur,(o.startTime||0)+(o.duration||3)-start).toFixed(2);
+          const ow = Math.round((o.scale||0.25)*1920);
 
-      const seg = path.join(tempDir, `segment_${tempId}_${i}.mp4`);
-      safeExecSync(
-        `ffmpeg -y -loop 1 -i "${imgAbs}" -i "${audAbs}" ` +
-        `-c:v libx264 -tune stillimage -c:a aac -b:a 128k -pix_fmt yuv420p ` +
-        `-shortest -t ${dur} -vf "${vf}" "${seg}"`
-      );
+         filterParts.push(`[${2+ovCount}:v]scale=${ow}:-1[ov${ovCount}]`);
+filterParts.push(
+  `[${last}][ov${ovCount}]overlay=` +
+
+ `${ffPos(o.x,'x','overlay_w')}:${ffPos(o.y,'y','overlay_h')}:` +
+  `enable='between(t,${st},${et})'[ovb${ovCount}]`
+);
+          
+          last=`ovb${ovCount}`; ovCount++;
+        });
+
+      filterParts.push(`[${last}]format=yuv420p[v]`);
+      const seg=path.join(tempDir,`seg_${tempId}_${i}.mp4`);
       segPaths.push(seg);
-      listTxt += `file '${seg.replace(/\\/g, '/')}\n`;
+
+      safeExecSync(
+        `ffmpeg -y -loop 1 -i "${img}" -i "${aud}"${extInputs} `+
+        `-filter_complex "${filterParts.join(';')}" -map "[v]" -map 1:a `+
+        `-c:v libx264 -preset veryfast -pix_fmt yuv420p -shortest -t ${dur} "${seg}"`
+      );
+      fs.appendFileSync(segList,`file '${seg.replace(/\\/g,'/')}'\n`);
     }
 
-    if (!segPaths.length)
-      return res.status(400).json({ success: false, error: 'Không part nào hợp lệ' });
+    /* ===== 4. Concat ===== */
+    safeExecSync(`ffmpeg -y -f concat -safe 0 -i "${segList}" -c copy "${concatOut}"`);
 
-    fs.writeFileSync(segList, listTxt);
+    /* ===== 5. Nhạc nền ===== */
+    let videoForSub = concatOut;
+    if (music?.file){
+      const musAbs=convertUrlToFilePath(music.file);
+      if (fs.existsSync(musAbs)){
+        const mixOut = path.join(tempDir,`mix_${tempId}.mp4`);
+        const vol=Math.max(0,Math.min(1, Number(music.volume||0.35)));
+        safeExecSync(
+          `ffmpeg -y -i "${concatOut}" -i "${musAbs}" `+
+          `-filter_complex "[1:a]volume=${vol}[bg];[0:a][bg]amix=inputs=2:duration=first:dropout_transition=2"`+
+          ` -c:v copy -shortest "${mixOut}"`
+        );
+        videoForSub = mixOut;
+      }
+    }
 
-    /* ---- concat ------------------------------------------------ */
-    safeExecSync(`ffmpeg -y -f concat -safe 0 -i "${segList}" -c copy "${finalVideo}"`);
-
-    /* ---- subtitles -------------------------------------------- */
-    const subDir = path.join(videosDir, 'subtitles');
-    fs.mkdirSync(subDir, { recursive: true });
-    srt = path.join(subDir, `sub_${sessionId}.srt`);
-    generateSrtFile(parts, srt);
-
-    const tmp = path.join(videosDir, `tmp_${videoName}`);
+    /* ===== 6. Phụ đề ===== */
+    const subDir=path.join(videosDir,'subtitles'); fs.mkdirSync(subDir,{recursive:true});
+    const srt=path.join(subDir,`sub_${sessionId}.srt`);
+    generateSrtFile(clips,srt);
+    const ass=srt.replace(/\.srt$/i,'.ass');
+    safeExecSync(`ffmpeg -y -i "${srt}" "${ass}"`);
     safeExecSync(
-      `ffmpeg -y -i "${finalVideo}" -vf "subtitles='${srt.replace(/\\/g, '/').replace(/:/g, '\\:')}'" -c:a copy "${tmp}"`
+      `ffmpeg -y -i "${videoForSub}" -vf "ass='${ass.replace(/\\/g,'/').replace(/:/g,'\\:')}'" -c:a copy "${finalVid}"`
     );
-    fs.renameSync(tmp, finalVideo);
 
-    /* ---- upload & DB ------------------------------------------ */
-    const fbKey = `videos/${videoName}`;
-    const pubURL = await uploadFile(finalVideo, fbKey, { contentType: 'video/mp4' });
-    const sizeMb = (fs.statSync(finalVideo).size / 1024 / 1024).toFixed(2);
+    /* ===== 7. Upload & DB ===== */
+    const fbKey=`videos/${videoName}`;
+    const pubURL=await uploadFile(finalVid,fbKey,{contentType:'video/mp4'});
+    const sizeMb=(fs.statSync(finalVid).size/1024/1024).toFixed(2);
+    await videoModel.insertVideo({filename:videoName,firebaseKey:fbKey,publicUrl:pubURL,
+                                  sizeMb,title:topic,script,userId});
 
-    await videoModel.insertVideo({
-      filename: videoName,
-      firebaseKey: fbKey,
-      publicUrl: pubURL,
-      sizeMb,
-      title: topic,
-      script,
-      userId
-    });
+    /* ===== 8. Clean temp ===== */
+    [segList,...segPaths,concatOut,(videoForSub!==concatOut)&&videoForSub]
+      .filter(Boolean).forEach(f=>{try{fs.unlinkSync(f);}catch{}});
 
-    /* ---- cleanup ---------------------------------------------- */
-    [...segPaths, segList, srt].forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
-
-    return res.json({ success: true, videoUrl: pubURL, title: topic, userId });
-
-  } catch (err) {
-    console.error('❌ createFinalVideo', err);
-    /* ---- cleanup on error ------------------------------------- */
-    if (srt && fs.existsSync(srt)) fs.unlinkSync(srt);
-    [...segPaths, segList].forEach(f => fs.existsSync(f) && fs.unlinkSync(f));
-    res.status(500).json({ success: false, error: err.message });
+    res.json({success:true,videoUrl:pubURL,title:topic,userId});
+  } catch(err){
+    console.error('❌ createFinalVideo',err);
+    res.status(500).json({success:false,error:err.message});
   }
 };
+
 
 /* ------------------- API: Upload Media ------------------- */
 const uploadMedia = async (req, res) => {
