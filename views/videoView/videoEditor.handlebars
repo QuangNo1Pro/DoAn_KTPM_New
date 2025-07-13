@@ -537,7 +537,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  // --- 1) Modal cleanup ---
+  // --- 0) Thiết lập aspect ratio cho preview và payload ---
+  const aspectRatio = sessionStorage.getItem('videoAspectRatio') || '16:9';
+  const [arW, arH] = aspectRatio.split(':').map(n => parseFloat(n));
+  // Gán padding-bottom = H/W * 100% để giữ đúng tỉ lệ
+  const previewContainer = document.getElementById('preview-container');
+  if (previewContainer && arW && arH) {
+    previewContainer.style.paddingBottom = (arH / arW * 100) + '%';
+  }
+
+  // --- 1) Modal cleanup (giữ nguyên) ---
   ['textModal','imageModal'].forEach(id => {
     const m = document.getElementById(id);
     if (!m) return;
@@ -549,7 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // --- 2) Music preview setup (giữ nguyên như bạn có) ---
+  // --- 2) Music preview setup (giữ nguyên) ---
   const sel          = document.getElementById('bg-music-select');
   const volEl        = document.getElementById('bg-music-volume');
   const previewAudio = document.getElementById('bg-music-preview');
@@ -590,9 +599,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- 3) Helper client: gatherClips(), gatherOverlays() ---
+  // --- 3) Helper client: gatherClips(), gatherText(), gatherImage() ---
   function gatherClips() {
-    // timeline.getClips() nếu có, hoặc fallback vào bất cứ mảng clips nào timeline lưu
     const raw = window.timeline?.getClips?.() || window.timeline?.clips || [];
     return raw.map(c => ({
       partId:    c.partId    ?? c.id,
@@ -640,7 +648,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('play-preview-btn')
         .addEventListener('click', () => window.PreviewManager.playPreview());
 
-      // bind Export Video
+      // bind Export Video (gửi cả aspectRatio)
       document.getElementById('export-video-btn')
         .addEventListener('click', async () => {
           try {
@@ -656,10 +664,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const payload = {
               sessionId:    sessionStorage.getItem('videoSessionId'),
               clips, textOverlays, imageOverlays, music,
-              aspectRatio: '16:9'
+              aspectRatio  // truyền tỉ lệ động
             };
 
-            const res = await fetch('/advanced-video/finalize-video', {
+            const res = await fetch('/advanced-video/create-edited-video', {
               method:'POST',
               headers:{'Content-Type':'application/json'},
               body: JSON.stringify(payload)
@@ -673,6 +681,6 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         });
     }
-  },100);
+  }, 100);
 });
 </script>

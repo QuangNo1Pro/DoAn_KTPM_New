@@ -313,17 +313,32 @@ filterParts.push(
 
     /* ===== 5. Nhạc nền ===== */
     let videoForSub = concatOut;
-    if (music?.file){
-      const musAbs=convertUrlToFilePath(music.file);
-      if (fs.existsSync(musAbs)){
-        const mixOut = path.join(tempDir,`mix_${tempId}.mp4`);
-        const vol=Math.max(0,Math.min(1, Number(music.volume||0.35)));
+    if (music && music.file) {
+      // Bóc tách
+      const musicFile      = music.file;
+      const musicVolume    = Number.isFinite(+music.volume) ? +music.volume : 0.5;
+      const musicStartTime = Number.isFinite(+music.start)  ? +music.start  : 0;
+      const musicEndTime   = Number.isFinite(+music.end)    ? +music.end    : null;
+
+      // Chuyển URL -> đường dẫn tuyệt đối
+      const musAbs = convertUrlToFilePath(musicFile);
+      if (fs.existsSync(musAbs)) {
+        const mixOut = path.join(tempDir, `mix_${tempId}.mp4`);
+
+        // build -ss / -to nếu cần cắt đoạn
+        const trimArgs = [`-ss ${musicStartTime}`]
+          .concat(musicEndTime != null ? [`-to ${musicEndTime}`] : [])
+          .join(' ');
+
         safeExecSync(
-          `ffmpeg -y -i "${concatOut}" -i "${musAbs}" `+
-          `-filter_complex "[1:a]volume=${vol}[bg];[0:a][bg]amix=inputs=2:duration=first:dropout_transition=2"`+
-          ` -c:v copy -shortest "${mixOut}"`
+          // đầu vào video, sau đó đầu vào nhạc (đã trim)
+          `ffmpeg -y -i "${concatOut}" ${trimArgs} -i "${musAbs}" ` +
+          `-filter_complex "[1:a]volume=${musicVolume}[bg];[0:a][bg]amix=inputs=2:duration=first" ` +
+          `-map 0:v -map "[a]" -c:v copy -shortest "${mixOut}"`
         );
         videoForSub = mixOut;
+      } else {
+        console.warn('Không tìm thấy file nhạc nền tại:', musAbs);
       }
     }
 
