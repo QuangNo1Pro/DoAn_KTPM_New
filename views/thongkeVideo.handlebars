@@ -1,4 +1,6 @@
 <!-- thongkeVideo.hbs -->
+<meta name="csrf-token" content="{{csrfToken}}">
+
 <style>
     body {
         background: linear-gradient(145deg, #fefefe, #dce3ea);
@@ -6,6 +8,28 @@
         font-family: 'Segoe UI', sans-serif;
         background-attachment: fixed;
         background-size: cover;
+        position: relative;
+    }
+
+    #bgVideo {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        filter: brightness(0.8) contrast(1.1) saturate(1.1);
+        z-index: -2;
+    }
+    .bg-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(4px);
+        z-index: -1;
+        pointer-events: none;
+    }
+    @media (max-width: 768px) {
+        #bgVideo, .bg-overlay { display: none; }
     }
 
     .card {
@@ -22,13 +46,25 @@
         border-radius: 8px;
         padding: 12px;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        display: none; /* Ẩn mặc định, chỉ hiển thị canvas được chọn */
     }
 
     .date-range-container {
         display: flex;
         gap: 10px;
     }
+
+    .chart-container {
+        margin-bottom: 2rem;
+    }
 </style>
+
+<!-- ==== BACKGROUND VIDEO & OVERLAY ==== -->
+<video id="bgVideo" autoplay muted loop playsinline poster="/video_background/bg_mv.png" preload="metadata">
+    <source src="/video_background/backgroundSearch.webm" type="video/webm"/>
+    <source src="/video_background/backgroundSearch.mp4" type="video/mp4"/>
+</video>
+<div class="bg-overlay"></div>
 
 <div class="container mt-5">
     <h2 class="text-warning mb-4">📊 Phân tích Video YouTube</h2>
@@ -45,7 +81,6 @@
             </select>
         </div>
 
-        <!-- Input tùy chỉnh khoảng thời gian với date picker -->
         <div class="col-md-4 period-custom" style="display: {{isCustom filterPeriod}}">
             <label for="customRange" class="form-label">📅 Chọn ngày</label>
             <div class="date-range-container">
@@ -114,7 +149,7 @@
                     <td>{{formatDate this.updated_at format="HH:mm DD/MM/YYYY"}}</td>
                     <td>
                         <a href="https://www.youtube.com/watch?v={{this.youtube_id}}"
-                            class="btn btn-sm btn-outline-dark" target="_blank">
+                           class="btn btn-sm btn-outline-dark" target="_blank">
                             <i class="bi bi-play-circle"></i> Xem
                         </a>
                     </td>
@@ -130,18 +165,24 @@
         </table>
     </div>
 
-    <!-- Biểu đồ lượt xem theo ngày -->
-    <h4 class="text-dark mb-3">📈 Biểu đồ lượt xem theo ngày</h4>
-    <canvas id="viewsChart" height="100"></canvas>
+    <!-- Dropdown chọn biểu đồ -->
+    <div class="chart-container">
+        <h4 class="text-dark mb-3">📊 Chọn biểu đồ</h4>
+        <select class="form-select bg-light text-dark border-warning w-auto mb-3" id="chartSelect" aria-label="Chọn biểu đồ">
+            <option value="viewsChart" selected>Lượt xem theo ngày</option>
+            <option value="videoViewsChart">Lượt xem từng video</option>
+        </select>
 
-    <!-- Biểu đồ lượt xem từng video -->
-    <h4 class="text-dark mt-5 mb-3">📊 Lượt xem từng video</h4>
-    <canvas id="videoViewsChart" height="120"></canvas>
+        <!-- Biểu đồ -->
+        <canvas id="viewsChart" height="100"></canvas>
+        <canvas id="videoViewsChart" height="120"></canvas>
+    </div>
 </div>
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+(() => {
     // Hiển thị input tùy chỉnh khi chọn "Tùy chỉnh"
     function toggleCustomInput() {
         const period = document.getElementById('period').value;
@@ -149,7 +190,7 @@
         customInput.style.display = period === 'custom' ? 'block' : 'none';
     }
     document.getElementById('period').addEventListener('change', toggleCustomInput);
-    toggleCustomInput(); // Gọi ngay khi tải trang
+    toggleCustomInput();
 
     // Cập nhật giá trị customRange khi chọn ngày
     function updateCustomRange() {
@@ -166,12 +207,12 @@
             selectedRange.style.display = 'none';
         }
     }
-
     document.getElementById('startDate').addEventListener('change', updateCustomRange);
     document.getElementById('endDate').addEventListener('change', updateCustomRange);
 
+    // Khởi tạo biểu đồ
     const ctx1 = document.getElementById('viewsChart').getContext('2d');
-    new Chart(ctx1, {
+    const viewsChart = new Chart(ctx1, {
         type: 'line',
         data: {
             labels: {{{ viewChartJSON.labels }}},
@@ -195,25 +236,19 @@
                 title: { display: true, text: '📈 Biểu đồ lượt xem theo ngày', font: { size: 18 } }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { precision: 0 }
-                }
+                y: { beginAtZero: true, ticks: { precision: 0 } }
             }
         }
     });
 
     const ctx2 = document.getElementById('videoViewsChart').getContext('2d');
-    const videoTitles = {{{ videoTitles }}};
-    const videoViews = {{{ videoViews }}};
-
-    new Chart(ctx2, {
+    const videoViewsChart = new Chart(ctx2, {
         type: 'bar',
         data: {
-            labels: videoTitles,
+            labels: {{{ videoTitles }}},
             datasets: [{
                 label: 'Lượt xem',
-                data: videoViews,
+                data: {{{ videoViews }}},
                 backgroundColor: [
                     'rgba(255, 99, 132, 0.6)',
                     'rgba(54, 162, 235, 0.6)',
@@ -237,23 +272,18 @@
                 title: { display: true, text: '📊 Lượt xem từng video', font: { size: 18 } }
             },
             scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: { precision: 0 }
-                }
+                x: { beginAtZero: true, ticks: { precision: 0 } }
             }
         }
     });
-</script>
 
-<!-- Helper Handlebars (nếu cần) -->
-{{#if helpers}}
-<script id="handlebars-helpers" type="text/x-handlebars-template">
-    Handlebars.registerHelper('selected', function(selected, options) {
-        return selected === options ? 'selected' : '';
-    });
-    Handlebars.registerHelper('isCustom', function(filterPeriod) {
-        return filterPeriod === 'custom' ? 'block' : 'none';
-    });
+    // Hiển thị/ẩn biểu đồ dựa trên dropdown
+    function toggleChart() {
+        const chartSelect = document.getElementById('chartSelect').value;
+        document.getElementById('viewsChart').style.display = chartSelect === 'viewsChart' ? 'block' : 'none';
+        document.getElementById('videoViewsChart').style.display = chartSelect === 'videoViewsChart' ? 'block' : 'none';
+    }
+    document.getElementById('chartSelect').addEventListener('change', toggleChart);
+    toggleChart(); // Gọi ngay khi tải trang
+})();
 </script>
-{{/if}}
