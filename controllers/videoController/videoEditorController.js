@@ -190,185 +190,608 @@ async function saveVideoEdits (req, res) {
  * createFinalVideo – trọng tâm FIX
  * ------------------------------------------------------------------ */
 const createFinalVideo = async (req, res) => {
-  try {
-    let { sessionId, parts = [], aspectRatio = '16:9', script = null,
-          music = null } = req.body;
-    if (!sessionId || !parts.length)
-      return res.status(400).json({ success: false, error: 'Thiếu dữ liệu' });
+    try {
+        const {
+            sessionId,
+            parts = [],
+            aspectRatio = '16:9',
+            script = null,
 
-    /* ===== 1. TÁCH NHÓM ===== */
-    const textOverlays  = (parts.find(p => p.type === 'textOverlays')  || {}).items || [];
-    const imageOverlays = (parts.find(p => p.type === 'imageOverlays') || {}).items || [];
-    const clipsRaw      = parts.filter(p => !p.type);
-    let   clips         = mergeMediaParts(clipsRaw);
+            music = null,
+            musicVolume = 0.5,
+            musicStartTime = 0,
+            musicEndTime = null
+        } = req.body;
+        console.log('🎼 Nhạc nền:', music);
+        console.log('🎚️ Volume:', musicVolume);
+        console.log('🎧 Start:', musicStartTime);
+        console.log('🎧 End:', musicEndTime);
 
-    if (!clips.length)
-      return res.status(400).json({ success:false, error:'Không clip hợp lệ' });
+        // Lấy userId (ưu tiên session, sau đó body – tuỳ app auth)
+        const userId =
+            req.session?.user_id
+            || req.user?.id_nguoidung
+            || null;
+        // Lấy **topic** lưu trong session (đã được set ở prepareVideoScript)
+        const topic = req.session?.videoPreparation?.topic
+            || req.body.topic
+            || 'Video không tiêu đề';
+        if (!sessionId || !parts || !Array.isArray(parts)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Dữ liệu không hợp lệ'
+            });
+        }
 
-    /* ===== 2. META DIR ===== */
-    const userId = req.session?.user_id || req.user?.id_nguoidung || null;
-    const topic  = req.session?.videoPreparation?.topic || req.body.topic || 'Video AI';
+        // Tạo thư mục đầu ra nếu chưa tồn tại
+        const outputDir = path.join(__dirname, '../../public/videos');
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
 
-    const videosDir = path.join(__dirname,'../../public/videos');
-    const tempDir   = path.join(__dirname,'../../public/temp');
-    fs.mkdirSync(videosDir,{recursive:true});
+        // Đảm bảo thư mục phụ đề tồn tại
+        const subtitleDir = path.join(outputDir, 'subtitles');
+        if (!fs.existsSync(subtitleDir)) {
+            fs.mkdirSync(subtitleDir, { recursive: true });
+        }
 
-    const tempId = uuidv4();
-    const segList= path.join(tempDir,`seg_${tempId}.txt`);
-    const segPaths=[];
-    const videoName=`edited_video_${Date.now()}.mp4`;
-    const concatOut= path.join(tempDir,`cat_${tempId}.mp4`);
-    const finalVid = path.join(videosDir,videoName);
+        // Tên file video
+        const videoFileName = `edited_video_${Date.now()}.mp4`;
+        const outputPath = path.join(outputDir, videoFileName);
 
-    /* ===== 3. XÂY TỪNG SEGMENT ===== */
-    for (let i=0;i<clips.length;i++){
-      const c=clips[i];
-      const img=convertUrlToFilePath(c.imagePath);
-      let   aud=convertUrlToFilePath(c.audioPath);
-      if (!fs.existsSync(img)||!fs.existsSync(aud))
-        return res.status(400).json({success:false,error:`Thiếu file ở clip #${i+1}`});
-      if (/\.webm$|\.ogg$/i.test(aud)) aud=await convertToMp3(aud);
-      const dur=getAudioDuration(aud)||5;
+        // Tạo file tạm để lưu danh sách các đoạn video
+        const tempDir = path.join(__dirname, '../../public/temp');
+        const tempId = uuidv4();
+        const segmentListPath = path.join(tempDir, `segments_${tempId}.txt`);
+        let segmentsList = '';
+        const segments = [];
 
-      /* --- build filter-complex --- */
-      const filterParts=[];
-      let last = 'bg0';
-      filterParts.push(`[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,`+
-                       `pad=1920:1080:(ow-iw)/2:(oh-ih)/2[${last}]`);
+        // Lọc các phần là clips (loại bỏ textOverlays và các phần khác không phải clips)
+        // Kiểm tra và lọc ra phần textOverlays riêng
+        let textOverlays = null;
+        let imageOverlays = null;
+        const validParts = [];
 
-      /* Hiệu ứng */
-      if (c.effect?.type){
-        const v=c.effect.value;
-        const fx={
-          grayscale :'colorchannelmixer=.3:.4:.3:0:.3:.4:.3:0:.3:.4:.3:0',
-          sepia     :'colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131:0',
-          brightness:`eq=brightness=${(v-50)/50}`,
-          contrast  :`eq=contrast=${v/50}`,
-          blur      :`boxblur=${v/20}:${v/20}`
-        }[c.effect.type];
-        if (fx){ filterParts.push(`[${last}]${fx}[fx1]`); last='fx1'; }
-      }
+        for (const part of parts) {
+            if (part.type === 'textOverlays') {
+                textOverlays = part;
+            } else if (part.type === 'imageOverlays') {
+                imageOverlays = part;
+            } else if (part.partId && part.imagePath && part.audioPath) {
+                validParts.push(part);
+            }
+        }
 
-      /* TEXT overlay khớp clip */
-      const start = c.startTime||0;
-      const end   = start+dur;
-      textOverlays.filter(t => (t.startTime||0)<end && ((t.startTime||0)+(t.duration||3))>start)
-        .forEach((t,idx)=>{
-          const st=Math.max(0,(t.startTime||0)-start).toFixed(2);
-          const et=Math.min(dur,(t.startTime||0)+(t.duration||3)-start).toFixed(2);
-          const safe=(t.content||t.text||'').replace(/['"]/g,c=>c==='\''
-                                                      ?"\\'"
-                                                      :'\\"');
-          filterParts.push(
-  `[${last}]drawtext=` +
-  `fontfile=/Windows/Fonts/arial.ttf:` +
-  `text='${safe}':` +
-  `fontcolor=${t.color || 'white'}:` +
-  `fontsize=${safeNum(t.size, 44)}:` +
+        if (validParts.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Không có phần nào có đủ media (hình ảnh và âm thanh)'
+            });
+        }
+        
+        console.log(`Đã tìm thấy ${validParts.length} clip hợp lệ, ${textOverlays ? textOverlays.items?.length : 0} text overlays và ${imageOverlays ? imageOverlays.items?.length : 0} image overlays`);
+        
+        // Log chi tiết về text overlays để debug
+        if (textOverlays && textOverlays.items && textOverlays.items.length > 0) {
+            console.log('Danh sách text overlays:');
+            textOverlays.items.forEach((item, idx) => {
+                console.log(`Text #${idx + 1}: "${item.content && item.content.length > 20 ? item.content.substring(0, 20) + '...' : item.content}" - start: ${item.startTime}s, duration: ${item.duration}s, pos: (${item.x}, ${item.y})`);
+            });
+        }
+        
+        // Log chi tiết về image overlays để debug
+        if (imageOverlays && imageOverlays.items && imageOverlays.items.length > 0) {
+            console.log('Danh sách image overlays:');
+            imageOverlays.items.forEach((item, idx) => {
+                console.log(`Image #${idx + 1}: "${item.name}" - start: ${item.startTime}s, duration: ${item.duration}s, pos: (${item.x}, ${item.y}), scale: ${item.scale}, rotation: ${item.rotation}`);
+            });
+        }
+        
+        // Tạo segment cho từng phần
+        for (let i = 0; i < validParts.length; i++) {
+            const part = validParts[i];
+            const segmentPath = path.join(tempDir, `segment_${tempId}_${i}.mp4`);
+            segments.push(segmentPath);
 
-`x=${ffPos(t.x,'x','text_w')}:` +
- `y=${ffPos(t.y,'y','text_h')}:` +
-  `enable='between(t,${st},${et})'[txt${idx}]`
-);
-          last=`txt${idx}`;
+            // Xác định cài đặt video
+            let segmentSettings = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2';
+
+            // Áp dụng hiệu ứng (nếu có)
+            if (part.effect && part.effect.type !== 'none') {
+                switch (part.effect.type) {
+                    case 'grayscale':
+                        segmentSettings += ',colorchannelmixer=.3:.4:.3:0:.3:.4:.3:0:.3:.4:.3:0';
+                        break;
+                    case 'sepia':
+                        segmentSettings += ',colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131:0';
+                        break;
+                    case 'brightness':
+                        const brightnessValue = (part.effect.value - 50) / 50;
+                        segmentSettings += `,eq=brightness=${brightnessValue}`;
+                        break;
+                    case 'contrast':
+                        const contrastValue = part.effect.value / 50;
+                        segmentSettings += `,eq=contrast=${contrastValue}`;
+                        break;
+                    case 'blur':
+                        const blurValue = part.effect.value / 20;
+                        segmentSettings += `,boxblur=${blurValue}:${blurValue}`;
+                        break;
+                }
+            }
+
+            // Thêm text overlay nếu có
+            if (textOverlays && textOverlays.items && textOverlays.items.length > 0) {
+                // Lọc chỉ lấy các text overlay áp dụng cho clip này
+                const clipStartTime = part.startTime || 0;
+                const clipEndTime = clipStartTime + (part.duration || 3);
+
+                const applicableTextItems = textOverlays.items.filter(text => {
+                    const textStartTime = text.startTime || 0;
+                    const textEndTime = textStartTime + (text.duration || 3);
+
+                    // Kiểm tra xem text overlay có xuất hiện trong thời gian của clip này không
+                    return (textStartTime < clipEndTime && textEndTime > clipStartTime);
+                });
+
+                if (applicableTextItems.length > 0) {
+                    console.log(`Có ${applicableTextItems.length} text overlay cần áp dụng cho phần ${i + 1}`);
+
+                    // Tạo filter drawtext cho mỗi text overlay
+                    applicableTextItems.forEach(textItem => {
+                        // Xác định thời gian hiển thị trong clip này
+                        const textStart = Math.max(0, textItem.startTime - clipStartTime);
+                        const textEnd = Math.min(part.duration || 3, (textItem.startTime + textItem.duration) - clipStartTime);
+
+                        // Tính toán vị trí
+                        const xPos = Math.floor(textItem.x * 1920);
+                        const yPos = Math.floor(textItem.y * 1080);
+
+                        const textContent = textItem.content.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                        const fontColor = textItem.color || '#ffffff';
+                        const fontSize = textItem.size || 24;
+
+                        segmentSettings += `,drawtext=text='${textContent}':fontcolor=${fontColor}:fontsize=${fontSize}:x=${xPos}:y=${yPos}:enable='between(t,${textStart},${textEnd})':shadowcolor=black:shadowx=2:shadowy=2`;
+                    });
+                }
+            }
+            
+            // Thêm image overlay nếu có
+            if (imageOverlays && imageOverlays.items && imageOverlays.items.length > 0) {
+                // Lọc chỉ lấy các image overlay áp dụng cho clip này
+                const clipStartTime = part.startTime || 0;
+                const clipEndTime = clipStartTime + (part.duration || 3);
+                
+                const applicableImageItems = imageOverlays.items.filter(image => {
+                    const imageStartTime = image.startTime || 0;
+                    const imageEndTime = imageStartTime + (image.duration || 3);
+                    
+                    // Kiểm tra xem image overlay có xuất hiện trong thời gian của clip này không
+                    return (imageStartTime < clipEndTime && imageEndTime > clipStartTime);
+                });
+                
+                if (applicableImageItems.length > 0) {
+                    console.log(`Có ${applicableImageItems.length} image overlay cần áp dụng cho phần ${i+1}`);
+                    
+                    // Tạo thư mục tạm để lưu ảnh nếu cần
+                    const imageOverlayDir = path.join(tempDir, `image_overlays_${tempId}`);
+                    if (!fs.existsSync(imageOverlayDir)) {
+                        fs.mkdirSync(imageOverlayDir, { recursive: true });
+                    }
+                    
+                    // Xử lý từng image overlay
+                    let overlayIndex = 0;
+                    for (const imageItem of applicableImageItems) {
+                        try {
+                            // Xác định thời gian hiển thị trong clip này
+                            const imageStart = Math.max(0, imageItem.startTime - clipStartTime);
+                            const imageEnd = Math.min(part.duration || 3, (imageItem.startTime + imageItem.duration) - clipStartTime);
+                            
+                            // Tính toán vị trí
+                            const xPos = Math.floor(imageItem.x * 1920);
+                            const yPos = Math.floor(imageItem.y * 1080);
+                            
+                            // Xử lý đường dẫn ảnh
+                            let imagePath = imageItem.src;
+                            let localImagePath = '';
+                            
+                            // Nếu là URL từ internet, tải về
+                            if (imagePath.startsWith('http') && !imagePath.startsWith('blob:')) {
+                                try {
+                                    // Tạo tên file tạm
+                                    const tempImageName = `overlay_${tempId}_${overlayIndex}.png`;
+                                    localImagePath = path.join(imageOverlayDir, tempImageName);
+                                    
+                                    // Tải ảnh về (sử dụng axios hoặc fetch)
+                                    // Đây là một thao tác bất đồng bộ, nhưng chúng ta đang trong hàm đồng bộ
+                                    // Nên sẽ sử dụng phương pháp đơn giản hơn
+                                    console.log(`Đang tải ảnh từ URL: ${imagePath}`);
+                                    
+                                    // Bỏ qua bước tải ảnh, sử dụng URL trực tiếp
+                                    imagePath = imageItem.src;
+                                } catch (downloadError) {
+                                    console.error(`Lỗi khi tải ảnh từ URL: ${imagePath}`, downloadError);
+                                    continue; // Bỏ qua overlay này
+                                }
+                            } 
+                            // Nếu là blob URL, bỏ qua vì không thể xử lý ở server
+                            else if (imagePath.startsWith('blob:')) {
+                                console.warn(`Không thể xử lý blob URL: ${imagePath}`);
+                                continue; // Bỏ qua overlay này
+                            }
+                            // Nếu là đường dẫn local
+                            else {
+                                // Chuyển đổi URL thành đường dẫn file vật lý
+                                if (imagePath.startsWith('/')) {
+                                    localImagePath = path.join(__dirname, '../../public', imagePath.substring(1));
+                                } else {
+                                    localImagePath = path.join(__dirname, '../../public', imagePath);
+                                }
+                                
+                                // Kiểm tra xem file có tồn tại không
+                                if (!fs.existsSync(localImagePath)) {
+                                    console.warn(`Không tìm thấy file ảnh: ${localImagePath}`);
+                                    continue; // Bỏ qua overlay này
+                                }
+                                
+                                imagePath = localImagePath;
+                            }
+                            
+                            // Tính toán kích thước ảnh (giả định 20% màn hình nếu không có thông tin)
+                            const width = Math.round(1920 * 0.2 * (imageItem.scale || 1));
+                            
+                            // Đơn giản hóa filter string để tránh lỗi cú pháp
+                            const baseFilter = segmentSettings.split(',')[0];
+                            // Bỏ qua phần rotation và các tham số phức tạp khác
+                            // segmentSettings = `${baseFilter},overlay=x=${xPos}:y=${yPos}:enable='between(t,${imageStart},${imageEnd})'`;
+                            
+                            // Lưu trữ thông tin overlay vào phần này để xử lý riêng
+                            if (!part.overlays) part.overlays = [];
+                            part.overlays.push({
+                                imagePath: imagePath,
+                                x: xPos,
+                                y: yPos,
+                                startTime: imageStart,
+                                endTime: imageEnd,
+                                width: width
+                            });
+                            
+                            overlayIndex++;
+                        } catch (overlayError) {
+                            console.error(`Lỗi khi xử lý image overlay: ${overlayError.message}`);
+                        }
+                    }
+                }
+            }
+            
+
+            // Thêm chuyển cảnh (nếu có)
+            let transitionSettings = '';
+            if (part.transition && part.transition !== 'none' && i > 0) {
+                // Các hiệu ứng chuyển cảnh có thể được thêm vào đây
+                // Nhưng để đơn giản, chúng ta sẽ bỏ qua trong lần triển khai đầu tiên
+            }
+
+            // Sử dụng ffmpeg để tạo segment
+            try {
+                // Chuyển đổi URL thành đường dẫn file vật lý
+                const imagePath = convertUrlToFilePath(part.imagePath);
+                const audioPath = convertUrlToFilePath(part.audioPath);
+
+                // Kiểm tra xem file có tồn tại không
+                const imageExists = fs.existsSync(imagePath);
+                const audioExists = fs.existsSync(audioPath);
+
+                if (!imageExists || !audioExists) {
+                    const errorMsg = `Không tìm thấy file media cho phần ${i + 1}: Image exists: ${imageExists}, Audio exists: ${audioExists}`;
+
+                    return res.status(400).json({
+                        success: false,
+                        error: errorMsg
+                    });
+                }
+
+                // Xác định thời lượng của audio để tạo video có độ dài tương ứng
+                const audioDuration = getAudioDuration(audioPath);
+                
+                // Tạo lệnh ffmpeg - phân biệt giữa trường hợp có overlay và không có
+                let segmentCommand = '';
+
+                if (part.overlays && part.overlays.length > 0) {
+                    // Sử dụng filter_complex khi có overlay
+                    let filterComplex = `[0:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2`;
+                    
+                    // Thêm các hiệu ứng đã định nghĩa trước đó vào filter chính
+                    if (part.effect && part.effect.type !== 'none') {
+                        switch (part.effect.type) {
+                            case 'grayscale':
+                                filterComplex += ',colorchannelmixer=.3:.4:.3:0:.3:.4:.3:0:.3:.4:.3:0';
+                                break;
+                            case 'sepia':
+                                filterComplex += ',colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131:0';
+                                break;
+                            case 'brightness':
+                                const brightnessValue = (part.effect.value - 50) / 50;
+                                filterComplex += `,eq=brightness=${brightnessValue}`;
+                                break;
+                            case 'contrast':
+                                const contrastValue = part.effect.value / 50;
+                                filterComplex += `,eq=contrast=${contrastValue}`;
+                                break;
+                            case 'blur':
+                                const blurValue = part.effect.value / 20;
+                                filterComplex += `,boxblur=${blurValue}:${blurValue}`;
+                                break;
+                        }
+                    }
+                    
+                    // Thêm text overlays nếu có
+                    if (textOverlays && textOverlays.items && textOverlays.items.length > 0) {
+                        // Lọc chỉ lấy các text overlay áp dụng cho clip này
+                        const clipStartTime = part.startTime || 0;
+                        const clipEndTime = clipStartTime + (part.duration || 3);
+
+                        const applicableTextItems = textOverlays.items.filter(text => {
+                            const textStartTime = text.startTime || 0;
+                            const textEndTime = textStartTime + (text.duration || 3);
+                            return (textStartTime < clipEndTime && textEndTime > clipStartTime);
+                        });
+
+                        if (applicableTextItems.length > 0) {
+                            console.log(`Có ${applicableTextItems.length} text overlay cần áp dụng cho phần ${i + 1}`);
+
+                            // Tạo filter drawtext cho mỗi text overlay
+                            applicableTextItems.forEach(textItem => {
+                                // Xác định thời gian hiển thị trong clip này
+                                const textStart = Math.max(0, textItem.startTime - clipStartTime);
+                                const textEnd = Math.min(part.duration || 3, (textItem.startTime + textItem.duration) - clipStartTime);
+
+                                // Tính toán vị trí
+                                const xPos = Math.floor(textItem.x * 1920);
+                                const yPos = Math.floor(textItem.y * 1080);
+
+                                const textContent = textItem.content.replace(/'/g, "\\'").replace(/"/g, '\\"');
+                                const fontColor = textItem.color || '#ffffff';
+                                const fontSize = textItem.size || 24;
+
+                                filterComplex += `,drawtext=text='${textContent}':fontcolor=${fontColor}:fontsize=${fontSize}:x=${xPos}:y=${yPos}:enable='between(t,${textStart},${textEnd})':shadowcolor=black:shadowx=2:shadowy=2`;
+                            });
+                        }
+                    }
+
+                    filterComplex += `[bg];`;
+                    
+                    // Thêm từng overlay vào filter complex
+                    for (let j = 0; j < part.overlays.length; j++) {
+                        const overlay = part.overlays[j];
+                        
+                        // Tạo tên cho input và output của từng layer
+                        const overlayInput = `[ov${j}]`;
+                        const bgName = j === 0 ? `[bg]` : `[bg${j-1}]`;
+                        const outputName = j === part.overlays.length - 1 ? `[v]` : `[bg${j}]`;
+                        
+                        // Sửa index của input stream: j+2 thay vì j+1 vì input thứ hai là audio
+                        filterComplex += `[${j+2}:v]scale=${overlay.width}:-1${overlayInput};`;
+                        
+                        // Thêm overlay vào background
+                        filterComplex += `${bgName}${overlayInput}overlay=x=${overlay.x}:y=${overlay.y}:enable='between(t,${overlay.startTime},${overlay.endTime})'${outputName};`;
+                    }
+                    
+                    // Chuẩn bị lệnh với nhiều input
+                    let inputs = `-loop 1 -i "${imagePath.replace(/\\/g, '/')}" -i "${audioPath.replace(/\\/g, '/')}"`;
+                    for (const overlay of part.overlays) {
+                        inputs += ` -loop 1 -i "${overlay.imagePath.replace(/\\/g, '/')}"`;
+                    }
+                    
+                    // Tạo lệnh ffmpeg với filter_complex
+                    segmentCommand = `ffmpeg ${inputs} -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -filter_complex "${filterComplex}" -map "[v]" -map "1:a" -t ${audioDuration} "${segmentPath.replace(/\\/g, '/')}"`;
+                } else {
+                    // Filter đơn giản khi không có overlay
+                    segmentCommand = `ffmpeg -loop 1 -i "${imagePath.replace(/\\/g, '/')}" -i "${audioPath.replace(/\\/g, '/')}" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -shortest -vf "${segmentSettings}" -t ${audioDuration} "${segmentPath.replace(/\\/g, '/')}"`;
+                }
+                
+                // Thêm log để debug
+                console.log(`Lệnh tạo segment ${i}: ${segmentCommand}`);
+
+                // Thực thi lệnh
+                execSync(segmentCommand);
+
+                // Thêm vào danh sách segment
+                segmentsList += `file '${segmentPath.replace(/\\/g, '/')}'\n`;
+
+            } catch (error) {
+                console.error(`Lỗi khi tạo segment cho phần ${i + 1}:`, error.message);
+
+                return res.status(500).json({
+                    success: false,
+                    error: `Lỗi khi tạo đoạn video cho phần ${i + 1}: ${error.message}`
+                });
+            }
+        }
+
+        // Ghi file danh sách segment
+        fs.writeFileSync(segmentListPath, segmentsList);
+
+        // Ghép các segment
+        const concatCommand = `ffmpeg -f concat -safe 0 -i "${segmentListPath}" -c copy "${outputPath}"`;
+
+        try {
+            // Thực thi lệnh ghép video
+            execSync(concatCommand);
+
+            // Kiểm tra xem có nhạc nền không
+            if (music && music !== 'none') {
+                console.log(`🎵 Đang thêm nhạc nền: ${music}`);
+                
+                // Đường dẫn đến file nhạc nền
+                const musicPath = path.join(__dirname, '../../public/music', music);
+                
+                // Kiểm tra file nhạc có tồn tại không
+                if (!fs.existsSync(musicPath)) {
+                    console.error(`❌ Không tìm thấy file nhạc: ${musicPath}`);
+                } else {
+                    const tempOutputPath = path.join(outputDir, `temp_${videoFileName}`);
+                    
+                    // Import hàm addBackgroundMusic từ service
+                    const { addBackgroundMusic } = require('../../services/videoGeneratorService');
+                    
+                    try {
+                        console.log('🎼 Đang thêm nhạc nền vào video...');
+                        await addBackgroundMusic(
+                            outputPath,
+                            musicPath,
+                            tempOutputPath,
+                            musicVolume,
+                            musicStartTime,
+                            musicEndTime
+                        );
+                        
+                        // Thay thế file video gốc bằng file có nhạc nền
+                        fs.unlinkSync(outputPath);
+                        fs.renameSync(tempOutputPath, outputPath);
+                        console.log('✅ Đã thêm nhạc nền vào video thành công');
+                    } catch (musicError) {
+                        console.error('❌ Lỗi khi thêm nhạc nền:', musicError);
+                        // Tiếp tục mà không có nhạc nền
+                    }
+                }
+            } else {
+                console.log('ℹ️ Không có nhạc nền được chọn');
+            }
+
+            // Tạo file phụ đề
+            const subtitleDir = path.join(outputDir, 'subtitles');
+            if (!fs.existsSync(subtitleDir)) {
+                fs.mkdirSync(subtitleDir, { recursive: true });
+            }
+
+            const srtPath = path.join(subtitleDir, `subtitles_${sessionId}.srt`);
+            const assPath = path.join(subtitleDir, `subtitles_${sessionId}.ass`);
+
+            // Tạo file phụ đề
+            generateSrtFile(validParts, srtPath);
+
+            // Kiểm tra nội dung phụ đề
+            const srtContent = fs.readFileSync(srtPath, 'utf8').trim();
+            if (!srtContent) {
+                console.warn('⚠️ File SRT rỗng hoặc không tồn tại, bỏ qua bước thêm phụ đề');
+            } else {
+                console.log('✅ Đã tạo file phụ đề SRT thành công');
+
+                try {
+                    // Chuyển đổi SRT sang ASS để có nhiều tùy chọn style hơn
+                    const srt2assCommand = `ffmpeg -i "${srtPath}" "${assPath}"`;
+                    execSync(srt2assCommand);
+                    console.log('✅ Đã chuyển đổi SRT sang ASS thành công');
+
+                    // Chuẩn bị đường dẫn file phụ đề cho ffmpeg (xử lý ký tự đặc biệt)
+                    const assEscapedPath = assPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+
+                    // Ghép phụ đề vào video
+                    const outputWithSubsPath = path.join(outputDir, `final_${videoFileName}`);
+                    const subtitleCommand = `ffmpeg -i "${outputPath}" -vf "subtitles='${assEscapedPath}'" -c:a copy "${outputWithSubsPath}"`;
+                    console.log('🔄 Đang thêm phụ đề vào video...');
+
+                    // Thực hiện lệnh
+                    execSync(subtitleCommand);
+
+                    // Thay thế file gốc bằng file có phụ đề
+                    fs.unlinkSync(outputPath);
+                    fs.renameSync(outputWithSubsPath, outputPath);
+                    console.log('✅ Đã thêm phụ đề vào video thành công');
+                } catch (subsError) {
+                    console.error('❌ Lỗi khi thêm phụ đề với ASS:', subsError.message);
+
+                    // Thử lại với SRT nếu không thành công
+                    try {
+                        console.log('🔄 Đang thử thêm phụ đề với định dạng SRT...');
+                        const srtEscapedPath = srtPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+                        const alternativeOutputPath = path.join(outputDir, `alt_final_${videoFileName}`);
+                        const alternativeCommand = `ffmpeg -i "${outputPath}" -vf "subtitles='${srtEscapedPath}'" -c:a copy "${alternativeOutputPath}"`;
+
+                        execSync(alternativeCommand);
+
+                        // Thay thế file gốc bằng file có phụ đề
+                        fs.unlinkSync(outputPath);
+                        fs.renameSync(alternativeOutputPath, outputPath);
+                        console.log('✅ Đã thêm phụ đề với định dạng SRT thành công');
+                    } catch (altError) {
+                        console.error('❌ Không thể thêm phụ đề:', altError.message);
+                        // Tiếp tục mà không có phụ đề
+                    }
+                }
+            }
+
+            // Dọn dẹp: xóa các file tạm
+            segments.forEach(segment => {
+                try {
+                    fs.unlinkSync(segment);
+                } catch (e) {
+                    console.warn(`Không thể xóa file tạm: ${segment}`, e);
+                }
+            });
+
+            try {
+                fs.unlinkSync(segmentListPath);
+            } catch (e) {
+                console.warn(`Không thể xóa file danh sách segment: ${segmentListPath}`, e);
+            }
+
+            // Kiểm tra kích thước file video cuối cùng
+            const stats = fs.statSync(outputPath);
+            console.log(`Video đã được tạo: ${outputPath} (${(stats.size / (1024 * 1024)).toFixed(2)} MB)`);
+
+            const firebaseKey = `videos/${videoFileName}`;
+            const publicUrl = await uploadFile(outputPath, firebaseKey, { contentType: 'video/mp4' });
+            console.log('🚀 Upload Firebase thành công:', publicUrl);
+
+            /* ------------------------------------------------
+               6. GHI DATABASE
+            -------------------------------------------------*/
+
+            const sizeMb = (stats.size / 1024 / 1024).toFixed(2);
+
+            await videoModel.insertVideo({
+                filename: videoFileName,
+                firebaseKey: firebaseKey,
+                publicUrl: publicUrl,
+                sizeMb: sizeMb,
+                title: topic,
+                script: script,
+                userId: userId
+            });
+
+            /* ------------------------------------------------
+               7. DỌN TEMP & RESPONSE
+            -------------------------------------------------*/
+
+
+            return res.json({
+                success: true,
+                videoUrl: publicUrl,
+                localPath: `/videos/${videoFileName}`,
+                title: topic,
+                userId
+            });
+
+        } catch (error) {
+            console.error('Lỗi khi ghép video:', error.message);
+
+            return res.status(500).json({
+                success: false,
+                error: `Lỗi khi ghép video: ${error.message}`
+            });
+        }
+    } catch (error) {
+        console.error('Lỗi khi tạo video cuối cùng:', error);
+
+        return res.status(500).json({
+            success: false,
+            error: error.message || 'Lỗi server'
         });
-
-      /* IMAGE overlay */
-      let extInputs='';
-      let ovCount=0;
-      imageOverlays.filter(o => (o.startTime||0)<end && ((o.startTime||0)+(o.duration||3))>start)
-        .forEach(o=>{
-          const ovAbs=convertUrlToFilePath(o.src||o.imagePath);
-          if (!fs.existsSync(ovAbs)) return;
-          extInputs+=` -loop 1 -i "${ovAbs}"`;
-          const st=Math.max(0,(o.startTime||0)-start).toFixed(2);
-          const et=Math.min(dur,(o.startTime||0)+(o.duration||3)-start).toFixed(2);
-          const ow = Math.round((o.scale||0.25)*1920);
-
-         filterParts.push(`[${2+ovCount}:v]scale=${ow}:-1[ov${ovCount}]`);
-filterParts.push(
-  `[${last}][ov${ovCount}]overlay=` +
-
- `${ffPos(o.x,'x','overlay_w')}:${ffPos(o.y,'y','overlay_h')}:` +
-  `enable='between(t,${st},${et})'[ovb${ovCount}]`
-);
-          
-          last=`ovb${ovCount}`; ovCount++;
-        });
-
-      filterParts.push(`[${last}]format=yuv420p[v]`);
-      const seg=path.join(tempDir,`seg_${tempId}_${i}.mp4`);
-      segPaths.push(seg);
-
-      safeExecSync(
-        `ffmpeg -y -loop 1 -i "${img}" -i "${aud}"${extInputs} `+
-        `-filter_complex "${filterParts.join(';')}" -map "[v]" -map 1:a `+
-        `-c:v libx264 -preset veryfast -pix_fmt yuv420p -shortest -t ${dur} "${seg}"`
-      );
-      fs.appendFileSync(segList,`file '${seg.replace(/\\/g,'/')}'\n`);
     }
-
-    /* ===== 4. Concat ===== */
-    safeExecSync(`ffmpeg -y -f concat -safe 0 -i "${segList}" -c copy "${concatOut}"`);
-
-    /* ===== 5. Nhạc nền ===== */
-    let videoForSub = concatOut;
-    if (music && music.file) {
-      // Bóc tách
-      const musicFile      = music.file;
-      const musicVolume    = Number.isFinite(+music.volume) ? +music.volume : 0.5;
-      const musicStartTime = Number.isFinite(+music.start)  ? +music.start  : 0;
-      const musicEndTime   = Number.isFinite(+music.end)    ? +music.end    : null;
-
-      // Chuyển URL -> đường dẫn tuyệt đối
-      const musAbs = convertUrlToFilePath(musicFile);
-      if (fs.existsSync(musAbs)) {
-        const mixOut = path.join(tempDir, `mix_${tempId}.mp4`);
-
-        // build -ss / -to nếu cần cắt đoạn
-        const trimArgs = [`-ss ${musicStartTime}`]
-          .concat(musicEndTime != null ? [`-to ${musicEndTime}`] : [])
-          .join(' ');
-
-        safeExecSync(
-          // đầu vào video, sau đó đầu vào nhạc (đã trim)
-          `ffmpeg -y -i "${concatOut}" ${trimArgs} -i "${musAbs}" ` +
-          `-filter_complex "[1:a]volume=${musicVolume}[bg];[0:a][bg]amix=inputs=2:duration=first" ` +
-          `-map 0:v -map "[a]" -c:v copy -shortest "${mixOut}"`
-        );
-        videoForSub = mixOut;
-      } else {
-        console.warn('Không tìm thấy file nhạc nền tại:', musAbs);
-      }
-    }
-
-    /* ===== 6. Phụ đề ===== */
-    const subDir=path.join(videosDir,'subtitles'); fs.mkdirSync(subDir,{recursive:true});
-    const srt=path.join(subDir,`sub_${sessionId}.srt`);
-    generateSrtFile(clips,srt);
-    const ass=srt.replace(/\.srt$/i,'.ass');
-    safeExecSync(`ffmpeg -y -i "${srt}" "${ass}"`);
-    safeExecSync(
-      `ffmpeg -y -i "${videoForSub}" -vf "ass='${ass.replace(/\\/g,'/').replace(/:/g,'\\:')}'" -c:a copy "${finalVid}"`
-    );
-
-    /* ===== 7. Upload & DB ===== */
-    const fbKey=`videos/${videoName}`;
-    const pubURL=await uploadFile(finalVid,fbKey,{contentType:'video/mp4'});
-    const sizeMb=(fs.statSync(finalVid).size/1024/1024).toFixed(2);
-    await videoModel.insertVideo({filename:videoName,firebaseKey:fbKey,publicUrl:pubURL,
-                                  sizeMb,title:topic,script,userId});
-
-    /* ===== 8. Clean temp ===== */
-    [segList,...segPaths,concatOut,(videoForSub!==concatOut)&&videoForSub]
-      .filter(Boolean).forEach(f=>{try{fs.unlinkSync(f);}catch{}});
-
-    res.json({success:true,videoUrl:pubURL,title:topic,userId});
-  } catch(err){
-    console.error('❌ createFinalVideo',err);
-    res.status(500).json({success:false,error:err.message});
-  }
 };
+
 
 
 /* ------------------- API: Upload Media ------------------- */
