@@ -49,18 +49,6 @@ const audioUpload = multer({
     else cb(new Error('Chỉ chấp nhận file âm thanh'),false);
   }
 });
-function convertUrlToFilePath(url) {
-  if (!url) return null;
-  if (/^https?:\/\//i.test(url)) {
-    url = new URL(url).pathname;          // bỏ domain
-  }
-  if (url.startsWith('/')) {
-    return path.join(__dirname, '../../public', url.slice(1));
-  }
-  return path.isAbsolute(url)
-    ? url
-    : path.join(__dirname, '../../public', url);
-}
 
 /* --- API UPLOAD AUDIO --- */
 const uploadAudioForPart = async (req,res)=>{
@@ -79,16 +67,11 @@ const uploadAudioForPart = async (req,res)=>{
                     .find(p=>p.id===partId);
       if(!part)   throw new Error('Không tìm thấy part');
 
-      const rel = `/temp/${path.basename(req.file.path)}`;
-part.audioPath = rel;
-
+      part.audioPath = req.file.path;               // cập nhật
 
       return res.json({
           success:true,
-          audioPath:`/temp/${path.basename(req.file.path)}`,
-          audioPath: rel,
-  mime :'audio/mpeg'
-          
+          audioPath:`/temp/${path.basename(req.file.path)}`
       });
   }catch(err){
       console.error('uploadAudioForPart',err);
@@ -295,8 +278,8 @@ async function downloadImagesForKeywords(keywords, tempDir) {
       const displayKeyword = keyword.length > 50 ? `${keyword.substring(0, 50)}...` : keyword;
       console.log(`🖼️ Đang tạo ảnh cho: ${displayKeyword}`);
 
-      // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 30 giây)
-      await new Promise(resolve => setTimeout(resolve, 30000));
+      // Thêm độ trễ trước khi gọi API để tránh rate limit (tăng lên 15 giây)
+      await new Promise(resolve => setTimeout(resolve, 15000));
 
       // Nếu keyword là mô tả dài, thêm các từ khóa nâng cao chất lượng
       let prompt = keyword;
@@ -551,16 +534,9 @@ async function renderZoomFrames(
     const vf = `scale=iw*${scaleFactor}:ih*${scaleFactor},` +
       `crop=${targetWidth}:${targetHeight}:(iw-${targetWidth})/2:(ih-${targetHeight})/2`;
 
-        const framePath = path.join(
-      outDir,
-      `frame_${i.toString().padStart(4, '0')}.jpg`
-    );
-
-    /* vẽ 1 frame jpg duy nhất */
-    execSync(
-      `ffmpeg -y -i "${imagePath}" -vf "${vf}" -frames:v 1 "${framePath}"`,
-      { stdio: 'pipe' }
-    );
+    const framePath = path.join(outDir, `frame_${i.toString().padStart(4, '0')}.jpg`);
+    const cmd = `ffmpeg -y -i "${imagePath}" -vf "${vf}" "${framePath}"`;
+    execSync(cmd);
   }
 }
 async function createVideoSegment(
@@ -653,12 +629,8 @@ async function createVideoWithAudio(
   const srtLines = [];
 
   for (let i = 0; i < scriptParts.length; i++) {
-   const p = scriptParts[i];
-   if (!p.imagePath || !p.audioPath) continue;
-
-    /* chuyển về path tuyệt đối trước khi dùng ffmpeg */
-    const imgAbs = convertUrlToFilePath(p.imagePath);
-    const audAbs = convertUrlToFilePath(p.audioPath);       // bỏ qua part thiếu media
+    const p = scriptParts[i];
+    if (!p.imagePath || !p.audioPath) continue;        // bỏ qua part thiếu media
 
     /* 1.1  Xác định thời lượng audio  ----------------- */
     let duration = await new Promise(r => {
@@ -676,16 +648,17 @@ async function createVideoWithAudio(
     const zoomStart = i % 2 ? 1.5 : 1.0;
     const zoomEnd   = i % 2 ? 1.0 : 1.5;
     await renderZoomFrames(
-   imgAbs,      frameDir, zoomStart, zoomEnd,
-    duration, fps, vw, vh
- );
+      p.imagePath, frameDir, zoomStart, zoomEnd,
+      duration, fps, vw, vh
+    );
+
     /* 1.3  Gộp frame + audio thành segment ------------ */
-   const segPath = path.join(outDir, `segment_${i}_${Date.now()}.mp4`);
- execSync(
-   `ffmpeg -y -framerate ${fps} -i "${frameDir}/frame_%04d.jpg" ` +
-   `-i "${audAbs}" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "${segPath}"`,
-   { stdio:'inherit' }
- );
+    const segPath = path.join(outDir, `segment_${i}_${Date.now()}.mp4`);
+    execSync(
+      `ffmpeg -y -framerate ${fps} -i "${frameDir}/frame_%04d.jpg" ` +
+      `-i "${p.audioPath}" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "${segPath}"`,
+      { stdio:'inherit' }
+    );
     segments.push(segPath);
 
     /* 1.4  Phụ đề dòng hiện tại ----------------------- */
@@ -925,7 +898,7 @@ const prepareVideoScript = async (req, res) => {
   console.log('🚀 Bắt đầu chuẩn bị kịch bản...');
   console.log('Body request:', JSON.stringify(req.body).substring(0, 200) + '...');
 
-  const { topic, script, voiceId, aspectRatio = '16:9', imageModel = 'ultra' } = req.body;
+  const { topic, script, voiceId, aspectRatio = '16:9' } = req.body;
 
   if (!topic && !script) {
     console.log('❌ Lỗi: Thiếu chủ đề hoặc kịch bản');
@@ -1012,8 +985,7 @@ const prepareVideoScript = async (req, res) => {
         imagePath: null
       })),
       voiceId,
-      aspectRatio,
-      imageModel // Thêm thông tin về mô hình AI tạo ảnh
+      aspectRatio
     };
 
     // Trả về thông tin kịch bản đã phân tích
@@ -1027,7 +999,6 @@ const prepareVideoScript = async (req, res) => {
       })),
       voiceId,
       aspectRatio,
-      imageModel, // Thêm thông tin về mô hình AI tạo ảnh
       script: finalScript
     });
   } catch (error) {
@@ -1085,8 +1056,6 @@ const generateImageForPart = async (req, res) => {
 
     // Lấy thông tin tỉ lệ khung hình từ session
     const aspectRatio = req.session.videoPreparation.aspectRatio || '16:9';
-    // Lấy thông tin mô hình AI tạo ảnh từ session
-    const imageModel = req.session.videoPreparation.imageModel || 'ultra';
 
     // Tìm phần cần tạo hình ảnh
     const part = req.session.videoPreparation.scriptParts.find(p => p.id === partId);
@@ -1131,11 +1100,9 @@ const generateImageForPart = async (req, res) => {
     // Tạo hình ảnh bằng API
     const response = await axios.post('http://localhost:3000/api/image/generate', {
       prompt: enhancedPrompt,
-      modelType: imageModel, // Sử dụng mô hình AI đã chọn
+      modelType: 'standard',
       imageCount: 1,
-      aspectRatio: aspectRatio,
-      retryDelay: 30000, // Thêm thời gian chờ 30 giây
-      maxRetries: 5      // Thử tối đa 5 lần
+      aspectRatio: aspectRatio
     });
 
     if (response.data.success && response.data.images && response.data.images.length > 0) {
@@ -1216,8 +1183,7 @@ const generateAudioForPart = async (req, res) => {
     await convertTextToSpeech(text, outputPath, selectedVoiceId);
 
     // Cập nhật đường dẫn âm thanh trong session
-    const rel = `/temp/audio/${audioFilename}`;
- part.audioPath = rel;
+    part.audioPath = outputPath;
 
     // Nếu văn bản được tùy chỉnh, cập nhật nội dung text trong part
     if (customText) {
@@ -1227,7 +1193,6 @@ const generateAudioForPart = async (req, res) => {
     return res.json({
       success: true,
       audioPath: `/temp/audio/${audioFilename}`,
-      audioPath: rel,
       text: text
     });
   } catch (error) {
